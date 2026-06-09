@@ -47,12 +47,12 @@
                         <p style="white-space: pre-wrap; margin-bottom: 4px;">{{comment.content}}</p>
                         <div style="margin-top: 4px;">
                             <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;"
-                               ng-show="isCommentOwner(comment)"
+                               ng-if="comment._isOwner"
                                ng-click="startEditComment(comment)">
                                 <i class="mdi mdi-pencil"></i> Edit
                             </a>
                             <a class="text-danger clickable" style="font-size: 11px;"
-                               ng-show="canDeleteComment(comment)"
+                               ng-if="comment._canDelete"
                                ng-click="deleteComment(comment, $index)">
                                 <i class="mdi mdi-delete"></i> Delete
                             </a>
