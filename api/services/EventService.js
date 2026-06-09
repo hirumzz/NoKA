@@ -99,12 +99,12 @@ module.exports = {
             stateParams = { id: data.id };
             break;
           case 'route':
-            state = 'routes.edit';
-            stateParams = { id: data.id };
+            state = 'routes.read';
+            stateParams = { route_id: data.id };
             break;
           case 'service':
-            state = 'services.edit';
-            stateParams = { id: data.id };
+            state = 'services.read';
+            stateParams = { service_id: data.id };
             break;
         }
       } else {
