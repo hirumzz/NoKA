@@ -42,7 +42,7 @@
                         function (data, jwr) {
                             if (jwr.statusCode == 200) {
                                 console.log("Subscribed to room", data.room)
-                                io.socket.on(data.room, function (obj) {
+                                io.socket.on('konga.event', function (obj) {
                                     $rootScope.$broadcast("konga.event", obj)
                                 });
                             } else {
