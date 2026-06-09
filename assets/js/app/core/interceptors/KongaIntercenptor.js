@@ -85,6 +85,7 @@
 
             if (isKongWrite || isCommentWrite || isUserWrite) {
               var NotificationsService = $injector.get('NotificationsService');
+              var $rootScope = $injector.get('$rootScope');
               var username = getCurrentUsername();
               var action = getActionLabel(method);
               var entity, name, message, icon;
@@ -92,12 +93,23 @@
               if (isCommentWrite) {
                 entity = 'comment';
                 var refType = '';
+                var refName = '';
                 if (config.data && config.data.referenceType) {
                   refType = config.data.referenceType;
                 } else if (response.data && response.data.referenceType) {
                   refType = response.data.referenceType;
                 }
-                message = username + ' ' + action + ' a comment' + (refType ? ' on ' + refType : '');
+                // Try to get the resource name from current page scope
+                if ($rootScope.$$childHead) {
+                  var scope = $rootScope.$$childHead;
+                  while (scope) {
+                    if (scope.service && scope.service.name && refType === 'service') { refName = scope.service.name; break; }
+                    if (scope.route && (scope.route.name || scope.route.id) && refType === 'route') { refName = scope.route.name || scope.route.id; break; }
+                    if (scope.consumer && (scope.consumer.username || scope.consumer.custom_id) && refType === 'consumer') { refName = scope.consumer.username || scope.consumer.custom_id; break; }
+                    scope = scope.$$nextSibling || (scope.$$childHead);
+                  }
+                }
+                message = username + ' ' + action + ' a comment on ' + refType + (refName ? " '" + refName + "'" : '');
                 icon = getEntityIcon('comment');
               } else if (isUserWrite) {
                 entity = 'user';
