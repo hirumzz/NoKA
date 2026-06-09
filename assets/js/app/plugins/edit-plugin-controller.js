@@ -10,12 +10,13 @@
     .controller('EditPluginController', [
       '_', '$scope', '$rootScope', '$log', 'ListConfig',
       'MessageService', 'ConsumerModel', 'SocketHelperService', 'PluginHelperService', 'DialogService',
-      'KongPluginsService', '$uibModalInstance', 'PluginsService', '_plugin', '_schema',
+      'KongPluginsService', '$uibModalInstance', 'PluginsService', '_plugin', '_schema', 'AuthService',
       function controller(_, $scope, $rootScope, $log, ListConfig,
                           MessageService, ConsumerModel, SocketHelperService, PluginHelperService, DialogService,
-                          KongPluginsService, $uibModalInstance, PluginsService, _plugin, _schema) {
+                          KongPluginsService, $uibModalInstance, PluginsService, _plugin, _schema, AuthService) {
 
         $scope.plugin = _plugin;
+        $scope.readOnly = !AuthService.hasPermission('plugins', 'edit');
 
         var sch = _schema.data;
         $scope.schema = {
@@ -174,6 +175,11 @@
 
 
         $scope.updatePlugin = function () {
+
+          if ($scope.readOnly) {
+            MessageService.error("You don't have permissions to modify plugins");
+            return;
+          }
 
           $scope.busy = true;
 

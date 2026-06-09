@@ -107,10 +107,6 @@
         }
 
         function onEditPlugin(item) {
-          if (!$scope.canEdit) {
-            MessageService.error("You don't have permissions to edit plugins");
-            return false;
-          }
           $uibModal.open({
             animation: true,
             ariaLabelledBy: 'modal-title',

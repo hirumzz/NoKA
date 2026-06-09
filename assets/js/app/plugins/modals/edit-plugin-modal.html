@@ -1,6 +1,6 @@
 <div class="modal-header primary">
     <h5 class="modal-title" id="modal-title">
-        EDIT <span class="capitalize">
+        <span ng-if="!readOnly">EDIT</span><span ng-if="readOnly">VIEW</span> <span class="capitalize">
             {{plugin.name.split("-").join(" ").toUpperCase()}}
         </span>
         <a  class="modal-close pull-right" ng-click="close()">
@@ -11,7 +11,7 @@
 </div>
 <div class="col-md-12 bg-light-grey padding">
 
-    <div class="form-group pull-right no-margin">
+    <div class="form-group pull-right no-margin" ng-if="!readOnly">
         <input
 
                 bs-switch
@@ -21,6 +21,11 @@
                 switch-on-text="ENABLED"
                 switch-off-text="DISABLED"
         >
+    </div>
+    <div class="form-group pull-right no-margin" ng-if="readOnly">
+        <span class="label" ng-class="{'label-success': plugin.enabled, 'label-default': !plugin.enabled}">
+            {{plugin.enabled ? 'ENABLED' : 'DISABLED'}}
+        </span>
     </div>
     <p class="help-block" data-ng-bind-html="description"></p>
 

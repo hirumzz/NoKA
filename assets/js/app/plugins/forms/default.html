@@ -254,7 +254,7 @@
             </button>
         </div>
     </div>
-    <div class="form-group" ng-if="context === 'update'">
+    <div class="form-group" ng-if="context === 'update' && !readOnly">
         <div class="col-sm-offset-4 col-sm-7">
             <button type="button" data-ng-disabled="busy" class="btn btn-primary btn-block" ng-click="updatePlugin()">
                 <i class="mdi mdi-check" ng-if="!busy"></i>
@@ -262,5 +262,8 @@
                 submit changes
             </button>
         </div>
+    </div>
+    <div class="alert alert-warning text-center" ng-if="context === 'update' && readOnly" style="margin-top: 10px;">
+        <i class="mdi mdi-lock"></i> You are viewing this plugin in read-only mode. Only admins can modify plugins.
     </div>
 </form>
