@@ -123,6 +123,15 @@
         $scope.comments = [];
         $scope.newComment = { content: '' };
 
+        $scope.isCommentOwner = function(comment) {
+          if (!comment || !comment.user || !$scope.user) return false;
+          return String(comment.user.id) === String($scope.user.id);
+        };
+
+        $scope.canDeleteComment = function(comment) {
+          return $scope.isCommentOwner(comment) || $scope.user.admin || $scope.user.role === 'admin';
+        };
+
         function loadComments() {
           $http.get('api/comments', {
             params: {

@@ -76,12 +76,12 @@
                         <p style="white-space: pre-wrap; margin-bottom: 4px;">{{comment.content}}</p>
                         <div style="margin-top: 4px;">
                             <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;"
-                               ng-show="comment.user.id != null && user.id != null && ('' + comment.user.id) === ('' + user.id)"
+                               ng-show="isCommentOwner(comment)"
                                ng-click="startEditComment(comment)">
                                 <i class="mdi mdi-pencil"></i> Edit
                             </a>
                             <a class="text-danger clickable" style="font-size: 11px;"
-                               ng-show="(comment.user.id != null && user.id != null && ('' + comment.user.id) === ('' + user.id)) || user.admin || user.role === 'admin'"
+                               ng-show="canDeleteComment(comment)"
                                ng-click="deleteComment(comment, $index)">
                                 <i class="mdi mdi-delete"></i> Delete
                             </a>
