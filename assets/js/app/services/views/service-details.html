@@ -41,8 +41,26 @@
                     <h5 class="media-heading">
                         <strong>{{comment.user.username || comment.user.firstName}}</strong> 
                         <small class="text-muted">{{moment(comment.createdAt).format("MMM DD YYYY @HH:mm")}}</small>
+                        <small class="text-warning" ng-if="comment.updatedAt && comment.updatedAt !== comment.createdAt">(edited)</small>
                     </h5>
-                    <p style="white-space: pre-wrap; margin-bottom: 0;">{{comment.content}}</p>
+                    <!-- Display mode -->
+                    <div ng-if="!comment.editing">
+                        <p style="white-space: pre-wrap; margin-bottom: 4px;">{{comment.content}}</p>
+                        <div style="margin-top: 4px;">
+                            <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;" ng-if="comment.user.id == user.id" ng-click="startEditComment(comment)">
+                                <i class="mdi mdi-pencil"></i> Edit
+                            </a>
+                            <a class="text-danger clickable" style="font-size: 11px;" ng-if="comment.user.id == user.id || user.admin || user.role === 'admin'" ng-click="deleteComment(comment, $index)">
+                                <i class="mdi mdi-delete"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Edit mode -->
+                    <div ng-if="comment.editing">
+                        <textarea class="form-control" ng-model="comment.editContent" rows="2" style="margin-bottom: 6px;"></textarea>
+                        <button class="btn btn-success btn-xs" ng-click="saveEditComment(comment)">Save</button>
+                        <button class="btn btn-default btn-xs" ng-click="cancelEditComment(comment)">Cancel</button>
+                    </div>
                 </div>
             </div>
         </div>

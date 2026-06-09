@@ -110,8 +110,40 @@
           });
         };
 
+        $scope.startEditComment = function(comment) {
+          comment.editing = true;
+          comment.editContent = comment.content;
+        };
+
+        $scope.cancelEditComment = function(comment) {
+          comment.editing = false;
+          comment.editContent = '';
+        };
+
+        $scope.saveEditComment = function(comment) {
+          if (!comment.editContent) return;
+          $http.put('api/comments/' + comment.id, { content: comment.editContent }).then(function(res) {
+            comment.content = res.data.content;
+            comment.updatedAt = res.data.updatedAt;
+            comment.editing = false;
+            MessageService.success('Comment updated');
+          }).catch(function(err) {
+            MessageService.error(err.data ? err.data.message : 'Failed to update comment');
+          });
+        };
+
+        $scope.deleteComment = function(comment, index) {
+          if (!confirm('Are you sure you want to delete this comment?')) return;
+          $http.delete('api/comments/' + comment.id).then(function(res) {
+            $scope.comments.splice(index, 1);
+            MessageService.success('Comment deleted');
+          }).catch(function(err) {
+            MessageService.error(err.data ? err.data.message : 'Failed to delete comment');
+          });
+        };
+
         $scope.$on('konga.event', function (ev, data) {
-          if (data.entity === 'comment' && data.action === 'create' && data.referenceId === $scope.service.id) {
+          if (data.entity === 'comment' && data.referenceId === $scope.service.id) {
             loadComments();
           }
         });
