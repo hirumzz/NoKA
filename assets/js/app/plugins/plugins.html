@@ -72,7 +72,7 @@
                     <td>
                         <raw-view data-item="item"></raw-view>
                     </td>
-                    <th><a href ng-click="onEditPlugin(item)">{{item.name}}</a></th>
+                    <th><a href ng-click="onEditPlugin(item)" ng-if="user.hasPermission($state.name.split('.')[0],'update')">{{item.name}}</a><span ng-if="!user.hasPermission($state.name.split('.')[0],'update')">{{item.name}}</span></th>
                     <td>{{::getContext(item)}}</td>
                     <td>
                         <a data-ng-if="item.api" data-ui-sref="apis.edit({api_id:item.api.id})">{{item.api.id}}</a>

@@ -56,9 +56,10 @@
             <raw-view data-item="item"></raw-view>
         </td>
         <th>
-            <a href  ng-click="onEditPlugin(item)">
+            <a href  ng-click="onEditPlugin(item)" ng-if="canEdit">
                 {{item.name}}
             </a>
+            <span ng-if="!canEdit">{{item.name}}</span>
         </th>
         <td>
             <a data-ng-if="item.consumer_id" data-ui-sref="consumers.edit({id:item.consumer_id})">{{item.consumer_id}}</a>

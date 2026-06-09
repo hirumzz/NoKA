@@ -74,6 +74,10 @@
         }
 
         function updatePlugin(plugin) {
+          if (!$scope.canEdit) {
+            MessageService.error("You don't have permissions to perform this action");
+            return false;
+          }
           PluginsService.update(plugin.id, {
             enabled: plugin.enabled,
             //config : plugin.config
@@ -103,6 +107,10 @@
         }
 
         function onEditPlugin(item) {
+          if (!$scope.canEdit) {
+            MessageService.error("You don't have permissions to edit plugins");
+            return false;
+          }
           $uibModal.open({
             animation: true,
             ariaLabelledBy: 'modal-title',
