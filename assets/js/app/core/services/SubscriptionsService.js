@@ -98,11 +98,18 @@
                         return false;
                     }
 
-                    if (!io.socket.isConnecting) {
-                        _subscribe()
+                    // Try to subscribe immediately if socket is connected
+                    if (io.socket.isConnected && io.socket.isConnected()) {
+                        _subscribe();
+                    } else if (!io.socket.isConnecting) {
+                        _subscribe();
                     }
+
+                    // Also subscribe when socket connects/reconnects
                     io.socket.on('connect', function () {
-                        _subscribe()
+                        if (!hasSubscribed) {
+                            _subscribe();
+                        }
                     });
                 }
 
