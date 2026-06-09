@@ -24,7 +24,11 @@
                 controller: 'ErrorController',
                 resolve: {
                   _error: function resolve() {
-                    return this.self.error;
+                    try {
+                      return this.self.error;
+                    } catch (e) {
+                      return undefined;
+                    }
                   }
                 }
               }
