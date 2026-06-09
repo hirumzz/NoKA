@@ -127,7 +127,8 @@
           $http.get('api/comments', {
             params: {
               referenceId: $scope.route.id,
-              referenceType: 'route'
+              referenceType: 'route',
+              _t: Date.now()
             }
           }).then(function (res) {
             $scope.comments = res.data;
