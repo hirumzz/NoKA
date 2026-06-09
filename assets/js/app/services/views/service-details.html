@@ -1,0 +1,62 @@
+<div class="bg-light-grey padding margin-bottom">
+    <h4 class="clearfix">
+        <i class="mdi mdi-information-outline"></i>
+        Service details
+    </h4>
+</div>
+
+<div ng-if="!user.hasPermission('services','edit')">
+    <div json-human="service" class="table-responsive"></div>
+</div>
+
+<form class="form-horizontal" (keydown.enter)="$event.preventDefault()" ng-if="user.hasPermission('services','edit')">
+    <div ng-if="Gateway" data-ng-include="partial"></div>
+    <div class="form-group">
+        <div class="col-sm-offset-4 col-sm-7">
+            <button type="button" class="btn btn-primary btn-block"
+                    ng-click="updateService()">
+                <i class="mdi mdi-check"></i>
+                Submit changes
+            </button>
+        </div>
+    </div>
+
+</form>
+
+<br>
+<hr>
+<div class="row">
+    <div class="col-md-12">
+        <h4 class="margin-bottom-2">Comments</h4>
+        
+        <div class="comments-list margin-bottom" style="max-height: 400px; overflow-y: auto;">
+            <div ng-if="!comments.length" class="text-muted">
+                <em>No comments yet.</em>
+            </div>
+            <div class="media" ng-repeat="comment in comments" style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+                <div class="media-left">
+                    <img class="media-object img-circle" ng-src="{{comment.user.avatar || 'images/user-profile.png'}}" style="width: 40px; height: 40px; object-fit: cover;">
+                </div>
+                <div class="media-body">
+                    <h5 class="media-heading">
+                        <strong>{{comment.user.username || comment.user.firstName}}</strong> 
+                        <small class="text-muted">{{moment(comment.createdAt).format("MMM DD YYYY @HH:mm")}}</small>
+                    </h5>
+                    <p style="white-space: pre-wrap; margin-bottom: 0;">{{comment.content}}</p>
+                </div>
+            </div>
+        </div>
+
+        <div ng-if="user.role === 'admin' || user.role === 'commenter'">
+            <form ng-submit="addComment()">
+                <div class="form-group">
+                    <textarea class="form-control" ng-model="newComment.content" placeholder="Add a comment..." rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Add Comment</button>
+            </form>
+        </div>
+        <div ng-if="user.role === 'viewer'" class="text-muted">
+            <em>You do not have permission to add comments.</em>
+        </div>
+    </div>
+</div>

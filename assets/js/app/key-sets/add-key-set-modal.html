@@ -1,0 +1,27 @@
+<div class="modal-header primary">
+    <h5 class="modal-title" id="modal-title">
+        {{update ? 'Key Set Details' : 'Add Key Set'}}
+        <a class="modal-close pull-right" ng-click="close()">
+            <i class="mdi mdi-close"></i>
+        </a>
+    </h5>
+</div>
+<div class="modal-body" id="modal-body">
+    <form class="form-horizontal">
+        <div class="form-group" ng-class="{'has-error' : errors.name}">
+            <label class="col-sm-4 control-label">Name <span class="text-danger">*</span></label>
+            <div class="col-sm-7">
+                <input ng-model="data.name" class="form-control" ng-disabled="update" placeholder="e.g. key-set-name">
+                <p class="help-block" ng-if="errors.name">{{errors.name}}</p>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-sm-offset-4 col-sm-7">
+                <p class="text-danger" ng-if="errorMessage">{{errorMessage}}</p>
+                <button type="submit" class="btn btn-primary btn-block" ng-click="submit()">
+                    {{update ? 'Update Key Set' : 'Add Key Set'}}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>

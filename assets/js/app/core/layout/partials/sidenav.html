@@ -1,0 +1,34 @@
+<aside class="js-side-nav side-nav" sidenav>
+    <nav class="js-side-nav-container side-nav__container">
+        <header class="side-nav__header">
+            <a class="brand" data-ui-sref-active="active" data-ui-sref="dashboard" style="text-align: center; display: block; padding: 15px 0;">
+                <span class="brand-title" style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 24px; color: #8ec400; letter-spacing: 2px;">NOKA</span>
+                <span style="font-size: 10px; color: #25a176; display: block; letter-spacing: 1px; font-weight: 500;">Nocta Kong Admin</span>
+            </a>
+        </header>
+        <ul class="nav nav-pills nav-stacked side-nav__content">
+
+            <li
+                    data-ng-repeat="item in items"
+                    data-ng-show="auth.authorize(item.access) && item.show()"
+                    data-ui-sref-active="active"
+            >
+
+                <a
+                        data-ui-sref="{{item.state}}"
+                        ng-if="item.state">
+                    <i class="mdi {{item.icon}}"></i>
+                    <span class="text-small" ng-bind-html="item.title.toUpperCase()"></span>
+                </a>
+                <a
+                        class="sidenav-heading"
+                        ng-if="!item.state"
+                >
+                    <span class="text-small" ng-bind-html="item.title.toUpperCase()"></span>
+                </a>
+            </li>
+
+
+        </ul>
+    </nav>
+</aside>
