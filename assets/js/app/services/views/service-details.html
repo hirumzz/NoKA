@@ -7,7 +7,7 @@
 
 <form class="form-horizontal" ng-class="{'form-readonly': !user.hasPermission('services','edit')}">
     <fieldset ng-disabled="!user.hasPermission('services','edit')">
-        <div ng-if="Gateway" data-ng-include="partial"></div>
+        <div data-ng-include="partial"></div>
     </fieldset>
     <div class="form-group" ng-if="user.hasPermission('services','edit')">
         <div class="col-sm-offset-4 col-sm-7">
