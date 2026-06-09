@@ -1,7 +1,6 @@
 /**
- * Auth interceptor for HTTP and Socket request. This interceptor will add required
- * JWT (Json Web Token) token to each requests. That token is validated in server side
- * application.
+ * HTTP interceptor that adds connection-id header and triggers bell notifications
+ * on successful write operations (create/update/delete) for Kong entities, comments, and users.
  */
 (function() {
   'use strict';
@@ -19,6 +18,20 @@
           return parts[0] || null;
         }
 
+        function getEntityLabel(entity) {
+          switch(entity) {
+            case 'services': return 'Service';
+            case 'routes': return 'Route';
+            case 'consumers': return 'Consumer';
+            case 'plugins': return 'Plugin';
+            case 'upstreams': return 'Upstream';
+            case 'certificates': return 'Certificate';
+            case 'targets': return 'Target';
+            case 'user': return 'User';
+            default: return entity || 'Resource';
+          }
+        }
+
         function getEntityIcon(entity) {
           switch(entity) {
             case 'services': return 'mdi-cloud-outline';
@@ -27,8 +40,25 @@
             case 'plugins': return 'mdi-power-plug';
             case 'upstreams': return 'mdi-arrow-up-bold-circle-outline';
             case 'certificates': return 'mdi-certificate';
+            case 'user': return 'mdi-account';
+            case 'comment': return 'mdi-comment-text-outline';
             default: return 'mdi-message-outline';
           }
+        }
+
+        function getActionLabel(method) {
+          switch(method) {
+            case 'post': return 'created';
+            case 'delete': return 'deleted';
+            default: return 'updated';
+          }
+        }
+
+        function getCurrentUsername() {
+          if ($localStorage.credentials && $localStorage.credentials.user) {
+            return $localStorage.credentials.user.username || $localStorage.credentials.user.firstName || 'You';
+          }
+          return 'You';
         }
 
         return {
@@ -46,29 +76,44 @@
             var url = config.url || '';
             var method = (config.method || '').toLowerCase();
 
-            // Only intercept Kong proxy write operations and comment operations
+            // Kong proxy write operations
             var isKongWrite = url.indexOf('kong/') > -1 && (method === 'post' || method === 'patch' || method === 'put' || method === 'delete');
+            // Comment operations
             var isCommentWrite = url.indexOf('api/comments') > -1 && (method === 'post' || method === 'put' || method === 'delete');
+            // User operations
+            var isUserWrite = (url.indexOf('/user') > -1 || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && (method === 'post' || method === 'put' || method === 'delete');
 
-            if (isKongWrite || isCommentWrite) {
+            if (isKongWrite || isCommentWrite || isUserWrite) {
               var NotificationsService = $injector.get('NotificationsService');
-              var entity = isCommentWrite ? 'comment' : getEntityFromUrl(url);
-              var action = method === 'post' ? 'created' : (method === 'delete' ? 'deleted' : 'updated');
-              var name = '';
+              var username = getCurrentUsername();
+              var action = getActionLabel(method);
+              var entity, name, message, icon;
 
-              if (response.data) {
-                name = response.data.name || response.data.id || '';
-              }
-
-              var message = '';
               if (isCommentWrite) {
-                var refType = (config.data && config.data.referenceType) || 'resource';
-                message = 'Comment ' + action + ' on ' + refType;
+                entity = 'comment';
+                var refType = '';
+                if (config.data && config.data.referenceType) {
+                  refType = config.data.referenceType;
+                } else if (response.data && response.data.referenceType) {
+                  refType = response.data.referenceType;
+                }
+                message = username + ' ' + action + ' a comment' + (refType ? ' on ' + refType : '');
+                icon = getEntityIcon('comment');
+              } else if (isUserWrite) {
+                entity = 'user';
+                name = response.data ? (response.data.username || response.data.email || '') : '';
+                message = username + ' ' + action + ' user' + (name ? " '" + name + "'" : '');
+                icon = getEntityIcon('user');
               } else {
-                message = (entity || 'Resource') + ' ' + (name ? "'" + name + "'" : '') + ' ' + action;
+                entity = getEntityFromUrl(url);
+                name = '';
+                if (response.data) {
+                  name = response.data.name || response.data.username || response.data.custom_id || '';
+                }
+                var label = getEntityLabel(entity);
+                message = username + ' ' + action + ' ' + label + (name ? " '" + name + "'" : '');
+                icon = getEntityIcon(entity);
               }
-
-              var icon = isCommentWrite ? 'mdi-comment-text-outline' : getEntityIcon(entity);
 
               NotificationsService.add({
                 icon: icon,

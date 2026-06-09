@@ -25,9 +25,9 @@
 
                 <!-- NOTIFICATIONS DROPDOWN -->
                 <li data-ng-show="auth.isAuthenticated()" uib-dropdown auto-close="outsideClick" keyboard-nav>
-                    <a href uib-dropdown-toggle>
+                    <a href uib-dropdown-toggle ng-click="markAllRead()">
                         <i class="mdi mdi-bell-outline"></i>
-                        <span class="badge badge-danger" ng-show="notifications && notifications.length">{{notifications.length}}</span>
+                        <span class="badge badge-danger" ng-show="unreadCount > 0">{{unreadCount}}</span>
                     </a>
                     <ul class="dropdown-menu notifications-dropdown-menu animated fadeInDownShort go" uib-dropdown-menu role="menu" aria-labelledby="simple-btn-keyboard-nav">
 
