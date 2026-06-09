@@ -1,6 +1,6 @@
 /**
  * HTTP interceptor that adds connection-id header and triggers bell notifications
- * on successful write operations (create/update/delete) for Kong entities, comments, and users.
+ * on successful write operations with detailed messages and clickable navigation.
  */
 (function() {
   'use strict';
@@ -8,9 +8,7 @@
   angular.module('frontend.core.interceptors')
     .factory('KongaInterceptor', [
       '$q', '$injector', '$localStorage',
-      function(
-        $q, $injector, $localStorage
-      ) {
+      function($q, $injector, $localStorage) {
 
         function getEntityFromUrl(url) {
           if (!url) return null;
@@ -19,39 +17,19 @@
         }
 
         function getEntityLabel(entity) {
-          switch(entity) {
-            case 'services': return 'Service';
-            case 'routes': return 'Route';
-            case 'consumers': return 'Consumer';
-            case 'plugins': return 'Plugin';
-            case 'upstreams': return 'Upstream';
-            case 'certificates': return 'Certificate';
-            case 'targets': return 'Target';
-            case 'user': return 'User';
-            default: return entity || 'Resource';
-          }
+          var map = { services: 'Service', routes: 'Route', consumers: 'Consumer', plugins: 'Plugin', upstreams: 'Upstream', certificates: 'Certificate', targets: 'Target', user: 'User' };
+          return map[entity] || entity || 'Resource';
         }
 
         function getEntityIcon(entity) {
-          switch(entity) {
-            case 'services': return 'mdi-cloud-outline';
-            case 'routes': return 'mdi-directions-fork';
-            case 'consumers': return 'mdi-account-outline';
-            case 'plugins': return 'mdi-power-plug';
-            case 'upstreams': return 'mdi-arrow-up-bold-circle-outline';
-            case 'certificates': return 'mdi-certificate';
-            case 'user': return 'mdi-account';
-            case 'comment': return 'mdi-comment-text-outline';
-            default: return 'mdi-message-outline';
-          }
+          var map = { services: 'mdi-cloud-outline', routes: 'mdi-directions-fork', consumers: 'mdi-account-outline', plugins: 'mdi-power-plug', upstreams: 'mdi-arrow-up-bold-circle-outline', certificates: 'mdi-certificate', user: 'mdi-account', comment: 'mdi-comment-text-outline' };
+          return map[entity] || 'mdi-message-outline';
         }
 
         function getActionLabel(method) {
-          switch(method) {
-            case 'post': return 'created';
-            case 'delete': return 'deleted';
-            default: return 'updated';
-          }
+          if (method === 'post') return 'created';
+          if (method === 'delete') return 'deleted';
+          return 'updated';
         }
 
         function getCurrentUsername() {
@@ -61,10 +39,50 @@
           return 'You';
         }
 
+        function getChangedFields(sentData) {
+          if (!sentData || typeof sentData !== 'object') return '';
+          var skip = ['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'token', 'extras', 'connection-id'];
+          var fields = [];
+          for (var key in sentData) {
+            if (sentData.hasOwnProperty(key) && skip.indexOf(key) < 0 && sentData[key] !== null && sentData[key] !== undefined && sentData[key] !== '') {
+              fields.push(key);
+            }
+          }
+          if (fields.length > 3) return fields.slice(0, 3).join(', ') + '...';
+          return fields.join(', ');
+        }
+
+        function getNavState(entity, id, method) {
+          if (method === 'delete') return { state: null, stateParams: null };
+          switch(entity) {
+            case 'services': return { state: 'services.read', stateParams: { service_id: id } };
+            case 'routes': return { state: 'routes.read', stateParams: { route_id: id } };
+            case 'consumers': return { state: 'consumers.edit', stateParams: { id: id } };
+            case 'user': return { state: 'users.show', stateParams: { id: id } };
+            default: return { state: null, stateParams: null };
+          }
+        }
+
+        function getResourceNameFromScope(refType) {
+          try {
+            var $rootScope = $injector.get('$rootScope');
+            if ($rootScope.$$childHead) {
+              var scope = $rootScope.$$childHead;
+              for (var i = 0; i < 50 && scope; i++) {
+                if (refType === 'service' && scope.service && scope.service.name) return scope.service.name;
+                if (refType === 'route' && scope.route && (scope.route.name || scope.route.id)) return scope.route.name || scope.route.id;
+                if (refType === 'consumer' && scope.consumer && (scope.consumer.username || scope.consumer.custom_id)) return scope.consumer.username || scope.consumer.custom_id;
+                scope = scope.$$nextSibling || scope.$$childHead;
+              }
+            }
+          } catch(e) {}
+          return '';
+        }
+
         return {
           request: function requestCallback(config) {
             var connection_id = '';
-            if ($localStorage.credentials && $localStorage.credentials.user.node) {
+            if ($localStorage.credentials && $localStorage.credentials.user && $localStorage.credentials.user.node) {
                 connection_id = $localStorage.credentials.user.node.id;
             }
             config.headers['connection-id'] = connection_id;
@@ -76,62 +94,52 @@
             var url = config.url || '';
             var method = (config.method || '').toLowerCase();
 
-            // Kong proxy write operations
             var isKongWrite = url.indexOf('kong/') > -1 && (method === 'post' || method === 'patch' || method === 'put' || method === 'delete');
-            // Comment operations
             var isCommentWrite = url.indexOf('api/comments') > -1 && (method === 'post' || method === 'put' || method === 'delete');
-            // User operations
-            var isUserWrite = (url.indexOf('/user') > -1 || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && (method === 'post' || method === 'put' || method === 'delete');
+            var isUserWrite = (url.match(/\/user($|\/)/) || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && url.indexOf('node') < 0 && (method === 'post' || method === 'put' || method === 'delete');
 
             if (isKongWrite || isCommentWrite || isUserWrite) {
               var NotificationsService = $injector.get('NotificationsService');
-              var $rootScope = $injector.get('$rootScope');
               var username = getCurrentUsername();
               var action = getActionLabel(method);
-              var entity, name, message, icon;
+              var message, icon, nav;
 
               if (isCommentWrite) {
-                entity = 'comment';
-                var refType = '';
-                var refName = '';
-                if (config.data && config.data.referenceType) {
-                  refType = config.data.referenceType;
-                } else if (response.data && response.data.referenceType) {
-                  refType = response.data.referenceType;
-                }
-                // Try to get the resource name from current page scope
-                if ($rootScope.$$childHead) {
-                  var scope = $rootScope.$$childHead;
-                  while (scope) {
-                    if (scope.service && scope.service.name && refType === 'service') { refName = scope.service.name; break; }
-                    if (scope.route && (scope.route.name || scope.route.id) && refType === 'route') { refName = scope.route.name || scope.route.id; break; }
-                    if (scope.consumer && (scope.consumer.username || scope.consumer.custom_id) && refType === 'consumer') { refName = scope.consumer.username || scope.consumer.custom_id; break; }
-                    scope = scope.$$nextSibling || (scope.$$childHead);
-                  }
-                }
+                var refType = (config.data && config.data.referenceType) || (response.data && response.data.referenceType) || '';
+                var refId = (config.data && config.data.referenceId) || (response.data && response.data.referenceId) || '';
+                var refName = getResourceNameFromScope(refType);
                 message = username + ' ' + action + ' a comment on ' + refType + (refName ? " '" + refName + "'" : '');
                 icon = getEntityIcon('comment');
+                nav = getNavState(refType + 's', refId, method);
+
               } else if (isUserWrite) {
-                entity = 'user';
-                name = response.data ? (response.data.username || response.data.email || '') : '';
-                message = username + ' ' + action + ' user' + (name ? " '" + name + "'" : '');
+                var uname = response.data ? (response.data.username || response.data.email || '') : '';
+                var uid = response.data ? response.data.id : null;
+                message = username + ' ' + action + ' user' + (uname ? " '" + uname + "'" : '');
                 icon = getEntityIcon('user');
+                nav = getNavState('user', uid, method);
+
               } else {
-                entity = getEntityFromUrl(url);
-                name = '';
-                if (response.data) {
-                  name = response.data.name || response.data.username || response.data.custom_id || '';
-                }
+                var entity = getEntityFromUrl(url);
+                var name = response.data ? (response.data.name || response.data.username || response.data.custom_id || '') : '';
+                var id = response.data ? response.data.id : null;
                 var label = getEntityLabel(entity);
-                message = username + ' ' + action + ' ' + label + (name ? " '" + name + "'" : '');
+
+                if (method === 'patch' || method === 'put') {
+                  var changed = getChangedFields(config.data);
+                  message = username + ' updated ' + (changed ? changed + ' on ' : '') + label + (name ? " '" + name + "'" : '');
+                } else {
+                  message = username + ' ' + action + ' ' + label + (name ? " '" + name + "'" : '');
+                }
                 icon = getEntityIcon(entity);
+                nav = getNavState(entity, id, method);
               }
 
               NotificationsService.add({
                 icon: icon,
                 message: message,
-                state: null,
-                stateParams: null
+                state: nav ? nav.state : null,
+                stateParams: nav ? nav.stateParams : null
               });
             }
 
