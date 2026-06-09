@@ -41,12 +41,16 @@
                     io.socket.get('api/events/subscribe?token=' + AuthService.token(),
                         function (data, jwr) {
                             if (jwr.statusCode == 200) {
-                                console.log("Subscribed to room", data.room)
+                                console.log("Subscribed to events room:", data.room)
                                 io.socket.on('konga.event', function (obj) {
+                                    console.log("Received konga.event:", obj)
                                     $rootScope.$broadcast("konga.event", obj)
+                                    if (!$rootScope.$$phase) {
+                                        $rootScope.$apply();
+                                    }
                                 });
                             } else {
-                                console.log("Failed to subscribe to events: ", jwr);
+                                console.log("Failed to subscribe to events:", jwr);
                             }
                         });
                     //
