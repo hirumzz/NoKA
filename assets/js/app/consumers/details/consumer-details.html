@@ -75,10 +75,12 @@
                     <div ng-if="!comment.editing">
                         <p style="white-space: pre-wrap; margin-bottom: 4px;">{{comment.content}}</p>
                         <div style="margin-top: 4px;">
-                            <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;" ng-if="comment.user.id == user.id" ng-click="startEditComment(comment)">
+                            <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;"
+                               ng-click="startEditComment(comment)">
                                 <i class="mdi mdi-pencil"></i> Edit
                             </a>
-                            <a class="text-danger clickable" style="font-size: 11px;" ng-if="comment.user.id == user.id || user.admin || user.role === 'admin'" ng-click="deleteComment(comment, $index)">
+                            <a class="text-danger clickable" style="font-size: 11px;"
+                               ng-click="deleteComment(comment, $index)">
                                 <i class="mdi mdi-delete"></i> Delete
                             </a>
                         </div>
