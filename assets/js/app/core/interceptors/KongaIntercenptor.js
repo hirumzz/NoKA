@@ -61,7 +61,6 @@
             default: return { state: null, stateParams: null };
           }
         }
-        }
 
         function getResourceNameFromScope(refType) {
           try {
