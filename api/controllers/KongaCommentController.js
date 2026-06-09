@@ -19,8 +19,8 @@ module.exports = {
       if (err) return res.negotiate(err);
       if (!user) return res.forbidden({ message: 'User not found' });
 
-      // Enforce: only admin and commenter roles can write comments
-      if (user.role === 'viewer') {
+      // Enforce: only admin and commenter roles can write comments. Viewers cannot write comments unless they are admin.
+      if (user.role === 'viewer' && !user.admin) {
         return res.forbidden({ message: 'Forbidden - Viewers cannot write comments' });
       }
 
@@ -44,8 +44,8 @@ module.exports = {
             user: username,
             referenceId: data.referenceId,
             referenceType: data.referenceType,
-            state: data.referenceType === 'route' ? 'routes.edit' : (data.referenceType === 'service' ? 'services.edit' : 'consumers.edit'),
-            stateParams: { id: data.referenceId },
+            state: data.referenceType === 'route' ? 'routes.read' : (data.referenceType === 'service' ? 'services.read' : 'consumers.edit'),
+            stateParams: data.referenceType === 'route' ? { route_id: data.referenceId } : (data.referenceType === 'service' ? { service_id: data.referenceId } : { id: data.referenceId }),
             timestamp: Date.now()
           });
 

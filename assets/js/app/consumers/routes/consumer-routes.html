@@ -11,8 +11,8 @@
     <!--<p>The services this consumer can access based on ACLs.</p>-->
 <!--</div>-->
 <div class="clearfix"></div>
-<konga-loader ng-if="loading && !items.data.length"></konga-loader>
-<div class="row" ng-show="!loading || items.data.length">
+<konga-loader ng-if="loading && (!items || !items.data || !items.data.length)"></konga-loader>
+<div class="row" ng-show="!loading || (items && items.data && items.data.length)">
     <div class="col-md-12 padding">
         <i class="mdi mdi-account-group text-success"></i>
         <small>Not access controlled</small>&nbsp;&nbsp;

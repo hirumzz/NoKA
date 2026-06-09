@@ -16,6 +16,11 @@
         $scope = angular.extend($scope, angular.copy(ListConfig.getConfig('consumerWithCreds',ConsumerModel)));
         $scope.search = '';
         $scope.explanatoryMessage = 'Listing consumers: ';
+        $scope.selectedTag = '';
+        $scope.filterByTag = function (item) {
+          if (!$scope.selectedTag) return true;
+          return item.tags && item.tags.indexOf($scope.selectedTag) > -1;
+        };
 
 
         var availableOnServer = angular.copy($rootScope.Gateway.plugins.available_on_server);
@@ -31,6 +36,18 @@
             console.log("GOT SERVICE CONSUMERS", response.data)
             if (response.data.total > 0) {
               $scope.items = response.data;
+              
+              // Extract unique tags
+              var tagsMap = {};
+              if ($scope.items && $scope.items.data) {
+                $scope.items.data.forEach(function(consumer) {
+                  if (consumer.tags) {
+                    consumer.tags.forEach(function(t) { tagsMap[t] = true; });
+                  }
+                });
+              }
+              $scope.availableTags = Object.keys(tagsMap).sort();
+
               $scope.loading = false;
 
               if(response.data.acl && response.data.acl.config.whitelist && response.data.acl.config.whitelist.length) {

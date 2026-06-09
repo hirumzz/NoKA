@@ -20,8 +20,8 @@
     </div>
 </div>
 
-<konga-loader ng-if="loading && !items.length"></konga-loader>
-<div class="row" ng-if="!loading || items.length">
+<konga-loader ng-if="loading && (!items || !items.data || !items.data.length)"></konga-loader>
+<div class="row" ng-if="!loading || (items && items.data && items.data.length)">
     <div class="col-md-12">
         <div class="table-responsive">
             <table class="table table-hover table-striped">
@@ -76,7 +76,7 @@
                     </td>
                 </tr>
 
-                <tr data-ng-if="items.length === 0 && !loading">
+                <tr data-ng-if="(!items.data || items.data.length === 0) && !loading">
                     <td colspan="100%" class="text-center text-muted">
                         <em>No data found...</em>
                     </td>

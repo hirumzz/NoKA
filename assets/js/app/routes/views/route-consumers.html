@@ -7,16 +7,24 @@
         <small>List of consumers with access, based on ACLs & Auth plugins</small>
     </div>
     <div class="col-md-6 text-right">
-        <list-search
-                class="pull-right"
-                data-filters="filters"
-                data-options="itemsPerPageOptions"
-                data-items="itemsPerPage"
-        ></list-search>
+        <div class="form-inline">
+            <div class="form-group" style="margin-right: 10px; display: inline-block; vertical-align: middle;">
+                <select class="form-control input-sm" ng-model="selectedTag" ng-options="tag for tag in availableTags" style="min-width: 160px; height: 30px;">
+                    <option value="">-- Filter by Tag --</option>
+                </select>
+            </div>
+            <list-search
+                    class="pull-right"
+                    data-filters="filters"
+                    data-options="itemsPerPageOptions"
+                    data-items="itemsPerPage"
+                    style="display: inline-block; vertical-align: middle;"
+            ></list-search>
+        </div>
     </div>
 </div>
 <div class="clearfix"></div>
-<konga-loader ng-if="loading && !items.length"></konga-loader>
+<konga-loader ng-if="loading && (!items || !items.data || !items.data.length)"></konga-loader>
 <div class="alert alert-info margin-top" ng-if="isOpenService">
     This route is neither Access Controlled or secured with an Authentication plugin.
 </div>
@@ -54,7 +62,7 @@
                         </i>
                     </th>
                 </tr>
-                <tr dir-paginate="consumer in items.data | orderBy:sort.column:sort.direction | filter : filters.searchWord | itemsPerPage: itemsPerPage">
+                <tr dir-paginate="consumer in items.data | orderBy:sort.column:sort.direction | filter : filters.searchWord | filter : filterByTag | itemsPerPage: itemsPerPage">
 
                     <td>
                         <raw-view data-item="consumer"></raw-view>
@@ -76,7 +84,7 @@
                     </td>
                 </tr>
 
-                <tr data-ng-if="items.length === 0 && !loading">
+                <tr data-ng-if="(!items.data || items.data.length === 0) && !loading">
                     <td colspan="100%" class="text-center text-muted">
                         <em>No data found...</em>
                     </td>
