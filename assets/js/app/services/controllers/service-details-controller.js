@@ -8,11 +8,12 @@
 
   angular.module('frontend.services')
     .controller('ServiceDetailsController', [
-      '_', '$scope', '$rootScope', '$log', '$state', 'ServiceService', '$uibModal', 'MessageService', 'SettingsService', '$http',
-      function controller(_, $scope, $rootScope, $log, $state, ServiceService, $uibModal, MessageService, SettingsService, $http) {
+      '_', '$scope', '$rootScope', '$log', '$state', 'ServiceService', '$uibModal', 'MessageService', 'SettingsService', '$http', 'UserService',
+      function controller(_, $scope, $rootScope, $log, $state, ServiceService, $uibModal, MessageService, SettingsService, $http, UserService) {
 
         var availableFormattedVersion = ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
         $scope.settings = SettingsService.getSettings();
+        $scope.user = UserService.user();
         $scope.tags = [];
         $scope.partial = 'js/app/services/partials/form-service-' + availableFormattedVersion + '.html?r=' + Date.now();
 

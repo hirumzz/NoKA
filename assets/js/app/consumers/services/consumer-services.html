@@ -10,7 +10,7 @@
 <div class="clearfix"></div>
 <konga-loader ng-if="loading"></konga-loader>
 
-<div class="row" ng-show="!loading || items.data.length">
+<div class="row" ng-show="!loading || (items && items.data && items.data.length)">
     <div class="col-md-12">
         <div class="table-responsive">
             <table class="table table-hover table-striped">

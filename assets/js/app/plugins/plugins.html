@@ -19,9 +19,9 @@
 </div>
 
 
-<konga-loader ng-if="loading && !items.data.length"></konga-loader>
+<konga-loader ng-if="loading && (!items || !items.data || !items.data.length)"></konga-loader>
 
-<div class="row" ng-if="!loading || items.data.length">
+<div class="row" ng-if="!loading || (items && items.data && items.data.length)">
 
     <div class="col-md-12">
         <div class="table-responsive">
@@ -93,7 +93,7 @@
                         </button>
                     </td>
                 </tr>
-                <tr data-ng-if="items.data.length === 0">
+                <tr data-ng-if="(!items || !items.data || items.data.length === 0)">
                     <td colspan="100%" class="text-center text-muted">
                         <em>no data found...</em>
                     </td>

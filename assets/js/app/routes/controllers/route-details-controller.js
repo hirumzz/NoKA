@@ -8,11 +8,12 @@
 
   angular.module('frontend.routes')
     .controller('RouteDetailsController', [
-      '$scope', '$rootScope', '$log', '$state', 'RoutesService', 'MessageService', 'SettingsService', '_route', '$http',
-      function controller($scope, $rootScope, $log, $state, RoutesService, MessageService, SettingsService, _route, $http) {
+      '$scope', '$rootScope', '$log', '$state', 'RoutesService', 'MessageService', 'SettingsService', '_route', '$http', 'UserService',
+      function controller($scope, $rootScope, $log, $state, RoutesService, MessageService, SettingsService, _route, $http, UserService) {
 
         var availableFormattedVersion = RoutesService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
         $scope.route = $scope.route || _route;
+        $scope.user = UserService.user();
 
         // Transform headers attr to a compatible array
         if($scope.route.headers && !_.isArray($scope.route.headers) && Object.keys($scope.route.headers).length) {
