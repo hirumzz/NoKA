@@ -45,7 +45,8 @@
           $http.get('api/comments', {
             params: {
               referenceId: $scope.consumer.id,
-              referenceType: 'consumer'
+              referenceType: 'consumer',
+              _t: Date.now()
             }
           }).then(function (res) {
             $scope.comments = res.data;
