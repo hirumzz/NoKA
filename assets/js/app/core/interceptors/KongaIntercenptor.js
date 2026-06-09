@@ -41,24 +41,6 @@
           return 'You';
         }
 
-        function getChangedFields(sentData, originalData) {
-          if (!sentData || !originalData || typeof sentData !== 'object') return '';
-          var skip = ['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'token', 'extras', 'connection-id', 'data'];
-          var fields = [];
-          for (var key in sentData) {
-            if (sentData.hasOwnProperty(key) && skip.indexOf(key) < 0) {
-              var newVal = JSON.stringify(sentData[key]);
-              var oldVal = JSON.stringify(originalData[key]);
-              if (newVal !== oldVal && sentData[key] !== null && sentData[key] !== undefined) {
-                fields.push(key.replace(/_/g, ' '));
-              }
-            }
-          }
-          if (fields.length === 0) return '';
-          if (fields.length > 3) return fields.slice(0, 3).join(', ') + '...';
-          return fields.join(', ');
-        }
-
         function getNavState(entity, id, method) {
           if (method === 'delete') {
             // Navigate to list page since resource no longer exists
@@ -114,7 +96,7 @@
 
             var isKongWrite = url.indexOf('kong/') > -1 && (method === 'post' || method === 'patch' || method === 'put' || method === 'delete');
             var isCommentWrite = url.indexOf('api/comments') > -1 && (method === 'post' || method === 'put' || method === 'delete');
-            var isUserWrite = (url.match(/\/user($|\/)/) || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && url.indexOf('node') < 0 && (method === 'post' || method === 'put' || method === 'delete');
+            var isUserWrite = (url.indexOf('/user/') > -1 || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && url.indexOf('node') < 0 && (method === 'post' || method === 'put' || method === 'delete');
 
             if (isKongWrite || isCommentWrite || isUserWrite) {
               var NotificationsService = $injector.get('NotificationsService');
