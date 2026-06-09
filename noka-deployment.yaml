@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noka
+  labels:
+    app: noka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noka
+  template:
+    metadata:
+      labels:
+        app: noka
+    spec:
+      containers:
+        - name: noka
+          image: noka:latest # Replace with your custom container registry path (e.g., gcr.io/my-project/noka:latest)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 1337
+              name: http
+          env:
+            # Database Configuration (to be overridden using Kubernetes Deployment env config)
+            - name: DB_ADAPTER
+              value: "postgres"
+            - name: DB_HOST
+              value: "postgres-service" # Name of your PostgreSQL Kubernetes service
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "kong"
+            - name: DB_PASSWORD
+              value: "kong"
+            - name: DB_DATABASE
+              value: "kong"
+            - name: DB_URI
+              value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_DATABASE)"
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "1337"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 1337
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 1337
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: noka-storage
+              mountPath: /app/kongadata
+      volumes:
+        - name: noka-storage
+          persistentVolumeClaim:
+            claimName: noka-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noka-service
+  labels:
+    app: noka
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 1337
+      protocol: TCP
+      name: http
+  selector:
+    app: noka

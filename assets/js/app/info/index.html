@@ -1,0 +1,270 @@
+<div class="row" data-ng-if="!Gateway">
+    <div class="col-md-12 text-center margin padding">
+        <h4>Fetching node info...</h4>
+        <br>
+        <div class="anim-loader">
+            <span class="dot dot_1"></span>
+            <span class="dot dot_2"></span>
+            <span class="dot dot_3"></span>
+            <span class="dot dot_4"></span>
+        </div>
+    </div>
+</div>
+
+<div class="row" data-ng-if="Gateway">
+    <!-- Redesigned Node Info Dashboard -->
+    <div class="col-md-12">
+        
+        <!-- Node Overview Card -->
+        <div class="panel panel-default">
+            <div class="panel-heading" style="background-color: #fcfcfc; border-bottom: 1px solid #eeeeee; padding: 15px;">
+                <h3 class="panel-title" style="font-weight: 600; color: #333333; display: flex; align-items: center; margin: 0;">
+                    <i class="mdi mdi-cube-outline" style="margin-right: 8px; font-size: 20px; color: #85B200;"></i>
+                    Node Overview
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div class="row">
+                    <!-- Column 1 -->
+                    <div class="col-sm-6 col-md-4">
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Kong Version</label>
+                            <span class="badge" style="background-color: #85B200; font-size: 13px; font-weight: 600; padding: 4px 10px;">{{Gateway.version}}</span>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Node ID</label>
+                            <code style="font-size: 12px; background-color: #f8f8f8; color: #555555; border: 1px solid #e3e3e3; padding: 2px 6px; border-radius: 4px; word-break: break-all; display: inline-block;">{{Gateway.node_id}}</code>
+                        </div>
+                    </div>
+                    <!-- Column 2 -->
+                    <div class="col-sm-6 col-md-4">
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Lua Version</label>
+                            <span style="font-size: 14px; font-weight: 500; color: #333333;">{{Gateway.lua_version || 'N/A'}}</span>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Hostname</label>
+                            <span style="font-size: 14px; font-weight: 500; color: #333333;">{{Gateway.hostname || 'N/A'}}</span>
+                        </div>
+                    </div>
+                    <!-- Column 3 -->
+                    <div class="col-sm-6 col-md-4">
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Edition</label>
+                            <span class="label label-info" style="font-size: 11px; text-transform: uppercase; padding: 3px 8px;">{{Gateway.edition || 'Community'}}</span>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="font-size: 11px; text-transform: uppercase; color: #999999; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Database</label>
+                            <span style="font-size: 14px; font-weight: 500; color: #333333; display: inline-flex; align-items: center;">
+                                <i class="mdi mdi-database" style="margin-right: 4px; color: #666666;"></i>
+                                {{Gateway.configuration.database || 'postgres'}}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics & Traffic Stats Section -->
+        <div class="panel panel-default" data-ng-if="metricsEnabled">
+            <div class="panel-heading" style="background-color: #fcfcfc; border-bottom: 1px solid #eeeeee; padding: 15px;">
+                <h3 class="panel-title" style="font-weight: 600; color: #333333; display: flex; align-items: center; margin: 0;">
+                    <i class="mdi mdi-chart-bell-curve" style="margin-right: 8px; font-size: 20px; color: #85B200;"></i>
+                    Traffic & Path Latencies (Via Prometheus)
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div class="row">
+                    <!-- Top Hits Column -->
+                    <div class="col-md-6">
+                        <h4 style="font-size: 14px; font-weight: 600; color: #555555; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #85B200; padding-bottom: 6px; display: inline-block;">
+                            Most Hit Endpoint Paths
+                        </h4>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #777777;">Path / ID</th>
+                                        <th class="text-right" style="font-size: 11px; text-transform: uppercase; color: #777777; width: 100px;">Hits</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr data-ng-repeat="item in topHitsResolved | limitTo: 5">
+                                        <td style="font-weight: 500; color: #333333; word-break: break-all; vertical-align: middle;">
+                                            <code>{{item.endpoint}}</code>
+                                        </td>
+                                        <td class="text-right" style="vertical-align: middle;">
+                                            <span class="badge badge-success" style="background-color: #5cb85c; padding: 3px 8px;">{{item.hits}}</span>
+                                        </td>
+                                    </tr>
+                                    <tr data-ng-if="topHitsResolved.length === 0">
+                                        <td colspan="2" class="text-center text-muted" style="padding: 15px;">No requests recorded yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Slowest Latencies Column -->
+                    <div class="col-md-6">
+                        <h4 style="font-size: 14px; font-weight: 600; color: #555555; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #d9534f; padding-bottom: 6px; display: inline-block;">
+                            Slowest Endpoint Paths
+                        </h4>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th style="font-size: 11px; text-transform: uppercase; color: #777777;">Path / ID</th>
+                                        <th class="text-right" style="font-size: 11px; text-transform: uppercase; color: #777777; width: 150px;">Avg Latency</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr data-ng-repeat="item in slowestResolved | limitTo: 5">
+                                        <td style="font-weight: 500; color: #333333; word-break: break-all; vertical-align: middle;">
+                                            <code>{{item.endpoint}}</code>
+                                        </td>
+                                        <td class="text-right" style="vertical-align: middle;">
+                                            <span class="label label-danger" style="background-color: #d9534f; font-size: 11px; padding: 3px 8px;">{{item.avgLatency}} ms</span>
+                                        </td>
+                                    </tr>
+                                    <tr data-ng-if="slowestResolved.length === 0">
+                                        <td colspan="2" class="text-center text-muted" style="padding: 15px;">No requests recorded yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning when Metrics are Disabled -->
+        <div class="alert alert-warning" data-ng-if="!metricsEnabled" style="border-left: 5px solid #f0ad4e; margin-bottom: 20px; border-radius: 4px; display: flex; align-items: flex-start; padding: 15px;">
+            <i class="mdi mdi-alert" style="font-size: 24px; color: #f0ad4e; margin-right: 12px; margin-top: -3px;"></i>
+            <div>
+                <strong style="display: block; font-size: 14px; margin-bottom: 4px;">Traffic Metrics Unavailable</strong>
+                <span style="font-size: 13px; color: #666666;">The Prometheus plugin is not enabled or not reachable on this node. Please enable it on Kong to view the most hit and slowest endpoint paths.</span>
+            </div>
+        </div>
+
+        <!-- Toggle Button to Reveal All Info -->
+        <div class="text-center" style="margin-top: 30px; margin-bottom: 20px;">
+            <button class="btn btn-default btn-flat" style="border: 1px solid #cccccc; color: #666666; font-weight: 600; padding: 8px 24px; border-radius: 4px; transition: all 0.2s;" data-ng-click="toggleShowAllInfo()">
+                <i class="mdi" ng-class="showAllInfo ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" style="margin-right: 6px; font-size: 16px;"></i>
+                {{showAllInfo ? 'Hide Raw Configuration Details' : 'Reveal Raw Configuration Details'}}
+            </button>
+        </div>
+
+        <!-- Expanded Full Raw Info -->
+        <div class="panel panel-default" data-ng-show="showAllInfo" style="margin-top: 20px; transition: all 0.3s ease-in-out; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e3e3e3;">
+            <div class="panel-heading" style="background-color: #fcfcfc; border-bottom: 1px solid #eeeeee; padding: 15px 20px;">
+                <h4 class="panel-title" style="font-size: 14px; font-weight: 600; color: #333333; display: flex; align-items: center; margin: 0;">
+                    <i class="mdi mdi-code-json" style="margin-right: 8px; font-size: 18px; color: #85B200;"></i>
+                    Full Node Configuration (Raw)
+                </h4>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                
+                <!-- Search bar for configuration -->
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <div class="input-group">
+                        <span class="input-group-addon" style="background-color: #f8f9fa; border: 1px solid #cccccc; border-right: none; padding: 6px 12px; display: table-cell; vertical-align: middle;">
+                            <i class="mdi mdi-magnify" style="color: #666666;"></i>
+                        </span>
+                        <input type="text" class="form-control" placeholder="Search configuration parameters..." ng-model="configSearch" style="border: 1px solid #cccccc; border-radius: 0 4px 4px 0; height: 34px;">
+                    </div>
+                </div>
+
+                <!-- Accordion model (Bootstrap panels) -->
+                <div class="panel-group" id="config-accordion" style="margin-bottom: 0;">
+                    
+                    <!-- Section 1: General Info -->
+                    <div class="panel panel-default" style="border: 1px solid #e3e3e3; margin-bottom: 10px; border-radius: 6px; overflow: hidden;">
+                        <div class="panel-heading" style="background-color: #fcfcfc; padding: 0;">
+                            <a data-toggle="collapse" href="#collapseGeneral" style="display: block; padding: 12px 15px; font-weight: 600; color: #444444; text-decoration: none; display: flex; justify-content: space-between; align-items: center;">
+                                <span>General Information</span>
+                                <i class="mdi mdi-chevron-down text-muted" style="font-size: 18px;"></i>
+                            </a>
+                        </div>
+                        <div id="collapseGeneral" class="panel-collapse collapse in">
+                            <div class="panel-body" style="padding: 0;">
+                                <table class="table table-striped table-hover" style="margin: 0; font-size: 13px;">
+                                    <tbody>
+                                        <tr>
+                                            <td style="font-weight: 600; width: 30%; color: #666666;">Kong Version</td>
+                                            <td><code>{{Gateway.version}}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 600; color: #666666;">Node ID</td>
+                                            <td><code>{{Gateway.node_id}}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 600; color: #666666;">Hostname</td>
+                                            <td>{{Gateway.hostname}}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="font-weight: 600; color: #666666;">Lua Version</td>
+                                            <td>{{Gateway.lua_version}}</td>
+                                        </tr>
+                                        <tr ng-if="Gateway.plugins.available_on_server">
+                                            <td style="font-weight: 600; color: #666666;">Available Plugins</td>
+                                            <td>
+                                                <div style="max-height: 150px; overflow-y: auto; padding: 8px; background: #fdfdfd; border: 1px solid #eee; border-radius: 4px;">
+                                                    <span class="badge" style="background-color: #777777; margin: 2px 4px; display: inline-block;" ng-repeat="(plugin, enabled) in Gateway.plugins.available_on_server">
+                                                        {{plugin}}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Detailed Config Settings -->
+                    <div class="panel panel-default" style="border: 1px solid #e3e3e3; margin-bottom: 0; border-radius: 6px; overflow: hidden;">
+                        <div class="panel-heading" style="background-color: #fcfcfc; padding: 0;">
+                            <a data-toggle="collapse" href="#collapseConfigDetails" style="display: block; padding: 12px 15px; font-weight: 600; color: #444444; text-decoration: none; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Detailed Gateway Configuration Settings</span>
+                                <i class="mdi mdi-chevron-down text-muted" style="font-size: 18px;"></i>
+                            </a>
+                        </div>
+                        <div id="collapseConfigDetails" class="panel-collapse collapse in">
+                            <div class="panel-body" style="padding: 0;">
+                                <div style="max-height: 500px; overflow-y: auto;">
+                                    <table class="table table-striped table-hover" style="margin: 0; font-size: 13px;">
+                                        <thead>
+                                            <tr style="background-color: #f5f5f5;">
+                                                <th style="font-weight: 600; color: #555555; width: 40%; padding: 10px 15px;">Parameter</th>
+                                                <th style="font-weight: 600; color: #555555; padding: 10px 15px;">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr ng-repeat="param in configArray | filter:configSearch" ng-if="shouldShowConfigParam(param.key, param.value)">
+                                                <td style="font-family: monospace; font-weight: bold; color: #081c15; padding: 8px 15px; word-break: break-all;">
+                                                    {{param.key}}
+                                                </td>
+                                                <td style="padding: 8px 15px; word-break: break-all;">
+                                                    <span ng-if="isObjectOrArray(param.value)">
+                                                        <pre style="margin: 0; padding: 5px; font-size: 11px; background-color: #fafafa; border: 1px solid #eee; border-radius: 4px; max-height: 120px; overflow: auto; white-space: pre-wrap; word-wrap: break-word;">{{formatJson(param.value)}}</pre>
+                                                    </span>
+                                                    <span ng-if="!isObjectOrArray(param.value)">
+                                                        <code style="background-color: #fdfefe; border: 1px solid #f0f0f0; padding: 2px 5px; border-radius: 3px; color: #333;">{{param.value === null ? 'null' : param.value.toString()}}</code>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+

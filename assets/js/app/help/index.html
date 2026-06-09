@@ -1,0 +1,153 @@
+<div class="row">
+    <div class="col-md-12">
+        <!-- Help Header Card -->
+        <div class="panel panel-default">
+            <div class="panel-heading" style="background-color: #fcfcfc; border-bottom: 1px solid #eeeeee; padding: 20px;">
+                <h3 class="panel-title" style="font-weight: 800; font-size: 20px; color: #333333; display: flex; align-items: center; margin: 0;">
+                    <i class="mdi mdi-help-circle-outline" style="margin-right: 10px; font-size: 26px; color: #8ec400;"></i>
+                    NOKA Documentation & Help Center
+                </h3>
+                <p class="text-muted" style="margin: 8px 0 0 0; font-size: 13px;">Learn about each menu in Noka, how to configure routing and plugins, and troubleshooting steps.</p>
+            </div>
+            <div class="panel-body" style="padding: 24px;">
+                <!-- Main Grid Layout -->
+                <div class="row">
+                    <!-- Left Column: Menu Explanations -->
+                    <div class="col-md-8">
+                        <h4 style="font-weight: 700; color: #333333; margin-top: 0; margin-bottom: 20px; border-bottom: 2px solid #8ec400; padding-bottom: 8px; display: inline-block;">
+                            Gateway Navigation & Menu Guide
+                        </h4>
+                        
+                        <div class="list-group" style="box-shadow: none; border-radius: 4px;">
+                            <!-- Dashboard -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-view-dashboard" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Dashboard
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Displays real-time status of your active Kong connection (Postgres health, configuration synchronicity, node details) along with visual charts tracking requests/second, top-hit endpoints, and slowest paths.
+                                </p>
+                            </div>
+
+                            <!-- Info -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-information-outline" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Info
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Presents a clean, overview grid of your Kong cluster specs (ID, version, hostname, database adapter). It also extracts live Prometheus latency statistics, resolving metric IDs into actual human-readable paths (e.g. <code>/my-service</code>).
+                                </p>
+                            </div>
+
+                            <!-- Services -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-cloud-outline" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Services
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Allows you to manage upstream APIs or microservices. A service object represents your backend API, defining the upstream URL, protocol, and connection timeouts where Kong will forward matched requests.
+                                </p>
+                            </div>
+
+                            <!-- Routes -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-directions-fork" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Routes
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Defines how incoming client requests map to your services. A Route matches criteria (like path prefixes, methods, or headers) and forwards the request to its parent service. <em>Note: At least one matching criteria is required by Kong.</em>
+                                </p>
+                            </div>
+
+                            <!-- Consumers -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-account-outline" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Consumers
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Represents a client or consumer of your API. Used to attach authentication credentials (like API keys, JWT, Basic Auth) and apply granular rate limiting or Access Control List (ACL) grouping rules per client.
+                                </p>
+                            </div>
+
+                            <!-- Plugins -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-power-plug" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Plugins
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Middleware modules that run during request execution. Plugins handle cross-cutting concerns like security, traffic throttling, log forwarding, and header transforms. They can be applied globally, or scoped to specific services/routes.
+                                </p>
+                            </div>
+
+                            <!-- Vaults & Keys -->
+                            <div class="list-group-item" style="border-left: 4px solid #8ec400; margin-bottom: 12px; border-radius: 4px; padding: 15px;">
+                                <h5 class="list-group-item-heading" style="font-weight: 600; color: #333333; display: flex; align-items: center;">
+                                    <i class="mdi mdi-lock" style="margin-right: 8px; color: #8ec400; font-size: 16px;"></i>
+                                    Vaults, Keys & Key Sets <small>(Kong 3.x+)</small>
+                                </h5>
+                                <p class="list-group-item-text text-muted" style="font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                                    Configure backend vault adapters (like HashiCorp Vault, AWS Secrets Manager) to securely store system secrets. Keys and Key Sets manage cryptographic identities (like JWK, public keys) used for token verification.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Unicode Collision Info & Guides -->
+                    <div class="col-md-4">
+                        <!-- Unicode Collision Explanation Card -->
+                        <div class="panel panel-warning" style="border-left: 4px solid #f0ad4e; border-radius: 4px;">
+                            <div class="panel-heading" style="background-color: #fcf8e3; border: none; padding: 15px;">
+                                <h4 class="panel-title" style="font-weight: 700; color: #8a6d3b; display: flex; align-items: center; margin: 0;">
+                                    <i class="mdi mdi-alert-circle" style="margin-right: 8px; font-size: 18px; color: #f0ad4e;"></i>
+                                    Unicode Glyph Collision
+                                </h4>
+                            </div>
+                            <div class="panel-body" style="padding: 15px; background-color: #fff;">
+                                <p style="font-size: 12px; line-height: 1.6; color: #666666; margin-bottom: 10px;">
+                                    You might have previously noticed the Chinese character <strong>"凛"</strong> showing up in dashboard lists. Here is the technical detail:
+                                </p>
+                                <ul style="font-size: 11.5px; padding-left: 18px; color: #666666; line-height: 1.6;">
+                                    <li style="margin-bottom: 6px;">
+                                        <strong>The Cause:</strong> In the older Material Design Icons font, the icon class <code>mdi-clock-alert</code> was mapped to code point <code>\uF954</code>.
+                                    </li>
+                                    <li style="margin-bottom: 6px;">
+                                        <strong>The Collision:</strong> <code>\uF954</code> is also mapped in standard CJK Compatibility Ideographs as the character <strong>"凛"</strong> (meaning cold/severe).
+                                    </li>
+                                    <li style="margin-bottom: 6px;">
+                                        <strong>The Fallback:</strong> If the web font is overridden or delayed during loading, browsers fall back to system fonts, rendering the compatibility character glyph.
+                                    </li>
+                                    <li>
+                                        <strong>The Fix:</strong> We replaced <code>mdi-clock-alert</code> with the safe code point icon <code>mdi-timer-off</code> (<code>\uF51E</code>), which sits completely outside the CJK range.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- How to Use Noka -->
+                        <div class="panel panel-default" style="border-radius: 4px;">
+                            <div class="panel-heading" style="background-color: #fcfcfc; padding: 15px;">
+                                <h4 class="panel-title" style="font-weight: 700; color: #333333; margin: 0;">
+                                    How to configure a Route
+                                </h4>
+                            </div>
+                            <div class="panel-body" style="padding: 15px; font-size: 12px; line-height: 1.6; color: #666666;">
+                                <ol style="padding-left: 15px; margin-bottom: 0;">
+                                    <li style="margin-bottom: 8px;">Navigate to <strong>Services</strong> and create a Service.</li>
+                                    <li style="margin-bottom: 8px;">Inside your Service details, click <strong>Add Route</strong>.</li>
+                                    <li style="margin-bottom: 8px;">Define at least one matching rule (e.g. <code>Paths = /my-api</code>).</li>
+                                    <li>Kong will now route all traffic matching <code>host:port/my-api</code> to your Service.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
