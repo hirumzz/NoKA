@@ -11,7 +11,7 @@
       '$scope', '$rootScope', '$log', '$state', 'RoutesService', 'MessageService', 'SettingsService', '_route', '$http', 'UserService',
       function controller($scope, $rootScope, $log, $state, RoutesService, MessageService, SettingsService, _route, $http, UserService) {
 
-        var availableFormattedVersion = RoutesService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
+        var availableFormattedVersion = $rootScope.Gateway ? RoutesService.getLastAvailableFormattedVersion($rootScope.Gateway.version) : '013';
         $scope.route = $scope.route || _route;
         $scope.user = UserService.user();
 

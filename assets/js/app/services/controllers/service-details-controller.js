@@ -11,7 +11,7 @@
       '_', '$scope', '$rootScope', '$log', '$state', 'ServiceService', '$uibModal', 'MessageService', 'SettingsService', '$http', 'UserService',
       function controller(_, $scope, $rootScope, $log, $state, ServiceService, $uibModal, MessageService, SettingsService, $http, UserService) {
 
-        var availableFormattedVersion = ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
+        var availableFormattedVersion = $rootScope.Gateway ? ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version) : '013';
         $scope.settings = SettingsService.getSettings();
         $scope.user = UserService.user();
         $scope.tags = [];
