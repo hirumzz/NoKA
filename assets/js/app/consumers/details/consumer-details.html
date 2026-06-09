@@ -1,0 +1,90 @@
+
+
+<form class="form-horizontal">
+    <div class="form-group" ng-class="{'has-error' : errors.username}">
+        <label class="col-sm-3 control-label">username <br><em><small class="help-block">semi-optional</small></em></label>
+        <div class="col-sm-6">
+            <input ng-model="consumer.username" class="form-control">
+            <div class="text-danger" ng-if="errors.username" data-ng-bind="errors.username"></div>
+            <p class="help-block">The username of the consumer. You must send either this field or <code>custom_id</code> with the request.</p>
+        </div>
+    </div>
+
+    <div class="form-group" ng-class="{'has-error' : errors.custom_id}">
+        <label class="col-sm-3 control-label">custom_id <br><em><small class="help-block">semi-optional</small></em></label>
+        <div class="col-sm-6">
+            <input ng-model="consumer.custom_id" class="form-control">
+            <div class="text-danger" ng-if="errors.custom_id" data-ng-bind="errors.custom_id"></div>
+            <p class="help-block">Field for storing an existing ID for the consumer, useful for mapping Kong with users in your existing database. You must send either this field or <code>username</code> with the request.</p>
+        </div>
+    </div>
+
+    <div class="form-group" ng-if="isGatewayVersionEqOrGreater('1.1.0-rc1')">
+        <label class="col-sm-3 control-label">Tags <br><em>
+            <small class="help-block">optional</small>
+        </em></label>
+        <div class="col-sm-6">
+            <chips ng-model="consumer.tags">
+                <chip-tmpl>
+                    <div class="default-chip">
+                        {{chip}}
+                        <i class="mdi mdi-close" remove-chip></i>
+                    </div>
+                </chip-tmpl>
+                <input ng-model-control
+                       data-ng-keypress="onTagInputKeyPress($event)"
+                       ng-model="$tag" uib-typeahead="tag for tag in tags | filter:$viewValue | limitTo:10"/>
+            </chips>
+            <p class="help-block">
+                Optionally add tags to the consumer
+            </p>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-6">
+            <button type="button" class="btn btn-primary" ng-click="updateConsumerDetails()">
+                <i class="mdi mdi-check"></i>
+                Submit Changes
+            </button>
+        </div>
+    </div>
+</form>
+
+<br>
+<hr>
+<div class="row">
+    <div class="col-sm-offset-3 col-sm-6">
+        <h4 class="margin-bottom-2">Comments</h4>
+        
+        <div class="comments-list margin-bottom" style="max-height: 400px; overflow-y: auto;">
+            <div ng-if="!comments.length" class="text-muted">
+                <em>No comments yet.</em>
+            </div>
+            <div class="media" ng-repeat="comment in comments" style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+                <div class="media-left">
+                    <img class="media-object img-circle" ng-src="{{comment.user.avatar || 'images/user-profile.png'}}" style="width: 40px; height: 40px; object-fit: cover;">
+                </div>
+                <div class="media-body">
+                    <h5 class="media-heading">
+                        <strong>{{comment.user.username || comment.user.firstName}}</strong> 
+                        <small class="text-muted">{{moment(comment.createdAt).format("MMM DD YYYY @HH:mm")}}</small>
+                    </h5>
+                    <p style="white-space: pre-wrap; margin-bottom: 0;">{{comment.content}}</p>
+                </div>
+            </div>
+        </div>
+
+        <div ng-if="user.role === 'admin' || user.admin || user.role === 'commenter'">
+            <form ng-submit="addComment()">
+                <div class="form-group">
+                    <textarea class="form-control" ng-model="newComment.content" placeholder="Add a comment..." rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Add Comment</button>
+            </form>
+        </div>
+        <div ng-if="!(user.role === 'admin' || user.admin || user.role === 'commenter')" class="text-muted">
+            <em>You do not have permission to add comments.</em>
+        </div>
+    </div>
+</div>

@@ -1,19 +1,17 @@
-# NoKA - Nocta Kong Admin
-## Elegant Kong Admin GUI with Roles, Comments, & Real-time Notifications
+# NoKA (Nocta Kong Admin)
 
-NoKA is a premium, feature-rich admin console built for managing Kong API Gateways. This project is a customized fork based on the original **[Konga by pantsel](https://github.com/pantsel/konga)**. It was copied, redesigned, and upgraded with fixes and new features.
+NoKA is an elegant, redesigned, and improved administration GUI for [Kong Admin API](http://getkong.org). 
 
-### Key Features
-* **Role-Based Access Control (RBAC)**: Support for `admin`, `viewer`, and `commenter` roles with client and server-side verification policies.
-* **Service & Route Comment Timelines**: Collaborative comments sections on Route and Service pages.
-* **Real-time Notifications**: WebSockets-powered global toasts and bell dropdown notifications for resource edits and comments.
-* **Clickable Alerts & Navigation**: Click on any notification to route directly to the updated resource.
-* **Base64 Avatar Uploads**: Native profile photo uploads directly from settings.
-* **Tag Filtering**: Filter Services, Routes, and Consumers dynamically in lists by their tags.
-* **Searchable Raw configuration**: Redesigned raw configuration with interactive filtering.
+> [!NOTE]
+> This project is a customized fork of the original [Konga](https://github.com/pantsel/konga) project by **Panagis Tselentis (pantsel)**. It has been redesigned and enhanced to fix legacy issues, modernize the user experience, and add new capabilities like:
+> * **Role-Based Access Control (RBAC)**: Support for Admin, Viewer, and Commenter roles.
+> * **Comment System**: Interactive, real-time comments on Services, Routes, and Consumers.
+> * **Clickable Real-time Alerts**: Global browser notifications that route users directly to the updated resources on click.
+> * **Base64 Avatar Uploads**: Select avatar image files directly instead of typing URLs.
 
-_NoKA is not an official app. No affiliation with Kong._
+## Summary
 
+- [**Discussions & Support**](#discussions--support)
 - [**Features**](#features)
 - [**Compatibility**](#compatibility)
 - [**Prerequisites**](#prerequisites)
@@ -21,10 +19,16 @@ _NoKA is not an official app. No affiliation with Kong._
 - [**Installation**](#installation)
 - [**Configuration**](#configuration)
 - [**Environment variables**](#environment-variables)
-- [**Running NoKA**](#running-noka)
+- [**Running Konga**](#running-konga)
 - [**Upgrading**](#upgrading)
 - [**FAQ**](#faq)
+- [**More Kong related stuff**](#more-kong-related-stuff)
 - [**License**](#license)
+
+## Discussions & Support
+If you need to discuss anything Konga related, we have a chatroom on Gitter:
+
+[![Gitter chat](https://badges.gitter.im/pantsel-konga/Lobby.png)](https://gitter.im/pantsel-konga/Lobby)
 
 ## Features
 * Manage all Kong Admin API Objects.
@@ -37,7 +41,10 @@ _NoKA is not an official app. No affiliation with Kong._
 * Easy database integration (MySQL, postgresSQL, MongoDB).
 
 ## Compatibility
-**NoKA is compatible with Kong 1.x / 2.x / 3.x**
+**From 0.14.0 onwards, Konga is ONLY compatible with Kong 1.x**
+
+If you're on an older Kong version , use [this](https://github.com/pantsel/konga/tree/legacy) branch 
+or `konga:legacy` from docker hub instead.
 
 ## Prerequisites
 - A running [Kong installation](https://getkong.org/) 
@@ -50,8 +57,9 @@ _NoKA is not an official app. No affiliation with Kong._
 
 ## Installation
 
-Install `npm` and `node.js`.
+Install `npm` and `node.js`. Instructions can be found [here](http://sailsjs.org/#/getStarted?q=what-os-do-i-need).
 
+Install `bower`, ad `gulp` packages.
 ```
 $ git clone https://github.com/hirumzz/NoKA.git
 $ cd NoKA
@@ -113,26 +121,26 @@ The application also supports some of the most popular databases out of the box:
 In order to use them, set the appropriate env vars in your `.env` file.
  
 
-## Running NoKA
+## Running Konga
 
 ### Development
 ```
 $ npm start
 ```
-NoKA GUI will be available at `http://localhost:1337`
+Konga GUI will be available at `http://localhost:1337`
 
 ### Production
 
 ***************************************************************************************** 
-In case of `MySQL` or `PostgresSQL` adapters, NoKA will not perform db migrations when running in production mode.
+In case of `MySQL` or `PostgresSQL` adapters, Konga will not perform db migrations when running in production mode.
 
-You can manually perform the migrations by calling ```$ node ./bin/konga.js prepare``` 
+You can manually perform the migrations by calling ```$ node ./bin/konga.js  prepare``` 
 , passing the args needed for the database connectivity.
 
 For example: 
 
 ```
-$ node ./bin/konga.js prepare --adapter postgres --uri postgresql://localhost:5432/noka
+$ node ./bin/konga.js  prepare --adapter postgres --uri postgresql://localhost:5432/konga
 ```
 The process will exit after all migrations are completed. 
 
@@ -142,24 +150,21 @@ Finally:
 ```
 $ npm run production
 ```
-NoKA GUI will be available at `http://localhost:1337`
+Konga GUI will be available at `http://localhost:1337`
 
 
 ### Production Docker Image
 
-To run NoKA via Docker, build the image from the Dockerfile:
+The following instructions assume that you have a running Kong instance following the
+instructions from [Kong's docker hub](https://hub.docker.com/_/kong/)
 ```
-$ docker build -t noka .
-```
-
-Then run the container:
-```
+$ docker pull pantsel/konga
 $ docker run -p 1337:1337 \
              --network {{kong-network}} \ // optional
-             --name noka \
-             -e "NODE_ENV=production" \
+             --name konga \
+             -e "NODE_ENV=production" \ // or "development" | defaults to 'development'
              -e "TOKEN_SECRET={{somerandomstring}}" \
-             noka
+             pantsel/konga
 ```
 
 #### To use one of the supported databases
@@ -178,16 +183,16 @@ argument  | description | default
 -u     | full database connection url | -
 
 ```
-$ docker run --rm noka -c prepare -a {{adapter}} -u {{connection-uri}}
+$ docker run --rm pantsel/konga:latest -c prepare -a {{adapter}} -u {{connection-uri}}
 ```
 
 
-2. ##### Start NoKA
+2. ##### Start Konga
 ```
-$ docker run -p 1337:1337 \
+$ docker run -p 1337:1337 
              --network {{kong-network}} \ // optional
              -e "TOKEN_SECRET={{somerandomstring}}" \
-             -e "DB_ADAPTER=the-name-of-the-adapter" \ // 'mongo','postgres','sqlserver' or 'mysql'
+             -e "DB_ADAPTER=the-name-of-the-adapter" \ // 'mongo','postgres','sqlserver'  or 'mysql'
              -e "DB_HOST=your-db-hostname" \
              -e "DB_PORT=your-db-port" \ // Defaults to the default db port
              -e "DB_USER=your-db-user" \ // Omit if not relevant
@@ -195,19 +200,19 @@ $ docker run -p 1337:1337 \
              -e "DB_DATABASE=your-db-name" \ // Defaults to 'konga_database'
              -e "DB_PG_SCHEMA=my-schema"\ // Optionally define a schema when integrating with prostgres
              -e "NODE_ENV=production" \ // or 'development' | defaults to 'development'
-             --name noka \
-             noka
+             --name konga \
+             pantsel/konga
              
              
  // Alternatively you can use the full connection string to connect to a database
- $ docker run -p 1337:1337 \
+ $ docker run -p 1337:1337 
               --network {{kong-network}} \ // optional
               -e "TOKEN_SECRET={{somerandomstring}}" \
-              -e "DB_ADAPTER=the-name-of-the-adapter" \ // 'mongo','postgres','sqlserver' or 'mysql'
+              -e "DB_ADAPTER=the-name-of-the-adapter" \ // 'mongo','postgres','sqlserver'  or 'mysql'
               -e "DB_URI=full-connection-uri" \
               -e "NODE_ENV=production" \ // or 'development' | defaults to 'development'
-              --name noka \
-              noka
+              --name konga \
+              pantsel/konga
 ```
 
 
@@ -220,13 +225,13 @@ You may also configure Konga to authenticate via [LDAP](./docs/LDAP.md).
 
 
 ## Upgrading
-In some cases a newer version of NoKA may introduce changes in database schemas.
-The only thing you need to do is to start NoKA in dev mode once so that the migrations will be applied.
+In some cases a newer version of Konga may introduce changes in database schemas.
+The only thing you need to do is to start Konga in dev mode once so that the migrations will be applied.
 Then stop the app and run it again in production mode.
 
 if you're using docker, you can lift an ephemeral container, as stated before:
 ```
-$ docker run --rm noka -c prepare -a {{adapter}} -u {{connection-uri}}
+$ docker run --rm pantsel/konga:latest -c prepare -a {{adapter}} -u {{connection-uri}}
 ```
 
 ## FAQ
@@ -243,11 +248,12 @@ $ npm run bower-deps
 When a plugin property is an array, the input is handled by a chip component.
 You will need to press `enter` after every value you type in
 so that the component assigns it to an array index.
+See issue [#48](https://github.com/pantsel/konga/issues/48) for reference.
 
 ##### 3. EACCES permission denied, mkdir '/kongadata/'.
-If you see this error while trying to run NoKA, it means that NoKA has no write permissions to
-it's default data dir `/kongadata`. You will just have to define the storage path yourself to 
-a directory NoKA will have access permissions via the env var `STORAGE_PATH`.
+If you see this error while trying to run Konga, it means that konga has no write permissions to
+it's default data dir `/kongadata`.  You will just have to define the storage path yourself to 
+a directory Konga will have access permissions via the env var `STORAGE_PATH`.
 
 ##### 4. The hook `grunt` is taking too long to load
 The default timeout for the sails hooks to load is 60000. In some cases, depending on
@@ -256,9 +262,13 @@ may take longer to complete. You can fix that by setting then env var `KONGA_HOO
 greater than 60000, like 120000.
 
 
+## More Kong related stuff
+- [**Kong Admin proxy**](https://github.com/pantsel/kong-admin-proxy)
+- [**Kong Middleman plugin**](https://github.com/pantsel/kong-middleman-plugin)
+
 ## Author
 
-Panagis Tselentis (Original Konga Creator)
+Panagis Tselentis
 
 ## License
 ```

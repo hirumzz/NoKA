@@ -22,9 +22,9 @@ var defaultModel = _.merge(_.cloneDeep(require('../base/Model')), {
       required: true
     },
     referenceType: {
-      type: 'string', // 'route' or 'service'
+      type: 'string', // 'route', 'service' or 'consumer'
       required: true,
-      enum: ['route', 'service']
+      enum: ['route', 'service', 'consumer']
     },
     content: {
       type: 'text',
