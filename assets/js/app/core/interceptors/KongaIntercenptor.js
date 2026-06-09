@@ -128,8 +128,7 @@
                 var label = getEntityLabel(entity);
 
                 if (method === 'patch' || method === 'put') {
-                  var changed = getChangedFields(config.data);
-                  message = username + ' updated ' + (changed ? changed + ' on ' : '') + label + (name ? " '" + name + "'" : '');
+                  message = username + ' updated ' + label + (name ? " '" + name + "'" : '');
                 } else {
                   message = username + ' ' + action + ' ' + label + (name ? " '" + name + "'" : '');
                 }
