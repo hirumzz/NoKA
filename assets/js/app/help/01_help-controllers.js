@@ -4,9 +4,9 @@
 
   angular.module('frontend.help')
     .controller('HelpController', [
-      '$scope', '$log', '$state', 'AuthService',
-      function controller($scope, $log, $state, AuthService) {
-          $scope.currentUser = AuthService.user();
+      '$scope', '$log', '$state', 'UserService',
+      function controller($scope, $log, $state, UserService) {
+          $scope.user = UserService.user();
           $scope.activeGuide = null;
 
           $scope.toggleGuide = function(guide) {
