@@ -134,11 +134,10 @@
 
                 if (method === 'patch' || method === 'put') {
                   var changed = '';
-                  // Compare sent data against stored original to detect real changes
                   var $rootScope = $injector.get('$rootScope');
-                  if ($rootScope._originalEntity && config.data) {
-                    changed = getChangedFields(config.data, $rootScope._originalEntity);
-                    $rootScope._originalEntity = null;
+                  if ($rootScope._changedFields) {
+                    changed = $rootScope._changedFields;
+                    $rootScope._changedFields = null;
                   }
                   if (changed) {
                     message = username + ' updated ' + changed + ' on ' + label + (name ? " '" + name + "'" : '');

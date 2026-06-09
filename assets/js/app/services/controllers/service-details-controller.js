@@ -25,8 +25,17 @@
         $scope.updateService = function () {
 
           $scope.loading = true
-          $rootScope._originalEntity = angular.copy(originalService);
+          // Detect changed fields for notification
+          var changedFields = [];
           var data = angular.copy($scope.service);
+          for (var key in data) {
+            if (data.hasOwnProperty(key) && key !== 'id' && key !== 'data' && key !== 'created_at' && key !== 'updated_at') {
+              if (JSON.stringify(data[key]) !== JSON.stringify(originalService[key])) {
+                changedFields.push(key.replace(/_/g, ' '));
+              }
+            }
+          }
+          $rootScope._changedFields = changedFields.length > 0 ? changedFields.slice(0, 3).join(', ') : '';
 
           // workaround, name field creates constraint violation in v0.13.x when using Cassandra
           if (!isKongUsingPostgres() && originalService.name === data.name) {
