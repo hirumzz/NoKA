@@ -60,14 +60,25 @@
         }
 
         function getNavState(entity, id, method) {
-          if (method === 'delete') return { state: null, stateParams: null };
+          if (method === 'delete') {
+            // Navigate to list page since resource no longer exists
+            switch(entity) {
+              case 'services': return { state: 'services', stateParams: {} };
+              case 'routes': return { state: 'routes', stateParams: {} };
+              case 'consumers': return { state: 'consumers', stateParams: {} };
+              case 'user': return { state: 'users', stateParams: {} };
+              default: return { state: null, stateParams: null };
+            }
+          }
           switch(entity) {
             case 'services': return { state: 'services.read', stateParams: { service_id: id } };
             case 'routes': return { state: 'routes.read', stateParams: { route_id: id } };
             case 'consumers': return { state: 'consumers.edit', stateParams: { id: id } };
+            case 'plugins': return { state: 'plugins', stateParams: {} };
             case 'user': return { state: 'users.show', stateParams: { id: id } };
             default: return { state: null, stateParams: null };
           }
+        }
         }
 
         function getResourceNameFromScope(refType) {
@@ -117,7 +128,8 @@
                 var refName = getResourceNameFromScope(refType);
                 message = username + ' ' + action + ' a comment on ' + refType + (refName ? " '" + refName + "'" : '');
                 icon = getEntityIcon('comment');
-                nav = getNavState(refType + 's', refId, method);
+                // Always navigate to the resource for comments (even after delete)
+                nav = getNavState(refType + 's', refId, 'view');
 
               } else if (isUserWrite) {
                 var uname = response.data ? (response.data.username || response.data.email || '') : '';
