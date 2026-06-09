@@ -158,7 +158,7 @@
         ;
 
         // For any unmatched url, redirect to /dashboard
-        $urlRouterProvider.otherwise('/error');
+        $urlRouterProvider.otherwise('/dashboard');
       }
     ])
   ;
