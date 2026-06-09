@@ -107,6 +107,8 @@
         }
 
         function onEditPlugin(item) {
+          var clone = _.cloneDeep(item);
+          clone._readOnly = !$scope.canEdit;
           $uibModal.open({
             animation: true,
             ariaLabelledBy: 'modal-title',
@@ -116,7 +118,7 @@
             controller: 'EditPluginController',
             resolve: {
               _plugin: function () {
-                return _.cloneDeep(item)
+                return clone;
               },
               _schema: function () {
                 return PluginsService.schema(item.name)

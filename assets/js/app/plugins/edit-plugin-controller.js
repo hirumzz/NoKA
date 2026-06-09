@@ -10,13 +10,13 @@
     .controller('EditPluginController', [
       '_', '$scope', '$rootScope', '$log', 'ListConfig',
       'MessageService', 'ConsumerModel', 'SocketHelperService', 'PluginHelperService', 'DialogService',
-      'KongPluginsService', '$uibModalInstance', 'PluginsService', '_plugin', '_schema', 'AuthService',
+      'KongPluginsService', '$uibModalInstance', 'PluginsService', '_plugin', '_schema',
       function controller(_, $scope, $rootScope, $log, ListConfig,
                           MessageService, ConsumerModel, SocketHelperService, PluginHelperService, DialogService,
-                          KongPluginsService, $uibModalInstance, PluginsService, _plugin, _schema, AuthService) {
+                          KongPluginsService, $uibModalInstance, PluginsService, _plugin, _schema) {
 
         $scope.plugin = _plugin;
-        $scope.readOnly = !AuthService.hasPermission('plugins', 'edit');
+        $scope.readOnly = !!_plugin._readOnly;
 
         var sch = _schema.data;
         $scope.schema = {
