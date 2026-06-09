@@ -44,7 +44,7 @@ module.exports = {
             user: username,
             referenceId: data.referenceId,
             referenceType: data.referenceType,
-            state: data.referenceType === 'route' ? 'routes.edit' : 'services.edit',
+            state: data.referenceType === 'route' ? 'routes.edit' : (data.referenceType === 'service' ? 'services.edit' : 'consumers.edit'),
             stateParams: { id: data.referenceId },
             timestamp: Date.now()
           });

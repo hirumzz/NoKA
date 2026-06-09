@@ -47,7 +47,7 @@
             </div>
         </div>
 
-        <div ng-if="user.role === 'admin' || user.role === 'commenter'">
+        <div ng-if="user.role === 'admin' || user.admin || user.role === 'commenter'">
             <form ng-submit="addComment()">
                 <div class="form-group">
                     <textarea class="form-control" ng-model="newComment.content" placeholder="Add a comment..." rows="3" required></textarea>
@@ -55,7 +55,7 @@
                 <button type="submit" class="btn btn-primary btn-sm">Add Comment</button>
             </form>
         </div>
-        <div ng-if="user.role === 'viewer'" class="text-muted">
+        <div ng-if="!(user.role === 'admin' || user.admin || user.role === 'commenter')" class="text-muted">
             <em>You do not have permission to add comments.</em>
         </div>
     </div>
