@@ -433,6 +433,11 @@
               inTitle: true
             },
             {
+              title: 'role',
+              column: 'role',
+              sortable: true,
+            },
+            {
               title: 'created',
               column: 'createdAt',
               sortable: true,
