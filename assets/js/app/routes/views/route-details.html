@@ -5,13 +5,11 @@
     </h4>
 </div>
 
-<div ng-if="!user.hasPermission('routes','edit')">
-    <div json-human="route" class="table-responsive"></div>
-</div>
-
-<form class="form-horizontal" ng-if="user.hasPermission('routes','edit')">
-    <div ng-if="Gateway" data-ng-include="partial"></div>
-    <div class="form-group">
+<form class="form-horizontal" ng-class="{'form-readonly': !user.hasPermission('routes','edit')}">
+    <fieldset ng-disabled="!user.hasPermission('routes','edit')">
+        <div ng-if="Gateway" data-ng-include="partial"></div>
+    </fieldset>
+    <div class="form-group" ng-if="user.hasPermission('routes','edit')">
         <div class="col-sm-offset-3 col-sm-9">
             <button type="button" class="btn btn-primary btn-block" ng-click="submit()">
                 <i class="mdi mdi-check"></i>
@@ -19,7 +17,6 @@
             </button>
         </div>
     </div>
-
 </form>
 
 <br>
