@@ -52,6 +52,7 @@
         $scope.submit = function () {
 
           $scope.loading = true
+          $rootScope._originalEntity = _.cloneDeep(_route.data || _route);
 
           let data = _.cloneDeep($scope.route);
 

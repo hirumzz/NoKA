@@ -41,15 +41,20 @@
           return 'You';
         }
 
-        function getChangedFields(sentData) {
-          if (!sentData || typeof sentData !== 'object') return '';
-          var skip = ['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'token', 'extras', 'connection-id'];
+        function getChangedFields(sentData, originalData) {
+          if (!sentData || !originalData || typeof sentData !== 'object') return '';
+          var skip = ['id', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'token', 'extras', 'connection-id', 'data'];
           var fields = [];
           for (var key in sentData) {
-            if (sentData.hasOwnProperty(key) && skip.indexOf(key) < 0 && sentData[key] !== null && sentData[key] !== undefined && sentData[key] !== '') {
-              fields.push(key);
+            if (sentData.hasOwnProperty(key) && skip.indexOf(key) < 0) {
+              var newVal = JSON.stringify(sentData[key]);
+              var oldVal = JSON.stringify(originalData[key]);
+              if (newVal !== oldVal && sentData[key] !== null && sentData[key] !== undefined) {
+                fields.push(key.replace(/_/g, ' '));
+              }
             }
           }
+          if (fields.length === 0) return '';
           if (fields.length > 3) return fields.slice(0, 3).join(', ') + '...';
           return fields.join(', ');
         }
@@ -128,7 +133,18 @@
                 var label = getEntityLabel(entity);
 
                 if (method === 'patch' || method === 'put') {
-                  message = username + ' updated ' + label + (name ? " '" + name + "'" : '');
+                  var changed = '';
+                  // Compare sent data against stored original to detect real changes
+                  var $rootScope = $injector.get('$rootScope');
+                  if ($rootScope._originalEntity && config.data) {
+                    changed = getChangedFields(config.data, $rootScope._originalEntity);
+                    $rootScope._originalEntity = null;
+                  }
+                  if (changed) {
+                    message = username + ' updated ' + changed + ' on ' + label + (name ? " '" + name + "'" : '');
+                  } else {
+                    message = username + ' updated ' + label + (name ? " '" + name + "'" : '');
+                  }
                 } else {
                   message = username + ' ' + action + ' ' + label + (name ? " '" + name + "'" : '');
                 }

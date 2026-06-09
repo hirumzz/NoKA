@@ -25,6 +25,7 @@
         $scope.updateService = function () {
 
           $scope.loading = true
+          $rootScope._originalEntity = angular.copy(originalService);
           var data = angular.copy($scope.service);
 
           // workaround, name field creates constraint violation in v0.13.x when using Cassandra
