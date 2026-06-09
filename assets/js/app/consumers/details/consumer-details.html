@@ -68,7 +68,7 @@
                 <div class="media-body">
                     <h5 class="media-heading">
                         <strong>{{comment.user.username || comment.user.firstName}}</strong> 
-                        <small class="text-muted">{{moment(comment.createdAt).format("MMM DD YYYY @HH:mm")}}</small>
+                        <small class="text-muted">{{moment(comment.updatedAt || comment.createdAt).format("MMM DD YYYY @HH:mm")}}</small>
                         <small class="text-warning" ng-if="comment.updatedAt && comment.updatedAt !== comment.createdAt">(edited)</small>
                     </h5>
                     <!-- Display mode -->
