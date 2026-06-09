@@ -11,7 +11,7 @@
       '_', '$scope', '$rootScope', '$log', '$state', 'ServiceService', '$uibModal', 'MessageService', 'SettingsService', '$http', 'UserService',
       function controller(_, $scope, $rootScope, $log, $state, ServiceService, $uibModal, MessageService, SettingsService, $http, UserService) {
 
-        var availableFormattedVersion = ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
+        var availableFormattedVersion = $rootScope.Gateway ? ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version) : '013';
         $scope.settings = SettingsService.getSettings();
         $scope.user = UserService.user();
         $scope.tags = [];
@@ -82,6 +82,15 @@
         $scope.comments = [];
         $scope.newComment = { content: '' };
 
+        $scope.isCommentOwner = function(comment) {
+          if (!comment || !comment.user || !$scope.user) return false;
+          return String(comment.user.id) === String($scope.user.id);
+        };
+
+        $scope.canDeleteComment = function(comment) {
+          return $scope.isCommentOwner(comment) || $scope.user.admin || $scope.user.role === 'admin';
+        };
+
         function loadComments() {
           $http.get('api/comments', {
             params: {
@@ -89,6 +98,12 @@
               referenceType: 'service'
             }
           }).then(function (res) {
+            var currentUserId = String($scope.user.id);
+            var isAdmin = $scope.user.admin || $scope.user.role === 'admin';
+            res.data.forEach(function(comment) {
+              comment._isOwner = comment.user ? String(comment.user.id) === currentUserId : false;
+              comment._canDelete = comment._isOwner || isAdmin;
+            });
             $scope.comments = res.data;
           }).catch(function (err) {
             $log.error('Failed to load comments', err);
@@ -111,6 +126,10 @@
         };
 
         $scope.startEditComment = function(comment) {
+          if (!$scope.isCommentOwner(comment)) {
+            MessageService.error('You can only edit your own comments');
+            return;
+          }
           comment.editing = true;
           comment.editContent = comment.content;
         };

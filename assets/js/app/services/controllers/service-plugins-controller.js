@@ -74,6 +74,10 @@
         }
 
         function updatePlugin(plugin) {
+          if (!$scope.canEdit) {
+            MessageService.error("You don't have permissions to perform this action");
+            return false;
+          }
           PluginsService.update(plugin.id, {
             enabled: plugin.enabled,
             //config : plugin.config
@@ -103,6 +107,8 @@
         }
 
         function onEditPlugin(item) {
+          var clone = _.cloneDeep(item);
+          clone._readOnly = !$scope.canEdit;
           $uibModal.open({
             animation: true,
             ariaLabelledBy: 'modal-title',
@@ -112,7 +118,7 @@
             controller: 'EditPluginController',
             resolve: {
               _plugin: function () {
-                return _.cloneDeep(item)
+                return clone;
               },
               _schema: function () {
                 return PluginsService.schema(item.name)

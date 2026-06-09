@@ -16,6 +16,7 @@
                           KongPluginsService, $uibModalInstance, PluginsService, _plugin, _schema) {
 
         $scope.plugin = _plugin;
+        $scope.readOnly = !!_plugin._readOnly;
 
         var sch = _schema.data;
         $scope.schema = {
@@ -174,6 +175,11 @@
 
 
         $scope.updatePlugin = function () {
+
+          if ($scope.readOnly) {
+            MessageService.error("You don't have permissions to modify plugins");
+            return;
+          }
 
           $scope.busy = true;
 

@@ -5,13 +5,11 @@
     </h4>
 </div>
 
-<div ng-if="!user.hasPermission('routes','edit')">
-    <div json-human="route" class="table-responsive"></div>
-</div>
-
-<form class="form-horizontal" ng-if="user.hasPermission('routes','edit')">
-    <div ng-if="Gateway" data-ng-include="partial"></div>
-    <div class="form-group">
+<form class="form-horizontal" ng-class="{'form-readonly': !user.hasPermission('routes','edit')}">
+    <fieldset ng-disabled="!user.hasPermission('routes','edit')">
+        <div data-ng-include="partial"></div>
+    </fieldset>
+    <div class="form-group" ng-if="user.hasPermission('routes','edit')">
         <div class="col-sm-offset-3 col-sm-9">
             <button type="button" class="btn btn-primary btn-block" ng-click="submit()">
                 <i class="mdi mdi-check"></i>
@@ -19,7 +17,6 @@
             </button>
         </div>
     </div>
-
 </form>
 
 <br>
@@ -46,10 +43,14 @@
                     <div ng-if="!comment.editing">
                         <p style="white-space: pre-wrap; margin-bottom: 4px;">{{comment.content}}</p>
                         <div style="margin-top: 4px;">
-                            <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;" ng-if="comment.user.id == user.id" ng-click="startEditComment(comment)">
+                            <a class="text-muted clickable" style="font-size: 11px; margin-right: 10px;"
+                               ng-if="comment._isOwner"
+                               ng-click="startEditComment(comment)">
                                 <i class="mdi mdi-pencil"></i> Edit
                             </a>
-                            <a class="text-danger clickable" style="font-size: 11px;" ng-if="comment.user.id == user.id || user.admin || user.role === 'admin'" ng-click="deleteComment(comment, $index)">
+                            <a class="text-danger clickable" style="font-size: 11px;"
+                               ng-if="comment._canDelete"
+                               ng-click="deleteComment(comment, $index)">
                                 <i class="mdi mdi-delete"></i> Delete
                             </a>
                         </div>

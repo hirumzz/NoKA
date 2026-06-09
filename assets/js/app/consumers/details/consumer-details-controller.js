@@ -41,6 +41,15 @@
         $scope.comments = [];
         $scope.newComment = { content: '' };
 
+        $scope.isCommentOwner = function(comment) {
+          if (!comment || !comment.user || !$scope.user) return false;
+          return String(comment.user.id) === String($scope.user.id);
+        };
+
+        $scope.canDeleteComment = function(comment) {
+          return $scope.isCommentOwner(comment) || $scope.user.admin || $scope.user.role === 'admin';
+        };
+
         function loadComments() {
           $http.get('api/comments', {
             params: {
@@ -48,6 +57,12 @@
               referenceType: 'consumer'
             }
           }).then(function (res) {
+            var currentUserId = String($scope.user.id);
+            var isAdmin = $scope.user.admin || $scope.user.role === 'admin';
+            res.data.forEach(function(comment) {
+              comment._isOwner = comment.user ? String(comment.user.id) === currentUserId : false;
+              comment._canDelete = comment._isOwner || isAdmin;
+            });
             $scope.comments = res.data;
           }).catch(function (err) {
             $log.error('Failed to load comments', err);
