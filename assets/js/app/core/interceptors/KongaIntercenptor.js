@@ -12,7 +12,9 @@
 
         function getEntityFromUrl(url) {
           if (!url) return null;
-          var parts = url.replace('/kong/', '').replace('/kong', '').split('/').filter(Boolean);
+          // Remove any leading path and /kong/ prefix
+          var cleaned = url.replace(/^.*?kong\//, '');
+          var parts = cleaned.split('/').filter(Boolean);
           return parts[0] || null;
         }
 
