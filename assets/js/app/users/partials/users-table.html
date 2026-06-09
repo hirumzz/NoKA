@@ -22,10 +22,8 @@
         <td><a data-ui-sref="users.show({id: item.id})">{{item.username}}</a></td>
         <td>{{item.firstName}}</td>
         <td>{{item.lastName}}</td>
-        <td>
-            <span class="label" ng-class="{'label-danger': item.admin, 'label-info': item.role === 'commenter', 'label-default': !item.admin && item.role !== 'commenter'}">
-                {{item.role || (item.admin ? 'admin' : 'viewer')}}
-            </span>
+        <td style="text-transform: capitalize;">
+            {{item.role || (item.admin ? 'admin' : 'viewer')}}
         </td>
         <td>{{item.createdAt | date : "MMM d, y"}}</td>
         <td>{{item.updatedAt | date : "MMM d, y"}}</td>
