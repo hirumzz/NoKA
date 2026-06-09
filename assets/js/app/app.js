@@ -71,17 +71,6 @@
 
       $provide.decorator('$templateFactory', ['$delegate', templateFactoryDecorator]);
     }])
-    .config(['$provide', function ($provide) {
-      $provide.decorator('$state', function ($delegate) {
-        var originalTransitionTo = $delegate.transitionTo;
-        $delegate.transitionTo = function (to, toParams, options) {
-          return originalTransitionTo(to, toParams, angular.extend({
-            reload: true
-          }, options));
-        };
-        return $delegate;
-      });
-    }])
     .config([
       '$stateProvider', '$locationProvider', '$urlRouterProvider', '$httpProvider', '$sailsSocketProvider',
       'cfpLoadingBarProvider',
@@ -157,8 +146,8 @@
           })
         ;
 
-        // For any unmatched url, redirect to /dashboard
-        $urlRouterProvider.otherwise('/dashboard');
+        // For any unmatched url, redirect to /error
+        $urlRouterProvider.otherwise('/error');
       }
     ])
   ;
@@ -226,16 +215,19 @@
           var context = routeNameParts[0];
           var action = routeNameParts[1];
 
-          // Special exception that allows a user to edits his/hers own profile
-          if (!(context == 'users' && action == 'show' && params.id == UserService.user().id)) {
-            if (!AuthService.hasPermission(context, action)) {
-              console.log(fromState)
-              event.preventDefault();
-              cfpLoadingBar.complete();
+          // Only check permissions for authenticated users
+          if (AuthService.isAuthenticated()) {
+            // Special exception that allows a user to edits his/hers own profile
+            if (!(context == 'users' && action == 'show' && params.id == UserService.user().id)) {
+              if (!AuthService.hasPermission(context, action)) {
+                console.log(fromState)
+                event.preventDefault();
+                cfpLoadingBar.complete();
 
-              // Redirect to dashboard if coming from nowhere ex. refresh or direct link to page
-              if (!fromState.name) {
-                $state.go('dashboard', params, {location: 'replace'})
+                // Redirect to dashboard if coming from nowhere ex. refresh or direct link to page
+                if (!fromState.name) {
+                  $state.go('dashboard', params, {location: 'replace'})
+                }
               }
             }
           }
