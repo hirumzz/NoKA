@@ -14,6 +14,10 @@ module.exports = {
       criteria.createdAt = { '>': new Date(parseInt(since)) };
     }
 
+    // Auto-cleanup: delete notifications older than 3 days
+    var threeDaysAgo = new Date(Date.now() - (3 * 24 * 60 * 60 * 1000));
+    sails.models.konganotification.destroy({ createdAt: { '<': threeDaysAgo } }).exec(function() {});
+
     sails.models.konganotification.find(criteria)
       .populate('user')
       .sort('createdAt DESC')
