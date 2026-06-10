@@ -16,8 +16,8 @@
 
     angular.module('frontend.core.services')
         .factory('NotificationsService', [
-            '$localStorage','$rootScope','MessageService','$state',
-            function factory($localStorage,$rootScope,MessageService,$state) {
+            '$localStorage','$rootScope','MessageService','$state','$injector',
+            function factory($localStorage,$rootScope,MessageService,$state,$injector) {
 
                 function createNavigatorNotification(message) {
                     Notification.requestPermission(function (permission) {
@@ -100,6 +100,105 @@
                         MessageService.error(data.message, null, toastOptions);
                     }
                 })
+
+                // Poll for new notifications from other users
+                var lastPollTime = new Date().getTime();
+                var pollInterval = null;
+
+                function startPolling() {
+                    if (pollInterval) return;
+                    pollInterval = setInterval(function() {
+                        if (!$localStorage.credentials || !$localStorage.credentials.token) return;
+
+                        var $http = $injector.get('$http');
+
+                        $http.get('api/notifications', { params: { since: lastPollTime } })
+                            .then(function(res) {
+                                if (res.data && res.data.length) {
+                                    var currentUserId = $localStorage.credentials ? $localStorage.credentials.user.id : null;
+                                    res.data.forEach(function(notif) {
+                                        // Only add notifications from OTHER users
+                                        var notifUserId = notif.user ? (notif.user.id || notif.user) : null;
+                                        if (notifUserId && String(notifUserId) !== String(currentUserId)) {
+                                            // Check if not already in local notifications
+                                            var exists = false;
+                                            var notifications = $localStorage.notifications || [];
+                                            for (var i = 0; i < notifications.length; i++) {
+                                                if (notifications[i].dbId === notif.id) {
+                                                    exists = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!exists) {
+                                                add({
+                                                    dbId: notif.id,
+                                                    icon: notif.icon,
+                                                    message: notif.message,
+                                                    state: notif.state || null,
+                                                    stateParams: notif.stateParams || null
+                                                });
+                                            }
+                                        }
+                                    });
+                                    lastPollTime = new Date().getTime();
+                                }
+                            });
+                    }, 15000);
+                }
+
+                function stopPolling() {
+                    if (pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                }
+
+                // Load recent notifications on init (for fresh login)
+                function loadInitialNotifications() {
+                    if (!$localStorage.credentials || !$localStorage.credentials.token) return;
+                    var $http = $injector.get('$http');
+                    // Only load notifications newer than last read time
+                    var since = $localStorage.lastNotifReadTime || (new Date().getTime() - (24 * 60 * 60 * 1000));
+                    $http.get('api/notifications', { params: { since: since } })
+                        .then(function(res) {
+                            if (res.data && res.data.length) {
+                                var currentUserId = $localStorage.credentials.user.id;
+                                res.data.forEach(function(notif) {
+                                    var notifUserId = notif.user ? (notif.user.id || notif.user) : null;
+                                    if (notifUserId && String(notifUserId) !== String(currentUserId)) {
+                                        var exists = false;
+                                        var notifications = $localStorage.notifications || [];
+                                        for (var i = 0; i < notifications.length; i++) {
+                                            if (notifications[i].dbId === notif.id) {
+                                                exists = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!exists) {
+                                            add({
+                                                dbId: notif.id,
+                                                icon: notif.icon,
+                                                message: notif.message,
+                                                state: notif.state || null,
+                                                stateParams: notif.stateParams || null
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                }
+
+                // Start polling only when authenticated
+                if ($localStorage.credentials && $localStorage.credentials.token) {
+                    startPolling();
+                    loadInitialNotifications();
+                }
+                $rootScope.$on('user.login', function() {
+                    lastPollTime = new Date().getTime() - (24 * 60 * 60 * 1000);
+                    loadInitialNotifications();
+                    startPolling();
+                });
 
                 return {
 

@@ -73,15 +73,39 @@
         }, function (newVal, oldVal) {
           if (oldVal !== newVal && newVal !== undefined) {
             $scope.notifications = newVal;
+            // Count unread
+            $scope.unreadCount = 0;
+            if (newVal) {
+              for (var i = 0; i < newVal.length; i++) {
+                if (!newVal[i].read) $scope.unreadCount++;
+              }
+            }
           }
-        })
+        }, true)
 
+        $scope.unreadCount = 0;
+        if ($scope.notifications) {
+          for (var i = 0; i < $scope.notifications.length; i++) {
+            if (!$scope.notifications[i].read) $scope.unreadCount++;
+          }
+        }
+
+        $scope.markAllRead = function() {
+          if ($localStorage.notifications) {
+            for (var i = 0; i < $localStorage.notifications.length; i++) {
+              $localStorage.notifications[i].read = true;
+            }
+            $scope.unreadCount = 0;
+            $localStorage.lastNotifReadTime = new Date().getTime();
+          }
+        }
 
         $scope.removeNotification = function (index) {
           NotificationsService.remove(index)
         }
 
         $scope.onClickNotification = function (notification, index) {
+          notification.read = true;
           if (notification.state) {
             $state.go(notification.state, notification.stateParams);
           }

@@ -25,24 +25,22 @@
 
                 <!-- NOTIFICATIONS DROPDOWN -->
                 <li data-ng-show="auth.isAuthenticated()" uib-dropdown auto-close="outsideClick" keyboard-nav>
-                    <a href uib-dropdown-toggle>
+                    <a href uib-dropdown-toggle ng-click="markAllRead()">
                         <i class="mdi mdi-bell-outline"></i>
-                        <span class="badge badge-danger" ng-show="notifications && notifications.length">{{notifications.length}}</span>
+                        <span class="badge badge-danger" ng-show="unreadCount > 0">{{unreadCount}}</span>
                     </a>
-                    <ul class="dropdown-menu notifications-dropdown-menu animated fadeInDownShort go" uib-dropdown-menu role="menu" aria-labelledby="simple-btn-keyboard-nav">
+                    <ul class="dropdown-menu notifications-dropdown-menu animated fadeInDownShort go" uib-dropdown-menu role="menu" style="min-width: 350px; max-width: 400px; max-height: 400px; overflow-y: auto; right: 0; left: auto;">
 
                         <li role="menuitem" ng-if="!notifications.length">
-                            <a>
+                            <a style="white-space: normal; padding: 10px 15px;">
                                 There are no notifications at this point...
                             </a>
                         </li>
-                        <li role="menuitem" ng-repeat="notification in notifications">
-                            <a class="clickable" ng-click="onClickNotification(notification, $index)" style="display: flex; align-items: center; justify-content: space-between;">
-                                <span style="flex: 1;">
-                                    <i class="mdi mdi-18px {{notification.icon || 'mdi-message'}} text-info"></i>&nbsp;
-                                    <span>{{notification.message}}</span>
-                                </span>
-                                <i class="mdi mdi-close clickable" ng-click="removeNotification($index); $event.stopPropagation();" style="margin-left: 10px;"></i>
+                        <li role="menuitem" ng-repeat="notification in notifications" style="border-bottom: 1px solid #f0f0f0;">
+                            <a class="clickable" ng-click="onClickNotification(notification, $index)" style="display: flex; align-items: flex-start; padding: 10px 15px; white-space: normal; cursor: pointer;" ng-style="{'opacity': notification.state ? 1 : 0.7}">
+                                <i class="mdi mdi-18px {{notification.icon || 'mdi-message'}} text-info" style="margin-top: 2px; margin-right: 8px; flex-shrink: 0;"></i>
+                                <span style="flex: 1; font-size: 12px; line-height: 1.4; word-wrap: break-word;">{{notification.message}}</span>
+                                <i class="mdi mdi-close text-muted clickable" ng-click="removeNotification($index); $event.stopPropagation();" style="margin-left: 8px; flex-shrink: 0;"></i>
                             </a>
                         </li>
 

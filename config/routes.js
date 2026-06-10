@@ -123,6 +123,8 @@ module.exports.routes = {
   'GET /api/comments': 'KongaCommentController.find',
   'PUT /api/comments/:id': 'KongaCommentController.update',
   'DELETE /api/comments/:id': 'KongaCommentController.destroy',
+  'GET /api/notifications': 'KongaNotificationController.find',
+  'POST /api/notifications': 'KongaNotificationController.create',
 
   // ApiHealthCheckController
   'DELETE /api/healthchecks/reset': 'ApiHealthCheckController.reset',

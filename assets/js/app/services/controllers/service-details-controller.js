@@ -25,7 +25,31 @@
         $scope.updateService = function () {
 
           $scope.loading = true
+          // Detect changed fields for notification
+          var changedFields = [];
           var data = angular.copy($scope.service);
+          var skip = ['id', 'data', 'created_at', 'updated_at', 'token', 'createdAt', 'updatedAt', 'createdUser', 'updatedUser', 'kong_node_id', 'service_id', 'extras'];
+          for (var key in data) {
+            if (data.hasOwnProperty(key) && skip.indexOf(key) < 0 && typeof data[key] !== 'function') {
+              if (JSON.stringify(data[key]) !== JSON.stringify(originalService[key])) {
+                changedFields.push(key.replace(/_/g, ' '));
+              }
+            }
+          }
+          $rootScope._changedFields = changedFields.length > 0 ? changedFields.slice(0, 3).join(', ') : '';
+
+          // Also check extras for konga-specific fields like description, tags
+          if (data.extras && originalService.extras) {
+            var extrasSkip = ['id', 'createdAt', 'updatedAt', 'createdUser', 'updatedUser', 'kong_node_id', 'service_id'];
+            for (var eKey in data.extras) {
+              if (data.extras.hasOwnProperty(eKey) && extrasSkip.indexOf(eKey) < 0 && typeof data.extras[eKey] !== 'function') {
+                if (JSON.stringify(data.extras[eKey]) !== JSON.stringify(originalService.extras[eKey])) {
+                  changedFields.push(eKey.replace(/_/g, ' '));
+                }
+              }
+            }
+            $rootScope._changedFields = changedFields.length > 0 ? changedFields.slice(0, 3).join(', ') : '';
+          }
 
           // workaround, name field creates constraint violation in v0.13.x when using Cassandra
           if (!isKongUsingPostgres() && originalService.name === data.name) {

@@ -52,6 +52,18 @@
         $scope.submit = function () {
 
           $scope.loading = true
+          // Detect changed fields for notification
+          var origRoute = _route.data || _route;
+          var changedFields = [];
+          var currentRoute = $scope.route;
+          for (var key in currentRoute) {
+            if (currentRoute.hasOwnProperty(key) && key !== 'id' && key !== 'data' && key !== 'created_at' && key !== 'updated_at' && typeof currentRoute[key] !== 'function') {
+              if (JSON.stringify(currentRoute[key]) !== JSON.stringify(origRoute[key])) {
+                changedFields.push(key.replace(/_/g, ' '));
+              }
+            }
+          }
+          $rootScope._changedFields = changedFields.length > 0 ? changedFields.slice(0, 3).join(', ') : '';
 
           let data = _.cloneDeep($scope.route);
 
