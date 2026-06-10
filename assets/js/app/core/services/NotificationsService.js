@@ -156,14 +156,15 @@
                 // Load recent notifications on init (for fresh login)
                 function loadInitialNotifications() {
                     if (!$localStorage.credentials || !$localStorage.credentials.token) return;
-                    // If no lastNotifReadTime exists (fresh session), set it to NOW
-                    // This means fresh sessions won't see old notifications
+                    var $http = $injector.get('$http');
+                    var isFirstLoad = !$localStorage.lastNotifReadTime;
+                    var since = $localStorage.lastNotifReadTime || (new Date().getTime() - (24 * 60 * 60 * 1000));
+                    
+                    // Set lastNotifReadTime for fresh sessions
                     if (!$localStorage.lastNotifReadTime) {
                         $localStorage.lastNotifReadTime = new Date().getTime();
-                        return;
                     }
-                    var $http = $injector.get('$http');
-                    var since = $localStorage.lastNotifReadTime;
+                    
                     $http.get('api/notifications', { params: { since: since } })
                         .then(function(res) {
                             if (res.data && res.data.length) {
@@ -180,12 +181,17 @@
                                             }
                                         }
                                         if (!exists) {
-                                            add({
+                                            if (!$localStorage.notifications) {
+                                                $localStorage.notifications = [];
+                                            }
+                                            $localStorage.notifications.unshift({
+                                                id: new Date().getTime(),
                                                 dbId: notif.id,
                                                 icon: notif.icon,
                                                 message: notif.message,
                                                 state: notif.state || null,
-                                                stateParams: notif.stateParams || null
+                                                stateParams: notif.stateParams || null,
+                                                read: isFirstLoad ? true : false
                                             });
                                         }
                                     }
