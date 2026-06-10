@@ -150,6 +150,15 @@
                 state: nav ? nav.state : null,
                 stateParams: nav ? nav.stateParams : null
               });
+
+              // Also save to backend so other users can see it
+              var $http = $injector.get('$http');
+              $http.post('api/notifications', {
+                message: message,
+                icon: icon,
+                state: nav ? nav.state : '',
+                stateParams: nav ? nav.stateParams : {}
+              });
             }
 
             return response;

@@ -16,8 +16,8 @@
 
     angular.module('frontend.core.services')
         .factory('NotificationsService', [
-            '$localStorage','$rootScope','MessageService','$state',
-            function factory($localStorage,$rootScope,MessageService,$state) {
+            '$localStorage','$rootScope','MessageService','$state','$injector',
+            function factory($localStorage,$rootScope,MessageService,$state,$injector) {
 
                 function createNavigatorNotification(message) {
                     Notification.requestPermission(function (permission) {
@@ -100,6 +100,59 @@
                         MessageService.error(data.message, null, toastOptions);
                     }
                 })
+
+                // Poll for new notifications from other users
+                var lastPollTime = new Date().getTime();
+                var pollInterval = null;
+
+                function startPolling() {
+                    if (pollInterval) return;
+                    pollInterval = setInterval(function() {
+                        var $http = $injector.get('$http');
+                        var AuthService = $injector.get('AuthService');
+                        if (!AuthService.isAuthenticated()) return;
+
+                        $http.get('api/notifications', { params: { since: lastPollTime } })
+                            .then(function(res) {
+                                if (res.data && res.data.length) {
+                                    var currentUserId = $localStorage.credentials ? $localStorage.credentials.user.id : null;
+                                    res.data.forEach(function(notif) {
+                                        // Only add notifications from OTHER users
+                                        var notifUserId = notif.user ? (notif.user.id || notif.user) : null;
+                                        if (notifUserId && String(notifUserId) !== String(currentUserId)) {
+                                            // Check if not already in local notifications
+                                            var exists = false;
+                                            var notifications = $localStorage.notifications || [];
+                                            for (var i = 0; i < notifications.length; i++) {
+                                                if (notifications[i].message === notif.message && notifications[i].id === notif.id) {
+                                                    exists = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!exists) {
+                                                add({
+                                                    id: notif.id,
+                                                    icon: notif.icon,
+                                                    message: notif.message,
+                                                    state: notif.state || null,
+                                                    stateParams: notif.stateParams || null
+                                                });
+                                            }
+                                        }
+                                    });
+                                    lastPollTime = new Date().getTime();
+                                }
+                            });
+                    }, 15000);
+                }
+
+                // Start polling when user is authenticated
+                if ($localStorage.credentials) {
+                    startPolling();
+                }
+                $rootScope.$on('user.login', function() {
+                    startPolling();
+                });
 
                 return {
 
