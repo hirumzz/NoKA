@@ -96,6 +96,7 @@
               $localStorage.notifications[i].read = true;
             }
             $scope.unreadCount = 0;
+            $localStorage.lastNotifReadTime = new Date().getTime();
           }
         }
 

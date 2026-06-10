@@ -157,8 +157,8 @@
                 function loadInitialNotifications() {
                     if (!$localStorage.credentials || !$localStorage.credentials.token) return;
                     var $http = $injector.get('$http');
-                    // Load last 20 notifications from past 24 hours
-                    var since = new Date().getTime() - (24 * 60 * 60 * 1000);
+                    // Only load notifications newer than last read time
+                    var since = $localStorage.lastNotifReadTime || (new Date().getTime() - (24 * 60 * 60 * 1000));
                     $http.get('api/notifications', { params: { since: since } })
                         .then(function(res) {
                             if (res.data && res.data.length) {
