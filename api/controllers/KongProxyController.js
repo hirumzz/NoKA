@@ -35,11 +35,22 @@ var self = module.exports = {
       var userId = req.token;
       if (userId && userId !== 'noauth') {
         return sails.models.user.findOne({ id: userId }).exec(function(err, user) {
-          if (err || !user || (!user.admin && user.role !== 'admin')) {
-            return res.forbidden({
-              message: 'Forbidden - You do not have permission to perform this action.'
-            });
+          if (err || !user) {
+            return res.forbidden({ message: 'Forbidden - User not found.' });
           }
+
+          var role = user.role || (user.admin ? 'admin' : 'viewer');
+
+          // Viewers and commenters cannot perform any write operations on Kong
+          if (role === 'viewer' || role === 'commenter') {
+            return res.forbidden({ message: 'Forbidden - You do not have permission to perform this action.' });
+          }
+
+          // Developers can create and update, but cannot delete
+          if (role === 'developer' && req.method.toLowerCase() === 'delete') {
+            return res.forbidden({ message: 'Forbidden - Developers cannot delete resources.' });
+          }
+
           return proceed();
         });
       }

@@ -56,6 +56,11 @@ module.exports = function updateUser(request, response, next) {
         } else if (user.admin || user.role === 'admin') {
           next();
         } else {
+            // Non-admin users can only update their own profile
+            var targetUserId = request.param('id');
+            if (targetUserId && String(targetUserId) !== String(user.id)) {
+              return response.forbidden({ message: 'Forbidden - Only admins can modify other users.' });
+            }
             // Remove the `admin` and `role` properties from the request body so they cannot be tampered
             delete request.body.admin;
             delete request.body.role;

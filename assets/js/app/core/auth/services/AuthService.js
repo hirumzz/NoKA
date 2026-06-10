@@ -42,11 +42,20 @@
             }
 
             var role = user.role || (user.admin ? 'admin' : 'viewer');
+
+            // Admin has full access
             if (role === 'admin') {
               return true;
             }
 
-            // For non-admin (viewer and commenter), only 'read' is allowed
+            // Developer: can create and update, but cannot delete. Cannot manage users.
+            if (role === 'developer') {
+              if (context === 'users' && action !== 'read') return false;
+              if (action === 'delete') return false;
+              return true;
+            }
+
+            // Read is always allowed for authenticated users
             if (action === 'read') {
               return true;
             }
@@ -56,6 +65,7 @@
               return true;
             }
 
+            // Viewer and commenter: no other write permissions
             return false;
           },
 
