@@ -158,11 +158,20 @@
                       data: $scope.prometheus && $scope.prometheus.topHits ? $scope.prometheus.topHits.map(function(item) { return item.hits; }) : [],
                       series: ['Hits'],
                       options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          legend: { display: false },
                           scales: {
                               xAxes: [{
                                   ticks: {
                                       beginAtZero: true,
                                       min: 0
+                                  },
+                                  scaleLabel: { display: false }
+                              }],
+                              yAxes: [{
+                                  ticks: {
+                                      fontSize: 10
                                   }
                               }]
                           }
@@ -173,11 +182,20 @@
                       data: $scope.prometheus && $scope.prometheus.slowestEndpoints ? $scope.prometheus.slowestEndpoints.map(function(item) { return item.avgLatency; }) : [],
                       series: ['Avg Latency (ms)'],
                       options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          legend: { display: false },
                           scales: {
                               xAxes: [{
                                   ticks: {
                                       beginAtZero: true,
                                       min: 0
+                                  },
+                                  scaleLabel: { display: true, labelString: 'Avg Latency (ms)', fontSize: 10 }
+                              }],
+                              yAxes: [{
+                                  ticks: {
+                                      fontSize: 10
                                   }
                               }]
                           }
