@@ -11,7 +11,7 @@
 <!--</div>-->
 <div class="row">
     <div class="col-md-12 actions">
-        <button class="btn btn-primary pull-left" ng-click="createNode()" ng-if="user.admin">
+        <button class="btn btn-primary pull-left" ng-click="createNode()" ng-if="user.hasPermission('connections','create')">
             <i class="mdi mdi-plus"></i>
             new connection
         </button>

@@ -48,9 +48,11 @@
               return true;
             }
 
-            // Developer: can create and update, but cannot delete. Cannot manage users.
+            // Developer: can create and update, but cannot delete. Cannot manage users or create connections.
             if (role === 'developer') {
               if (context === 'users' && action !== 'read') return false;
+              if (context === 'connections' && action === 'create') return false;
+              if (context === 'connections' && action === 'delete') return false;
               if (action === 'delete') return false;
               return true;
             }
@@ -58,6 +60,11 @@
             // Read is always allowed for authenticated users
             if (action === 'read') {
               return true;
+            }
+
+            // Commenter and viewer cannot manage connections
+            if (context === 'connections' && action !== 'read') {
+              return false;
             }
 
             // Commenter can add comments
