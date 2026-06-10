@@ -148,7 +148,18 @@
           $scope.isOpen = false;
         }
 
-        console.log("FooterController:user =>", $scope.user)
+        // Keep user data in sync
+        $scope.$on('user.updated', function() {
+          $scope.user = UserService.user();
+        });
+        $scope.$on('user.node.updated', function() {
+          $scope.user = UserService.user();
+        });
+        $scope.$watch(function() {
+          return $localStorage.credentials ? $localStorage.credentials.user : null;
+        }, function(newVal) {
+          if (newVal) $scope.user = UserService.user();
+        }, true);
 
 
         function _fetchConnections() {
