@@ -96,8 +96,9 @@
             var isKongWrite = url.indexOf('kong/') > -1 && (method === 'post' || method === 'patch' || method === 'put' || method === 'delete');
             var isCommentWrite = url.indexOf('api/comments') > -1 && (method === 'post' || method === 'put' || method === 'delete');
             var isUserWrite = (url.indexOf('/user/') > -1 || url.indexOf('/api/user') > -1) && url.indexOf('subscribe') < 0 && url.indexOf('node') < 0 && (method === 'post' || method === 'put' || method === 'delete');
+            var isConnectionWrite = url.indexOf('api/kongnode') > -1 && url.indexOf('subscribe') < 0 && url.indexOf('healthcheck') < 0 && (method === 'post' || method === 'put' || method === 'delete');
 
-            if (isKongWrite || isCommentWrite || isUserWrite) {
+            if (isKongWrite || isCommentWrite || isUserWrite || isConnectionWrite) {
               var NotificationsService = $injector.get('NotificationsService');
               var username = getCurrentUsername();
               var action = getActionLabel(method);
@@ -111,6 +112,12 @@
                 icon = getEntityIcon('comment');
                 // Always navigate to the resource for comments (even after delete)
                 nav = getNavState(refType + 's', refId, 'view');
+
+              } else if (isConnectionWrite) {
+                var connName = response.data ? (response.data.name || '') : '';
+                message = username + ' ' + action + ' connection' + (connName ? " '" + connName + "'" : '');
+                icon = 'mdi-cast-connected';
+                nav = { state: 'connections', stateParams: {} };
 
               } else if (isUserWrite) {
                 var uname = response.data ? (response.data.username || response.data.email || '') : '';
