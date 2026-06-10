@@ -108,9 +108,9 @@
                 function startPolling() {
                     if (pollInterval) return;
                     pollInterval = setInterval(function() {
+                        if (!$localStorage.credentials || !$localStorage.credentials.token) return;
+
                         var $http = $injector.get('$http');
-                        var AuthService = $injector.get('AuthService');
-                        if (!AuthService.isAuthenticated()) return;
 
                         $http.get('api/notifications', { params: { since: lastPollTime } })
                             .then(function(res) {
@@ -124,14 +124,14 @@
                                             var exists = false;
                                             var notifications = $localStorage.notifications || [];
                                             for (var i = 0; i < notifications.length; i++) {
-                                                if (notifications[i].message === notif.message && notifications[i].id === notif.id) {
+                                                if (notifications[i].dbId === notif.id) {
                                                     exists = true;
                                                     break;
                                                 }
                                             }
                                             if (!exists) {
                                                 add({
-                                                    id: notif.id,
+                                                    dbId: notif.id,
                                                     icon: notif.icon,
                                                     message: notif.message,
                                                     state: notif.state || null,
@@ -146,11 +146,57 @@
                     }, 15000);
                 }
 
-                // Start polling when user is authenticated
-                if ($localStorage.credentials) {
+                function stopPolling() {
+                    if (pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                }
+
+                // Load recent notifications on init (for fresh login)
+                function loadInitialNotifications() {
+                    if (!$localStorage.credentials || !$localStorage.credentials.token) return;
+                    var $http = $injector.get('$http');
+                    // Load last 20 notifications from past 24 hours
+                    var since = new Date().getTime() - (24 * 60 * 60 * 1000);
+                    $http.get('api/notifications', { params: { since: since } })
+                        .then(function(res) {
+                            if (res.data && res.data.length) {
+                                var currentUserId = $localStorage.credentials.user.id;
+                                res.data.forEach(function(notif) {
+                                    var notifUserId = notif.user ? (notif.user.id || notif.user) : null;
+                                    if (notifUserId && String(notifUserId) !== String(currentUserId)) {
+                                        var exists = false;
+                                        var notifications = $localStorage.notifications || [];
+                                        for (var i = 0; i < notifications.length; i++) {
+                                            if (notifications[i].dbId === notif.id) {
+                                                exists = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!exists) {
+                                            add({
+                                                dbId: notif.id,
+                                                icon: notif.icon,
+                                                message: notif.message,
+                                                state: notif.state || null,
+                                                stateParams: notif.stateParams || null
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                }
+
+                // Start polling only when authenticated
+                if ($localStorage.credentials && $localStorage.credentials.token) {
                     startPolling();
+                    loadInitialNotifications();
                 }
                 $rootScope.$on('user.login', function() {
+                    lastPollTime = new Date().getTime() - (24 * 60 * 60 * 1000);
+                    loadInitialNotifications();
                     startPolling();
                 });
 
