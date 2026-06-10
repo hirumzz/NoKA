@@ -38,7 +38,7 @@ var defaultModel = _.merge(_.cloneDeep(require('../base/Model')), {
     },
     role: {
       type: 'string',
-      enum: ['admin', 'viewer', 'commenter'],
+      enum: ['admin', 'developer', 'viewer', 'commenter'],
       defaultsTo: 'admin'
     },
     firstName: {
