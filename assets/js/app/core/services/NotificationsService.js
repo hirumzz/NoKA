@@ -156,9 +156,14 @@
                 // Load recent notifications on init (for fresh login)
                 function loadInitialNotifications() {
                     if (!$localStorage.credentials || !$localStorage.credentials.token) return;
+                    // If no lastNotifReadTime exists (fresh session), set it to NOW
+                    // This means fresh sessions won't see old notifications
+                    if (!$localStorage.lastNotifReadTime) {
+                        $localStorage.lastNotifReadTime = new Date().getTime();
+                        return;
+                    }
                     var $http = $injector.get('$http');
-                    // Only load notifications newer than last read time
-                    var since = $localStorage.lastNotifReadTime || (new Date().getTime() - (24 * 60 * 60 * 1000));
+                    var since = $localStorage.lastNotifReadTime;
                     $http.get('api/notifications', { params: { since: since } })
                         .then(function(res) {
                             if (res.data && res.data.length) {
