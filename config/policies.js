@@ -103,7 +103,7 @@ module.exports.policies = {
     'find': ['authenticated'],
     'findOne': ['authenticated'],
     'create': ['authenticated', 'isAdmin', 'addDataCreate'],
-    'update': ['authenticated', 'isAdmin', 'addDataUpdate'],
+    'update': ['authenticated', 'isAdminOrDeveloper', 'addDataUpdate'],
     'destroy': ['authenticated', 'isAdmin'],
     'add': ['authenticated', 'isAdmin'],
     'remove': ['authenticated', 'isAdmin']
