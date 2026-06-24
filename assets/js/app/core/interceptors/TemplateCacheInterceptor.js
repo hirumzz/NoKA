@@ -8,7 +8,8 @@
         return {
           request: function( config ) {
             if( config.url.indexOf( ".html") > -1) {
-              config.url += '?' + new Date().getTime
+              var version = window.konga_version || new Date().getTime();
+              config.url += '?v=' + version;
             }
             return config;
           }

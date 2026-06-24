@@ -90,7 +90,7 @@
         $httpProvider.interceptors.push('timeoutHttpIntercept');
         //$httpProvider.interceptors.push('CsrfInterceptor');
 
-        //$httpProvider.interceptors.push('TemplateCacheInterceptor');
+        $httpProvider.interceptors.push('TemplateCacheInterceptor');
         $httpProvider.interceptors.push('KongaInterceptor');
 
         // Iterate $httpProvider interceptors and add those to $sailsSocketProvider
