@@ -95,7 +95,7 @@ services:
       PORT: 1337
       KONGA_LOG_LEVEL: debug
     ports:
-      - "13370:1337"
+      - "13380:1337"
     volumes:
       - noka-data:/app/kongadata
     depends_on:
