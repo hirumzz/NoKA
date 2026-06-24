@@ -22,6 +22,43 @@ module.exports.http = {
    *                                                                           *
    ****************************************************************************/
   middleware: {
+    protectStatic: function(req, res, next) {
+      if (process.env.NO_AUTH === 'true') {
+        return next();
+      }
+
+      var path = (req.path || req.url || '').toLowerCase();
+      // Protect any client-side assets under /js/app/ except app.js and core framework files (auth/layout/etc)
+      if (path.startsWith('/js/app/') && !path.startsWith('/js/app/core/') && path !== '/js/app/app.js') {
+        var token = '';
+        if (req.headers && req.headers.authorization) {
+          var parts = req.headers.authorization.split(' ');
+          if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
+            token = parts[1];
+          }
+        } else if (req.query && req.query.token) {
+          token = req.query.token;
+        }
+
+        if (!token) {
+          return res.status(401).json({ message: 'Authorization token is required' });
+        }
+
+        if (typeof sails !== 'undefined' && sails.services && sails.services.token) {
+          sails.services.token.verify(token, function(err, decoded) {
+            if (err || decoded === -1) {
+              return res.status(401).json({ message: 'Invalid authorization token' });
+            }
+            return next();
+          });
+        } else {
+          return res.status(500).json({ message: 'Sails token service not initialized' });
+        }
+      } else {
+        return next();
+      }
+    },
+
     /***************************************************************************
      *                                                                          *
      * The order in which middleware should be run for HTTP request. (the Sails *
@@ -39,6 +76,7 @@ module.exports.http = {
       'poweredBy',
       '$custom',
       'router',
+      'protectStatic',
       'www',
       'favicon',
       '404',

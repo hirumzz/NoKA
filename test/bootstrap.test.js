@@ -23,7 +23,7 @@ before(function before(next) {
                 connection: 'localDiskDb',
                 migrate: 'drop'
             },
-            port: 1336,
+            port: 23366,
             environment: 'test',
             log: {
                 level: 'error'

@@ -41,6 +41,8 @@ spec:
               value: "production"
             - name: PORT
               value: "1337"
+            - name: TOKEN_SECRET
+              value: "some_secure_token_secret"
           readinessProbe:
             httpGet:
               path: /

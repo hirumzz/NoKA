@@ -7,6 +7,24 @@
  */
 var jwt = require('jsonwebtoken');
 var moment = require('moment');
+var crypto = require('crypto');
+
+var fallbackSecret = '';
+
+function getSecret() {
+    if (process.env.TOKEN_SECRET) {
+        return process.env.TOKEN_SECRET;
+    }
+    if (!fallbackSecret) {
+        fallbackSecret = crypto.randomBytes(64).toString('hex');
+        if (typeof sails !== 'undefined' && sails.log && typeof sails.log.warn === 'function') {
+            sails.log.warn('Warning: process.env.TOKEN_SECRET is not configured. A secure random token secret has been generated for this session. Existing sessions will be invalidated if the server restarts.');
+        } else {
+            console.warn('Warning: process.env.TOKEN_SECRET is not configured. A secure random token secret has been generated.');
+        }
+    }
+    return fallbackSecret;
+}
 
 /**
  * Service method to generate a new token based on payload we want to put on it.
@@ -20,7 +38,7 @@ module.exports.issue = function issue(payload) {
 
     return jwt.sign(
         payload, // This is the payload we want to put inside the token
-        process.env.TOKEN_SECRET || "oursecret" // Secret string which will be used to sign the token
+        getSecret() // Secret string which will be used to sign the token
     );
 };
 
@@ -60,7 +78,7 @@ module.exports.verify = function verify(token, next) {
 
     return jwt.verify(
         token, // The token to be verified
-        process.env.TOKEN_SECRET || "oursecret", // The secret we used to sign it.
+        getSecret(), // The secret we used to sign it.
         {}, // Options, none in this case
         next // The callback to be call when the verification is done.
     );
