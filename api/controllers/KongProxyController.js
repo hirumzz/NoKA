@@ -81,11 +81,14 @@ var self = module.exports = {
 
       // Assign Konga correlations to a var if set in the request
       var konga_extras;
-      if(req.body && req.body.extras) {
-        konga_extras = req.body.extras;
-        // Remove the correlations attribute so that we don't break the request to Kong.
-        // If we need them later, they will be available in the `konga_extras` var
-        delete req.body.extras;
+      if(req.body) {
+        if(req.body.extras) {
+          konga_extras = req.body.extras;
+          // Remove the correlations attribute so that we don't break the request to Kong.
+          // If we need them later, they will be available in the `konga_extras` var
+          delete req.body.extras;
+        }
+        delete req.body._readOnly;
       }
 
       // Set the appropriate request headers
