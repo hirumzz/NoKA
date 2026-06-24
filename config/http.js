@@ -28,8 +28,8 @@ module.exports.http = {
       }
 
       var path = (req.path || req.url || '').toLowerCase();
-      // Protect any client-side assets under /js/app/ except app.js and core framework files (auth/layout/etc)
-      if (path.startsWith('/js/app/') && !path.startsWith('/js/app/core/') && path !== '/js/app/app.js') {
+      // Only protect HTML template files under /js/app/ (excluding core framework templates)
+      if (path.startsWith('/js/app/') && path.endsWith('.html') && !path.startsWith('/js/app/core/')) {
         var token = '';
         if (req.headers && req.headers.authorization) {
           var parts = req.headers.authorization.split(' ');
