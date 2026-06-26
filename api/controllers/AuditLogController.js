@@ -16,7 +16,23 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
       return res.forbidden({ message: 'Forbidden - Unauthorized client origin.' });
     }
 
-    // Call base find action
-    return this.find(req, res);
+    var actionUtil = require('sails/lib/hooks/blueprints/actionUtil');
+
+    var criteria = actionUtil.parseCriteria(req);
+    console.log("AUDIT LOG CRITERIA:", criteria);
+
+    sails.models.auditlog.find()
+      .where(criteria)
+      .limit(actionUtil.parseLimit(req))
+      .skip(actionUtil.parseSkip(req))
+      .sort(actionUtil.parseSort(req))
+      .exec(function(err, records) {
+        if (err) {
+          console.error("AUDIT LOG ERROR:", err);
+          return res.negotiate(err);
+        }
+        console.log("AUDIT LOG RECORDS:", records);
+        return res.json(records);
+      });
   }
 });

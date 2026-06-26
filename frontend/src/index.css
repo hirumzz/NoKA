@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Curated Premium Dark Mode HSL Palette */
+  --color-brand-primary: hsl(250, 85%, 58%);
+  --color-brand-primary-hover: hsl(250, 85%, 65%);
+  --color-brand-secondary: hsl(280, 80%, 55%);
+  --color-brand-accent: hsl(340, 85%, 60%);
+  
+  --color-bg-dark: hsl(224, 71%, 4%);
+  --color-surface-dark: hsl(224, 71%, 7%);
+  --color-card-dark: hsl(224, 71%, 10%);
+  --color-card-dark-hover: hsl(224, 71%, 14%);
+  --color-border-dark: hsl(224, 30%, 18%);
+  --color-text-primary: hsl(0, 0%, 98%);
+  --color-text-secondary: hsl(215, 20%, 65%);
+  --color-text-muted: hsl(215, 15%, 45%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(224, 71%, 4%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(224, 30%, 18%);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(250, 85%, 58%);
+}
+
+body {
+  background-color: hsl(224, 71%, 4%);
+  color: hsl(0, 0%, 98%);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility card */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}

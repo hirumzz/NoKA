@@ -3,14 +3,14 @@
 
   angular.module('frontend.audit-logs')
     .controller('AuditLogsController', [
-      '$scope', '$log', '$state', 'ApiService',
-      function controller($scope, $log, $state, ApiService) {
+      '$scope', '$log', '$state', '$http',
+      function controller($scope, $log, $state, $http) {
         $scope.logs = [];
         $scope.loading = true;
 
         $scope.fetchLogs = function() {
           $scope.loading = true;
-          ApiService.get('/api/auditlogs?sort=createdAt DESC&limit=100')
+          $http.get('/api/auditlogs?sort=createdAt DESC&limit=100')
             .then(function(response) {
               $scope.logs = response.data;
               $scope.loading = false;
