@@ -5,6 +5,41 @@ NoKA is an elegant, redesigned, and improved administration GUI for [Kong Admin 
 > [!NOTE]
 > This project is a customized fork of the original [Konga](https://github.com/pantsel/konga) project by **Panagis Tselentis (pantsel)**. It has been redesigned and enhanced with modern features for team collaboration and secure API gateway management.
 
+---
+
+## 🚀 Architectural Revamp (Go & React / TypeScript)
+
+On this branch (`feature/revamp`), NoKA is undergoing a major architectural modernization to replace the legacy Sails.js and AngularJS stack:
+
+- **Backend (`/backend`)**: Built with **Go**, using **Gin** (HTTP router) and **GORM** (PostgreSQL/SQLite ORM) for maximum speed, security, and type safety.
+- **Frontend (`/frontend`)**: Built with **React**, **TypeScript**, **Vite** (bundler), and **TailwindCSS v4** (modern CSS framework) for a premium dark-mode dashboard experience.
+
+### Modern Directory Structure
+- `/backend` - Go server source files, database connectors, JWT auth middlewares, and proxy routers.
+- `/frontend` - Vite configuration, React context providers, Layout wraps, and SPA views.
+- `/` - Legacy Sails/AngularJS code (for backward compatibility / references).
+
+### Quick Start (Revamped Version)
+
+#### 1. Run Go Backend
+Make sure you have Go installed (`go1.26+` recommended), then run:
+```bash
+cd backend
+go run main.go
+```
+The backend server runs on port `1337` by default. It reads database configuration credentials from the `.env` file in the parent directory.
+
+#### 2. Run React Frontend
+Open another terminal and run:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Access the modern developer console at: http://localhost:3000
+
+---
+
 ## Key Features
 
 ### Role-Based Access Control (RBAC)
@@ -56,7 +91,7 @@ Four user roles with granular permissions:
 - **Node.js**: 12.x (12.16 LTS recommended for Docker builds)
 - **Databases**: PostgreSQL (recommended), MySQL, MongoDB
 
-## Quick Start (Docker)
+## Quick Start (Legacy Docker Version)
 
 ```bash
 git clone https://github.com/hirumzz/NoKA.git
@@ -78,15 +113,7 @@ cat db-existing/konga.sql | docker compose exec -T kong-database psql -U kong -d
 docker compose restart noka
 ```
 
-## Installation (from source)
-
-```bash
-git clone https://github.com/hirumzz/NoKA.git
-cd NoKA
-npm install
-```
-
-## Configuration
+## Configuration (Legacy)
 
 Copy `.env_example` to `.env` and configure:
 
@@ -98,35 +125,10 @@ DB_URI=postgresql://user:pass@host:5432/dbname
 TOKEN_SECRET=your-secret-key
 ```
 
-## Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `1337` |
-| `NODE_ENV` | Environment | `development` |
-| `DB_ADAPTER` | Database adapter (`postgres`, `mysql`, `mongo`) | `localDiskDb` |
-| `DB_URI` | Database connection URI | - |
-| `TOKEN_SECRET` | JWT secret for auth tokens | `oursecret` |
-| `NO_AUTH` | Disable authentication | `false` |
-| `BASE_URL` | Base URL path for reverse proxy | - |
-| `KONGA_LOG_LEVEL` | Log level | `debug` |
-
-## Running NoKA
-
-```bash
-# Development
-npm start
-
-# Production
-node --harmony app.js --prod
-```
-
 ## Used Libraries
-- [Sails.js](http://sailsjs.org/) — Backend framework
-- [AngularJS](https://angularjs.org/) — Frontend framework
-- [Bootstrap 3](https://getbootstrap.com/docs/3.4/) — CSS framework
-- [Socket.IO](https://socket.io/) — Real-time communication
-- [Chart.js](https://www.chartjs.org/) — Dashboard charts
+- **Go Backend**: Gin, GORM, Bcrypt, JWT-Go, GoDotEnv.
+- **React Frontend**: Vite, React Router, TailwindCSS v4, Lucide Icons, Axios.
+- **Legacy Stack**: Sails.js, AngularJS, Bootstrap 3, Socket.IO, Chart.js.
 
 ## License
 
