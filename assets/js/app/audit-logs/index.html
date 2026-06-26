@@ -1,0 +1,51 @@
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title">Audit Logs (Write Actions)</h4>
+                <p class="category">Logs of all POST, PATCH, PUT, and DELETE operations proxied to Kong Gateway.</p>
+            </div>
+            <div class="card-content table-responsive">
+                <div ng-if="loading" class="text-center pad-all">
+                    <h5>Loading logs...</h5>
+                </div>
+                <table ng-if="!loading" class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>IP Address</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Entity</th>
+                            <th>Kong Path</th>
+                            <th>Node</th>
+                            <th>Payload</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="log in logs">
+                            <td>{{log.createdAt | date:'yyyy-MM-dd HH:mm:ss'}}</td>
+                            <td><code>{{log.ip_address}}</code></td>
+                            <td>{{log.username}}</td>
+                            <td>
+                                <span class="label" ng-class="{'label-success': log.action==='POST', 'label-warning': log.action==='PATCH'||log.action==='PUT', 'label-danger': log.action==='DELETE'}">
+                                    {{log.action}}
+                                </span>
+                            </td>
+                            <td><code>{{log.entity}}</code></td>
+                            <td><code>{{log.url}}</code></td>
+                            <td>{{log.kong_node_name}}</td>
+                            <td>
+                                <pre style="max-height: 80px; font-size: 11px;" ng-if="log.payload">{{log.payload | json}}</pre>
+                                <span class="text-muted" ng-if="!log.payload">None</span>
+                            </td>
+                        </tr>
+                        <tr ng-if="!logs.length">
+                            <td colspan="8" class="text-center text-muted">No write actions logged yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

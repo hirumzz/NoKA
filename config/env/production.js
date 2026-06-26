@@ -48,7 +48,7 @@ module.exports = {
   },
 
   // Keep data of response errors in production mode
-  keepResponseErrors : true
+  keepResponseErrors : false
 
 
 };

@@ -7,7 +7,7 @@
       function() {
         return {
           request: function( config ) {
-            if( config.url.indexOf( ".html") > -1) {
+            if (config.url.indexOf(".html") > -1 && config.url.indexOf("js/app/") > -1) {
               var version = window.konga_version || new Date().getTime();
               config.url += '?v=' + version;
             }

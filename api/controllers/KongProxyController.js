@@ -169,6 +169,40 @@ var self = module.exports = {
         return res.negotiate(response);
       }
 
+      // Save to Audit Log for successful write operations (POST, PUT, PATCH, DELETE)
+      if (req.method.toLowerCase() !== 'get') {
+        var clientIp = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || (req.socket && req.socket.remoteAddress) || '127.0.0.1';
+        var username = 'anonymous';
+        var userId = req.token;
+
+        var saveLog = function(usrName) {
+          sails.models.auditlog.create({
+            ip_address: clientIp,
+            user_id: userId && userId !== 'noauth' ? parseInt(userId) : null,
+            username: usrName,
+            action: req.method,
+            entity: entity || 'unknown',
+            url: req.url,
+            payload: req.body || null,
+            kong_node_name: req.connection ? req.connection.name : ''
+          }).exec(function(err, created) {
+            if (err) {
+              sails.log.error("Failed to save audit log:", err);
+            }
+          });
+        };
+
+        if (userId && userId !== 'noauth') {
+          sails.models.user.findOne({ id: userId }).exec(function(err, user) {
+            if (!err && user) {
+              username = user.username || user.email || 'user-' + userId;
+            }
+            saveLog(username);
+          });
+        } else {
+          saveLog(username);
+        }
+      }
 
       // Apply after Hooks
       switch(req.method.toLowerCase()) {
@@ -204,6 +238,10 @@ var self = module.exports = {
   },
 
   prometheusMetrics: function (req, res) {
+    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.header('Expires', '-1');
+    res.header('Pragma', 'no-cache');
+
     if (!req.connection) {
       return res.badRequest({
         message: 'No Kong connection is defined'

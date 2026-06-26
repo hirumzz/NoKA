@@ -435,6 +435,15 @@
             access: AccessLevels.admin
           },
           {
+            state: 'audit-logs',
+            icon: 'mdi-format-list-bulleted',
+            show: function () {
+              return AuthService.authorize(AccessLevels.admin);
+            },
+            title: 'Audit Logs',
+            access: AccessLevels.admin
+          },
+          {
             state: 'help',
             icon: 'mdi-help-circle',
             show: function () {

@@ -165,6 +165,10 @@ module.exports.policies = {
     "*": ['authenticated', 'dynamicNode']
   },
 
+  AuditLogController: {
+    '*': ['authenticated', 'isAdmin']
+  },
+
   KongaCommentController: {
     '*': ['authenticated']
   },

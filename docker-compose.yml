@@ -96,7 +96,7 @@ services:
       KONGA_LOG_LEVEL: debug
       TOKEN_SECRET: "some_secure_token_secret"
     ports:
-      - "13380:1337"
+      - "13337:1337"
     volumes:
       - noka-data:/app/kongadata
     depends_on:

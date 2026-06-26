@@ -40,5 +40,10 @@ module.exports = function serverError(data, options) {
   }
 
   // Backend will always response JSON
+  if (sails.config.keepResponseErrors === false) {
+    return res.jsonx({
+      message: 'An unexpected error occurred.'
+    });
+  }
   return res.jsonx(data);
 };

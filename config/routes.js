@@ -133,6 +133,7 @@ module.exports.routes = {
   'GET /api/kong_plugins/list': 'KongPluginsController.list',
   'GET /api/schemas/authentication': 'KongSchemasController.authentication',
   'GET /api/kong/prometheus-metrics': 'KongProxyController.prometheusMetrics',
+  'GET /api/auditlogs': 'AuditLogController.find',
 
 
   // Consumer portal

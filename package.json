@@ -1,6 +1,6 @@
 {
   "name": "noka",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Nocta Kong Admin - Elegant Kong GUI",
   "keywords": [
     "sails.js",
@@ -38,7 +38,6 @@
     "mkdirp": "^0.5.5",
     "moment": "^2.25.1",
     "node-cron": "^1.2.1",
-    "node-sass": "^4.13.1",
     "nodemailer": "^4.7.0",
     "nodemailer-mailgun-transport": "^1.4.0",
     "passport": "0.3.0",
@@ -51,11 +50,17 @@
     "sails-mysql": "^0.11.5",
     "sails-postgresql": "^0.12.2",
     "sails-sqlserver": "^0.10.8",
+    "sass": "^1.77.0",
     "sendmail": "^1.6.1",
     "socket.io-redis": "~1.0.0",
     "unirest": "git+https://git@github.com/pantsel/unirest-nodejs.git#master",
     "uuid": "^3.4.0",
     "validator": "4.2.1"
+  },
+  "overrides": {
+    "sails-postgresql": {
+      "pg": "^8.11.0"
+    }
   },
   "devDependencies": {
     "chai": "3.4.0",

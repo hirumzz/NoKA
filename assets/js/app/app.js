@@ -30,7 +30,8 @@
     'frontend.vaults',
     'frontend.keys',
     'frontend.key-sets',
-    'frontend.help'
+    'frontend.help',
+    'frontend.audit-logs'
 
   ]);
 
