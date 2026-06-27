@@ -127,3 +127,7 @@ nbproject
 /seeds/
 /seeds/
 flow_analysis.md
+db-existing/
+AUDIT_REPORT.md
+*.exe
+backend/konga-backend.exe
