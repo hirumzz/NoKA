@@ -111,7 +111,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     try {
       const response = await axios.get('/api/connections');
       setConnections(response.data);
-      const active = response.data.find((c: ConnectionNode) => c.active === true);
+      const active = response.data.find((c: ConnectionNode) => c.id === user?.node) ||
+                     response.data.find((c: ConnectionNode) => c.active === true);
       if (active) {
         setActiveNode(active);
       }
@@ -174,12 +175,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <aside className="w-60 bg-brand-royal text-brand-mint flex flex-col z-20 shrink-0">
         {/* Brand Header */}
         <div className="h-16 flex items-center gap-3 px-6 bg-brand-royal-dark border-b border-white/5">
-          <img src="/conga.svg" alt="NOKA Logo" className="w-8 h-8 object-contain" />
           <div className="flex flex-col">
-            <span className="font-extrabold text-lg tracking-wider text-brand-primary font-montserrat leading-none">
+            <span className="font-extrabold text-xl tracking-wider text-brand-primary font-montserrat leading-none">
               NOKA
             </span>
-            <span className="text-[9px] text-white/40 tracking-wide font-medium mt-1 uppercase">
+            <span className="text-[9px] text-brand-mint/75 tracking-wide font-medium mt-1.5 uppercase">
               Nocta Kong Admin
             </span>
           </div>

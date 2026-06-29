@@ -55,20 +55,38 @@ func ResolveKongNode() gin.HandlerFunc {
 
 			user := userVal.(*models.User)
 			if user.Node == nil {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "No connection is selected. Please activate a connection in settings",
-				})
-				c.Abort()
-				return
-			}
-
-			// Load user's default node
-			if err := db.DB.First(&node, *user.Node).Error; err != nil {
-				// Clear user active node reference in DB
-				db.DB.Model(user).Update("node", nil)
-				c.JSON(http.StatusNotFound, gin.H{"message": "The selected active connection node no longer exists. Please go to Connections settings and select a valid connection."})
-				c.Abort()
-				return
+				// Fallback: check if there is a globally active node in the database
+				var activeNode models.KongNode
+				if err := db.DB.Where("active = ?", true).First(&activeNode).Error; err == nil {
+					nodeID := activeNode.ID
+					db.DB.Model(user).Update("node", nodeID)
+					user.Node = &nodeID
+					node = activeNode
+				} else {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": "No connection is selected. Please activate a connection in settings",
+					})
+					c.Abort()
+					return
+				}
+			} else {
+				// Load user's default node
+				if err := db.DB.First(&node, *user.Node).Error; err != nil {
+					// Fallback to globally active node if user's node record is missing/deleted
+					var activeNode models.KongNode
+					if err := db.DB.Where("active = ?", true).First(&activeNode).Error; err == nil {
+						nodeID := activeNode.ID
+						db.DB.Model(user).Update("node", nodeID)
+						user.Node = &nodeID
+						node = activeNode
+					} else {
+						// Clear user active node reference in DB
+						db.DB.Model(user).Update("node", nil)
+						c.JSON(http.StatusNotFound, gin.H{"message": "The selected active connection node no longer exists. Please go to Connections settings and select a valid connection."})
+						c.Abort()
+						return
+					}
+				}
 			}
 		}
 
