@@ -143,19 +143,44 @@ export const Connections: React.FC = () => {
     if (!editingConnection) return;
     setError('');
 
+    // Build payload, clearing fields from other auth types
+    const payload: Record<string, any> = {
+      name: editName,
+      kong_admin_url: editUrl,
+      type: editType,
+      netdata_url: editNetdataUrl,
+    };
+
+    if (editType === 'key_auth') {
+      payload.kong_api_key = editApiKey;
+      payload.username = '';
+      payload.password = '';
+      payload.jwt_key = '';
+      payload.jwt_secret = '';
+    } else if (editType === 'jwt') {
+      payload.jwt_algorithm = editJwtAlgorithm;
+      payload.jwt_key = editJwtKey;
+      payload.jwt_secret = editJwtSecret;
+      payload.kong_api_key = '';
+      payload.username = '';
+      payload.password = '';
+    } else if (editType === 'basic_auth') {
+      payload.username = editUsername;
+      payload.password = editPassword;
+      payload.kong_api_key = '';
+      payload.jwt_key = '';
+      payload.jwt_secret = '';
+    } else {
+      // default — clear all credentials
+      payload.kong_api_key = '';
+      payload.username = '';
+      payload.password = '';
+      payload.jwt_key = '';
+      payload.jwt_secret = '';
+    }
+
     try {
-      await axios.put(`/api/connections/${editingConnection.id}`, {
-        name: editName,
-        kong_admin_url: editUrl,
-        type: editType,
-        kong_api_key: editApiKey,
-        username: editUsername,
-        password: editPassword,
-        jwt_algorithm: editJwtAlgorithm,
-        jwt_key: editJwtKey,
-        jwt_secret: editJwtSecret,
-        netdata_url: editNetdataUrl
-      });
+      await axios.put(`/api/connections/${editingConnection.id}`, payload);
 
       setEditingConnection(null);
       
@@ -561,76 +586,120 @@ export const Connections: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Connection Modal */}
+      {/* Update Connection Modal */}
       {editingConnection && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-lg border border-border-light shadow-xl flex flex-col max-h-[85vh] animate-scaleUp overflow-hidden">
-            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
-              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">Edit Connection</h3>
-              <button onClick={() => setEditingConnection(null)} className="p-1 rounded hover:bg-slate-100 text-text-muted">
-                <X className="w-4 h-4" />
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b-2 border-brand-primary">
+              <h3 className="text-base font-bold text-brand-primary uppercase tracking-wide">Update Connection</h3>
+              <button onClick={() => setEditingConnection(null)} className="text-text-muted hover:text-text-primary">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleUpdateConnection} className="p-6 space-y-4 overflow-y-auto">
+
+            {/* Auth Type Hint */}
+            <p className="text-xs text-text-muted px-6 pt-3 pb-1">Choose a connection type.</p>
+
+            {/* Auth Type Tabs */}
+            <div className="flex border-b border-border-light px-6">
+              {(['default', 'key_auth', 'jwt', 'basic_auth'] as const).map((t) => {
+                const labels: Record<string, string> = { default: 'DEFAULT', key_auth: 'KEY AUTH', jwt: 'JWT AUTH', basic_auth: 'BASIC AUTH' };
+                const active = editType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setEditType(t)}
+                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
+                      active
+                        ? 'border-brand-primary bg-brand-primary text-white'
+                        : 'border-transparent text-text-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    {labels[t]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Type description banner */}
+            <div className="mx-6 mt-4 px-4 py-3 bg-[#d4edda] border border-[#c3e6cb] rounded text-xs text-[#155724] leading-relaxed">
+              {editType === 'default' && (
+                <>
+                  Konga will connect directly to Kong's admin API.<br />
+                  This method is mainly suitable for demo scenarios or internal access (ex. localhost).<br />
+                  <span>Kong's admin API <span className="text-red-600 font-semibold">should not</span> be publicly exposed.</span>
+                </>
+              )}
+              {editType === 'key_auth' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using key authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
+                </>
+              )}
+              {editType === 'jwt' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using JWT authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
+                </>
+              )}
+              {editType === 'basic_auth' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using Basic authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
+                </>
+              )}
+            </div>
+
+            {/* Form Fields */}
+            <form onSubmit={handleUpdateConnection} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Name */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Connection Name</label>
+                <label className="text-xs font-semibold text-text-primary">
+                  Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                 />
               </div>
+
+              {/* URL */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Kong Admin / Loopback URL</label>
+                <label className="text-xs font-semibold text-text-primary">
+                  {editType === 'default' ? 'Kong Admin URL' : 'Loopback API URL'} <span className="text-red-500">*</span>
+                </label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Auth Type</label>
-                <select
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="default">None (Default)</option>
-                  <option value="key_auth">API Key Header</option>
-                  <option value="jwt">JWT Token Auth</option>
-                  <option value="basic_auth">Basic Auth (User/Pass)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Netdata URL (optional)</label>
-                <input
-                  type="url"
-                  value={editNetdataUrl}
-                  onChange={(e) => setEditNetdataUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                 />
               </div>
 
+              {/* KEY AUTH */}
               {editType === 'key_auth' && (
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Kong API Key</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-text-primary">
+                    API KEY <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <input
                       type={showEditApiKey ? 'text' : 'password'}
                       required
                       value={editApiKey}
                       onChange={(e) => setEditApiKey(e.target.value)}
-                      className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                      className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
                     <button
                       type="button"
                       onClick={() => setShowEditApiKey(!showEditApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
                     >
                       {showEditApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -638,43 +707,48 @@ export const Connections: React.FC = () => {
                 </div>
               )}
 
+              {/* JWT AUTH */}
               {editType === 'jwt' && (
                 <>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Algorithm</label>
+                    <label className="text-xs font-semibold text-text-primary">Algorithm</label>
                     <select
                       value={editJwtAlgorithm}
                       onChange={(e) => setEditJwtAlgorithm(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     >
                       <option value="HS256">HS256</option>
                       <option value="RS256">RS256</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Key</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Key <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={editJwtKey}
                       onChange={(e) => setEditJwtKey(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Secret</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-text-primary">
+                      Secret <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showEditJwtSecret ? 'text' : 'password'}
                         required
                         value={editJwtSecret}
                         onChange={(e) => setEditJwtSecret(e.target.value)}
-                        className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                       />
                       <button
                         type="button"
                         onClick={() => setShowEditJwtSecret(!showEditJwtSecret)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
                       >
                         {showEditJwtSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -683,32 +757,37 @@ export const Connections: React.FC = () => {
                 </>
               )}
 
+              {/* BASIC AUTH */}
               {editType === 'basic_auth' && (
                 <>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Username</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Username <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Password</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Password <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showEditPassword ? 'text' : 'password'}
                         required
                         value={editPassword}
                         onChange={(e) => setEditPassword(e.target.value)}
-                        className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                       />
                       <button
                         type="button"
                         onClick={() => setShowEditPassword(!showEditPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
                       >
                         {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -717,21 +796,13 @@ export const Connections: React.FC = () => {
                 </>
               )}
 
-              <div className="flex gap-2 justify-end pt-4 border-t border-border-light mt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditingConnection(null)}
-                  className="px-4 py-2 rounded border border-border-light text-xs font-semibold hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs uppercase"
-                >
-                  Save Changes
-                </button>
-              </div>
+              {/* Submit */}
+              <button
+                type="submit"
+                className="w-full py-3 mt-4 bg-brand-primary text-white font-bold text-sm uppercase tracking-wide rounded flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors"
+              >
+                <Check className="w-4 h-4" /> UPDATE CONNECTION
+              </button>
             </form>
           </div>
         </div>

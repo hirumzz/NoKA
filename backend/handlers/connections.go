@@ -196,7 +196,11 @@ func UpdateConnection(c *gin.Context) {
 		return
 	}
 
-	updates := make(map[string]interface{})
+	// Build explicit updates map — use Select to allow clearing blank string fields
+	updates := map[string]interface{}{
+		"updatedAt": time.Now(),
+	}
+
 	if req.Name != "" {
 		updates["name"] = req.Name
 	}
@@ -206,27 +210,15 @@ func UpdateConnection(c *gin.Context) {
 	if req.Type != "" {
 		updates["type"] = req.Type
 	}
-	if req.KongAPIKey != "" {
-		updates["kong_api_key"] = req.KongAPIKey
-	}
-	if req.Username != "" {
-		updates["username"] = req.Username
-	}
-	if req.Password != "" {
-		updates["password"] = req.Password
-	}
-	if req.JWTAlgorithm != "" {
-		updates["jwt_algorithm"] = req.JWTAlgorithm
-	}
-	if req.JWTKey != "" {
-		updates["jwt_key"] = req.JWTKey
-	}
-	if req.JWTSecret != "" {
-		updates["jwt_secret"] = req.JWTSecret
-	}
-	if req.NetdataURL != "" {
-		updates["netdata_url"] = req.NetdataURL
-	}
+	// These credential fields are always written, including empty strings to allow clearing
+	updates["kong_api_key"] = req.KongAPIKey
+	updates["username"] = req.Username
+	updates["password"] = req.Password
+	updates["jwt_algorithm"] = req.JWTAlgorithm
+	updates["jwt_key"] = req.JWTKey
+	updates["jwt_secret"] = req.JWTSecret
+	updates["netdata_url"] = req.NetdataURL
+
 	if req.HealthChecks != nil {
 		updates["health_checks"] = *req.HealthChecks
 		if *req.HealthChecks {
@@ -236,8 +228,6 @@ func UpdateConnection(c *gin.Context) {
 			}
 		}
 	}
-
-	updates["updatedAt"] = time.Now()
 
 	if err := db.DB.Model(&node).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection"})
