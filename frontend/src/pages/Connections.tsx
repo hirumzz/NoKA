@@ -293,122 +293,167 @@ export const Connections: React.FC = () => {
         </div>
       )}
 
-      {/* Add Form */}
+      {/* Add Connection Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Connection Config</h3>
-          <form onSubmit={handleAddConnection} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b-2 border-brand-primary">
+              <h3 className="text-base font-bold text-brand-primary uppercase tracking-wide">New Connection</h3>
+              <button type="button" onClick={() => setShowAddForm(false)} className="text-text-muted hover:text-text-primary">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Auth Type Hint */}
+            <p className="text-xs text-text-muted px-6 pt-3 pb-1">Choose a connection type.</p>
+
+            {/* Auth Type Tabs */}
+            <div className="flex border-b border-border-light px-6">
+              {(['default', 'key_auth', 'jwt', 'basic_auth'] as const).map((t) => {
+                const labels: Record<string, string> = { default: 'DEFAULT', key_auth: 'KEY AUTH', jwt: 'JWT AUTH', basic_auth: 'BASIC AUTH' };
+                const active = type === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setType(t)}
+                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
+                      active
+                        ? 'border-brand-primary bg-brand-primary text-white'
+                        : 'border-transparent text-text-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    {labels[t]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Type description banner */}
+            <div className="mx-6 mt-4 px-4 py-3 bg-[#d4edda] border border-[#c3e6cb] rounded text-xs text-[#155724] leading-relaxed">
+              {type === 'default' && (
+                <>
+                  Konga will connect directly to Kong's admin API.<br />
+                  This method is mainly suitable for demo scenarios or internal access (ex. localhost).<br />
+                  <span>Kong's admin API <span className="text-red-600 font-semibold">should not</span> be publicly exposed.</span>
+                </>
+              )}
+              {type === 'key_auth' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using key authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
+                </>
+              )}
+              {type === 'jwt' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using JWT authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
+                </>
+              )}
+              {type === 'basic_auth' && (
+                <>
+                  Konga will connect to Kong's admin via an exposed "loop-back" API using Basic authentication.<br />
+                  <a href="#" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
+                </>
+              )}
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAddConnection} className="p-6 space-y-4 overflow-y-auto flex-1">
+              {/* Name */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Connection Name</label>
+                <label className="text-xs font-semibold text-text-primary">
+                  Name <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Kong Staging Node"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                 />
               </div>
+
+              {/* URL */}
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Kong Admin / Loopback URL</label>
+                <label className="text-xs font-semibold text-text-primary">
+                  {type === 'default' ? 'Kong Admin URL' : 'Loopback API URL'} <span className="text-red-500">*</span>
+                </label>
                 <input
-                  type="url"
+                  type="text"
                   required
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="e.g. http://konga-kong-1:8001"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Auth Type</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="default">None (Default)</option>
-                  <option value="key_auth">API Key Header</option>
-                  <option value="jwt">JWT Token Auth</option>
-                  <option value="basic_auth">Basic Auth (User/Pass)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Netdata URL (optional)</label>
-                <input
-                  type="url"
-                  value={netdataUrl}
-                  onChange={(e) => setNetdataUrl(e.target.value)}
-                  placeholder="e.g. http://my-netdata-server:19999"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  placeholder="e.g. http://34.34.218.153:8001"
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                 />
               </div>
 
+              {/* KEY AUTH fields */}
               {type === 'key_auth' && (
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Kong API Key</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-text-primary">
+                    API KEY <span className="text-red-500">*</span>
+                  </label>
                   <div className="relative">
                     <input
                       type={showApiKey ? 'text' : 'password'}
                       required
                       value={apiKey}
                       onChange={(e) => setApiKey(e.target.value)}
-                      placeholder="Enter apiKey header value"
-                      className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                      placeholder="Enter API key"
+                      className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-                    >
+                    <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
               )}
 
+              {/* JWT AUTH fields */}
               {type === 'jwt' && (
                 <>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Algorithm</label>
+                    <label className="text-xs font-semibold text-text-primary">Algorithm</label>
                     <select
                       value={jwtAlgorithm}
                       onChange={(e) => setJwtAlgorithm(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     >
                       <option value="HS256">HS256</option>
                       <option value="RS256">RS256</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Key</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Key <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={jwtKey}
                       onChange={(e) => setJwtKey(e.target.value)}
                       placeholder="The JWT identification key"
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">JWT Secret</label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-text-primary">
+                      Secret <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showJwtSecret ? 'text' : 'password'}
                         required
                         value={jwtSecret}
                         onChange={(e) => setJwtSecret(e.target.value)}
-                        placeholder="The JWT secret key"
-                        className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                        placeholder="The JWT secret"
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowJwtSecret(!showJwtSecret)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-                      >
+                      <button type="button" onClick={() => setShowJwtSecret(!showJwtSecret)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
                         {showJwtSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -416,21 +461,26 @@ export const Connections: React.FC = () => {
                 </>
               )}
 
+              {/* BASIC AUTH fields */}
               {type === 'basic_auth' && (
                 <>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Username</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Username <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Username"
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Password</label>
+                    <label className="text-xs font-semibold text-text-primary">
+                      Password <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
@@ -438,40 +488,37 @@ export const Connections: React.FC = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Password"
-                        className="w-full px-3 py-2 pr-10 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
-                      >
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary">
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                   </div>
                 </>
               )}
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
-              >
-                Cancel
-              </button>
+
+              {error && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                </div>
+              )}
+
+              {/* Submit */}
               <button
                 type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
+                className="w-full py-3 mt-2 bg-brand-primary text-white font-bold text-sm uppercase tracking-wide rounded flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors"
               >
-                SAVE CONNECTION
+                <Check className="w-4 h-4" /> CREATE CONNECTION
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 
+
       {/* Connections List */}
+
       <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-border-light">
           <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">Configured Gateways</h3>
