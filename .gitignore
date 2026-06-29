@@ -124,10 +124,52 @@ nbproject
 /certs/
 /.env
 .env
-/seeds/
+.env.*
+!.env_example
 /seeds/
 flow_analysis.md
-db-existing/
 AUDIT_REPORT.md
+
+# ── Database dumps & backups ──────────────────
+db-existing/
+*.sql
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*_backup/
+backup/
+
+# ── Compiled binaries ─────────────────────────
 *.exe
+*.out
+*.bin
+backend/konga-backend
 backend/konga-backend.exe
+frontend/dist/
+
+# ── TLS / PKI credentials ─────────────────────
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+certs/
+
+# ── Cloud / service-account credentials ───────
+*service-account*.json
+*serviceaccount*.json
+*credentials*.json
+gcloud-key*.json
+sa-*.json
+
+# ── Docker secrets ────────────────────────────
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ── IDE / editor ─────────────────────────────
+.vscode/settings.json
+*.swp
