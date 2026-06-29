@@ -143,41 +143,19 @@ export const Connections: React.FC = () => {
     if (!editingConnection) return;
     setError('');
 
-    // Build payload, clearing fields from other auth types
+    // Build payload, keeping fields from all auth types so they aren't deleted from the DB when switching types
     const payload: Record<string, any> = {
       name: editName,
       kong_admin_url: editUrl,
       type: editType,
       netdata_url: editNetdataUrl,
+      kong_api_key: editApiKey,
+      username: editUsername,
+      password: editPassword,
+      jwt_algorithm: editJwtAlgorithm,
+      jwt_key: editJwtKey,
+      jwt_secret: editJwtSecret,
     };
-
-    if (editType === 'key_auth') {
-      payload.kong_api_key = editApiKey;
-      payload.username = '';
-      payload.password = '';
-      payload.jwt_key = '';
-      payload.jwt_secret = '';
-    } else if (editType === 'jwt') {
-      payload.jwt_algorithm = editJwtAlgorithm;
-      payload.jwt_key = editJwtKey;
-      payload.jwt_secret = editJwtSecret;
-      payload.kong_api_key = '';
-      payload.username = '';
-      payload.password = '';
-    } else if (editType === 'basic_auth') {
-      payload.username = editUsername;
-      payload.password = editPassword;
-      payload.kong_api_key = '';
-      payload.jwt_key = '';
-      payload.jwt_secret = '';
-    } else {
-      // default — clear all credentials
-      payload.kong_api_key = '';
-      payload.username = '';
-      payload.password = '';
-      payload.jwt_key = '';
-      payload.jwt_secret = '';
-    }
 
     try {
       await axios.put(`/api/connections/${editingConnection.id}`, payload);
