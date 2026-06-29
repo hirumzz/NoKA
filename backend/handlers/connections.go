@@ -56,6 +56,7 @@ func CreateConnection(c *gin.Context) {
 		NetdataURL:   req.NetdataURL,
 		Active:       false,
 		KongVersion:  "3.9.2", // Default to newest
+		HealthCheckDetails: "{}", // Must be a valid JSON string for Postgres JSON column
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
