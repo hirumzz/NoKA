@@ -342,19 +342,19 @@ export const Connections: React.FC = () => {
               {type === 'key_auth' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using key authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
                 </>
               )}
               {type === 'jwt' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using JWT authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
                 </>
               )}
               {type === 'basic_auth' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using Basic authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
                 </>
               )}
             </div>
@@ -682,19 +682,19 @@ export const Connections: React.FC = () => {
               {editType === 'key_auth' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using key authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup an API key based "loop-back" API.</a>
                 </>
               )}
               {editType === 'jwt' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using JWT authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup a JWT based "loop-back" API.</a>
                 </>
               )}
               {editType === 'basic_auth' && (
                 <>
                   Konga will connect to Kong's admin via an exposed "loop-back" API using Basic authentication.<br />
-                  <a href="#" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
+                  <a href="https://getkong.org/docs/latest/secure-admin-api/#kong-api-loopback" target="_blank" rel="noopener noreferrer" className="text-brand-primary underline">Check out how to setup a Basic Auth based "loop-back" API.</a>
                 </>
               )}
             </div>
