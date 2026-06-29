@@ -35,7 +35,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	if err := db.DB.Delete(&models.User{}, uint(id)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user"})
 		return
 	}
 
@@ -77,7 +77,7 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	if err := db.DB.Model(&user).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update user", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update user"})
 		return
 	}
 

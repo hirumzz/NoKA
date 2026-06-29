@@ -36,7 +36,7 @@ func GetComments(c *gin.Context) {
 		Where("\"referenceId\" = ? AND \"referenceType\" = ?", refID, refType).
 		Order("\"createdAt\" ASC").
 		Find(&comments).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch comments", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch comments"})
 		return
 	}
 
@@ -75,7 +75,7 @@ func CreateComment(c *gin.Context) {
 	}
 
 	if err := db.DB.Create(&comment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to save comment", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to save comment"})
 		return
 	}
 
@@ -123,7 +123,7 @@ func UpdateComment(c *gin.Context) {
 	comment.UpdatedAt = time.Now()
 
 	if err := db.DB.Save(&comment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update comment", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update comment"})
 		return
 	}
 
@@ -164,7 +164,7 @@ func DeleteComment(c *gin.Context) {
 	}
 
 	if err := db.DB.Delete(&comment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete comment", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete comment"})
 		return
 	}
 

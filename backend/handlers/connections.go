@@ -28,7 +28,7 @@ type CreateConnectionRequest struct {
 func GetConnections(c *gin.Context) {
 	var nodes []models.KongNode
 	if err := db.DB.Find(&nodes).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch connections", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch connections"})
 		return
 	}
 	c.JSON(http.StatusOK, nodes)
@@ -65,7 +65,7 @@ func CreateConnection(c *gin.Context) {
 	}
 
 	if err := db.DB.Create(&node).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create connection", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create connection"})
 		return
 	}
 
@@ -82,7 +82,7 @@ func DeleteConnection(c *gin.Context) {
 	}
 
 	if err := db.DB.Delete(&models.KongNode{}, uint(id)).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete connection", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete connection"})
 		return
 	}
 
@@ -224,7 +224,7 @@ func UpdateConnection(c *gin.Context) {
 	updates["updatedAt"] = time.Now()
 
 	if err := db.DB.Model(&node).Updates(updates).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection"})
 		return
 	}
 

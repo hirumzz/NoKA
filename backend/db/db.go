@@ -41,10 +41,21 @@ func InitDB() *gorm.DB {
 		dbname = "konga"
 	}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
-		host, user, password, dbname, port)
+	var dsn string
+	dbUri := os.Getenv("DB_URI")
+	if dbUri != "" {
+		dsn = dbUri
+	} else {
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
+			host, user, password, dbname, port)
+	}
 
-	log.Printf("Connecting to database: %s:%s/%s as user %s", host, port, dbname, user)
+	// Log connection info without leaking credentials
+	if dbUri != "" {
+		log.Println("Connecting to database via DB_URI")
+	} else {
+		log.Printf("Connecting to database at %s:%s/%s", host, port, dbname)
+	}
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
