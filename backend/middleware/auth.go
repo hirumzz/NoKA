@@ -16,7 +16,7 @@ func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := ""
 
-		// Check Authorization Header
+		// Check Authorization Header (only accepted mechanism)
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
 			parts := strings.Split(authHeader, " ")
@@ -25,13 +25,8 @@ func AuthRequired() gin.HandlerFunc {
 			}
 		}
 
-		// Fallback to query parameter "token"
 		if tokenStr == "" {
-			tokenStr = c.Query("token")
-		}
-
-		if tokenStr == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "No authorization header or token was found"})
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "No authorization header was found"})
 			c.Abort()
 			return
 		}

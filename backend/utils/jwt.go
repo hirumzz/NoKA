@@ -30,7 +30,7 @@ func GetJWTSecret() []byte {
 			log.Fatalf("Failed to generate fallback JWT secret: %v", err)
 		}
 		fallbackSecret = hex.EncodeToString(bytes)
-		log.Println("Warning: TOKEN_SECRET env var is not configured. A secure random token secret has been generated for this session.")
+		log.Println("[SECURITY WARNING] TOKEN_SECRET environment variable is not set. A random secret has been generated for this session. All sessions will be invalidated on restart. Set TOKEN_SECRET in production!")
 	})
 
 	return []byte(fallbackSecret)
@@ -41,7 +41,7 @@ func IssueToken(userID uint) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": fmt.Sprintf("%d", userID),
 		"id":  userID,
-		"exp": time.Now().Add(24 * time.Hour).Unix(),
+		"exp": time.Now().Add(8 * time.Hour).Unix(), // 8h TTL (was 24h)
 		"iat": time.Now().Unix(),
 	})
 

@@ -16,7 +16,7 @@ type User struct {
 	Admin           bool       `gorm:"column:admin;default:false" json:"admin"`
 	NodeID          string     `gorm:"column:node_id" json:"node_id"`
 	Active          bool       `gorm:"column:active;default:false" json:"active"`
-	ActivationToken string     `gorm:"column:activationToken" json:"activationToken"`
+	ActivationToken string     `gorm:"column:activationToken" json:"-"`
 	Node            *uint      `gorm:"column:node" json:"node"`
 	CreatedAt       time.Time  `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt       time.Time  `gorm:"column:updatedAt" json:"updatedAt"`
@@ -90,4 +90,37 @@ type AuditLog struct {
 
 func (AuditLog) TableName() string {
 	return "konga_audit_logs"
+}
+
+// KongaComment represents the konga_comments table
+type KongaComment struct {
+	ID            uint      `gorm:"primaryKey;column:id" json:"id"`
+	ReferenceID   string    `gorm:"column:referenceId;not null" json:"referenceId"`
+	ReferenceType string    `gorm:"column:referenceType;not null" json:"referenceType"` // route, service, consumer
+	Content       string    `gorm:"column:content;not null" json:"content"`
+	UserID        uint      `gorm:"column:user" json:"userId"`
+	User          User      `gorm:"foreignKey:UserID" json:"user"`
+	CreatedAt     time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt     time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (KongaComment) TableName() string {
+	return "konga_comments"
+}
+
+// KongaNotification represents the konga_notifications table
+type KongaNotification struct {
+	ID          uint      `gorm:"primaryKey;column:id" json:"id"`
+	Message     string    `gorm:"column:message;not null" json:"message"`
+	Icon        string    `gorm:"column:icon;default:mdi-message-outline" json:"icon"`
+	State       string    `gorm:"column:state" json:"state"`
+	StateParams string    `gorm:"column:stateParams;type:json" json:"stateParams"`
+	UserID      *uint     `gorm:"column:user" json:"userId"`
+	User        *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	CreatedAt   time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (KongaNotification) TableName() string {
+	return "konga_notifications"
 }

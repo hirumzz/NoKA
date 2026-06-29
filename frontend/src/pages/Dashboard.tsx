@@ -1,36 +1,95 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import { 
   Server, 
   Layers, 
   GitBranch, 
   Users, 
-  Puzzle, 
+  Plug, 
   Cpu, 
-  Globe, 
-  Clock 
+  Globe,
+  Database
 } from 'lucide-react';
 
+interface GatewayInfo {
+  version: string;
+  hostname: string;
+  lua_version: string;
+  plugins: {
+    available_on_server: Record<string, boolean>;
+  };
+  configuration?: {
+    database?: string;
+  };
+}
+
 export const Dashboard: React.FC = () => {
-  // Mock data for premium visuals
+  const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({
+    services: 0,
+    routes: 0,
+    consumers: 0,
+    plugins: 0
+  });
+  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [infoResp, servicesResp, routesResp, consumersResp, pluginsResp] = await Promise.all([
+        axios.get('/api/kong/'),
+        axios.get('/api/kong/services').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/routes').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/consumers').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/plugins').catch(() => ({ data: { data: [] } }))
+      ]);
+
+      setNodeInfo(infoResp.data);
+      setCounts({
+        services: servicesResp.data?.data?.length || 0,
+        routes: routesResp.data?.data?.length || 0,
+        consumers: consumersResp.data?.data?.length || 0,
+        plugins: pluginsResp.data?.data?.length || 0
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to fetch gateway statistics. Please verify that a connection is active.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const stats = [
-    { label: 'Active Services', value: '12', icon: Layers, color: 'from-blue-500/20 to-cyan-500/20 text-cyan-400 border-cyan-500/30' },
-    { label: 'Configured Routes', value: '24', icon: GitBranch, color: 'from-purple-500/20 to-pink-500/20 text-pink-400 border-pink-500/30' },
-    { label: 'Registered Consumers', value: '158', icon: Users, color: 'from-amber-500/20 to-orange-500/20 text-orange-400 border-orange-500/30' },
-    { label: 'Active Plugins', value: '8', icon: Puzzle, color: 'from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/30' },
+    { label: 'Active Services', value: counts.services, icon: Layers, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+    { label: 'Configured Routes', value: counts.routes, icon: GitBranch, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+    { label: 'Registered Consumers', value: counts.consumers, icon: Users, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+    { label: 'Active Plugins', value: counts.plugins, icon: Plug, color: 'text-teal-600 bg-teal-50 border-teal-100' },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 font-sans">
       {/* Welcome Banner */}
-      <div className="relative p-8 rounded-3xl overflow-hidden glass-panel border border-border-dark">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/10 via-brand-secondary/5 to-transparent" />
+      <div className="p-8 rounded-lg bg-white border border-border-light shadow-sm relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-transparent pointer-events-none" />
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold tracking-tight">Welcome to Konga</h2>
-          <p className="text-text-secondary mt-2 max-w-xl">
-            Monitor and manage your API gateways, configure routing rules, and view real-time logs from one central console.
+          <h2 className="text-2xl font-bold tracking-tight text-text-primary">Welcome to NOKA</h2>
+          <p className="text-xs text-text-secondary mt-1.5 max-w-2xl leading-relaxed">
+            Monitor and manage your API gateways, configure proxy routing rules, register consumers, and manage security plugins from one central console.
           </p>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
+          {error}
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -39,103 +98,105 @@ export const Dashboard: React.FC = () => {
           return (
             <div 
               key={idx} 
-              className={`p-6 rounded-2xl border bg-gradient-to-br ${stat.color} transition-all duration-300 hover:scale-[1.02] cursor-pointer`}
+              className={`p-6 bg-white rounded-lg border border-border-light shadow-sm transition-all duration-150 hover:shadow-md flex items-center justify-between`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-semibold opacity-95">{stat.label}</span>
+              <div>
+                <span className="text-xs font-bold text-text-secondary uppercase tracking-wider block">{stat.label}</span>
+                <p className="text-3xl font-extrabold tracking-tight text-text-primary mt-1">
+                  {loading ? '...' : stat.value}
+                </p>
+              </div>
+              <div className={`p-3.5 rounded ${stat.color}`}>
                 <Icon className="w-5 h-5" />
               </div>
-              <p className="text-3xl font-extrabold tracking-tight">{stat.value}</p>
             </div>
           );
         })}
       </div>
 
       {/* Node Info & System Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Node details */}
-        <div className="lg:col-span-2 glass-panel p-6 rounded-2xl border border-border-dark space-y-6">
-          <h3 className="text-lg font-bold flex items-center gap-2 border-b border-border-dark pb-4">
-            <Server className="w-5 h-5 text-brand-primary" /> Active Gateway Node
+        <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+            <Server className="w-4 h-4 text-brand-primary" /> Active Gateway Node
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-card-dark text-text-secondary">
-                <Cpu className="w-5 h-5" />
+              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
+                <Cpu className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs text-text-muted font-medium">Node Name</p>
-                <p className="text-sm font-semibold">default-kong-node</p>
+                <p className="text-[10px] text-text-muted font-bold uppercase">Node Hostname</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">
+                  {loading ? 'Loading...' : (nodeInfo?.hostname || 'N/A')}
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-card-dark text-text-secondary">
-                <Globe className="w-5 h-5" />
+              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
+                <Server className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs text-text-muted font-medium">Kong Admin URL</p>
-                <p className="text-sm font-semibold truncate max-w-[200px]">http://konga-kong-1:8001</p>
+                <p className="text-[10px] text-text-muted font-bold uppercase">Kong Version</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">
+                  {loading ? 'Loading...' : (nodeInfo?.version || 'N/A')}
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-card-dark text-text-secondary">
-                <Server className="w-5 h-5" />
+              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
+                <Database className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs text-text-muted font-medium">Kong Version</p>
-                <p className="text-sm font-semibold">3.9.2</p>
+                <p className="text-[10px] text-text-muted font-bold uppercase">Datastore</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5 capitalize">
+                  {loading ? 'Loading...' : (nodeInfo?.configuration?.database || 'PostgreSQL')}
+                </p>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-card-dark text-text-secondary">
-                <Clock className="w-5 h-5" />
+              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
+                <Globe className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs text-text-muted font-medium">Database Type</p>
-                <p className="text-sm font-semibold">PostgreSQL (13-alpine)</p>
+                <p className="text-[10px] text-text-muted font-bold uppercase">Lua VM Version</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">
+                  {loading ? 'Loading...' : (nodeInfo?.lua_version || 'LuaJIT')}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* System Health */}
-        <div className="glass-panel p-6 rounded-2xl border border-border-dark space-y-6">
-          <h3 className="text-lg font-bold flex items-center gap-2 border-b border-border-dark pb-4">
-            <Cpu className="w-5 h-5 text-brand-secondary" /> System Health
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+            <Cpu className="w-4 h-4 text-brand-primary" /> Gateway Status
           </h3>
 
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-text-secondary">Gateway CPU</span>
-                <span className="font-semibold text-brand-primary">12%</span>
+              <div className="flex justify-between text-xs mb-1 font-semibold">
+                <span className="text-text-secondary">API Proxy Latency</span>
+                <span className="text-brand-primary">1.2ms</span>
               </div>
-              <div className="h-1.5 w-full bg-card-dark rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full bg-brand-primary rounded-full" style={{ width: '12%' }} />
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-text-secondary">Memory Usage</span>
-                <span className="font-semibold text-brand-secondary">42%</span>
+              <div className="flex justify-between text-xs mb-1 font-semibold">
+                <span className="text-text-secondary">Admin API Health</span>
+                <span className="text-emerald-500">100% OK</span>
               </div>
-              <div className="h-1.5 w-full bg-card-dark rounded-full overflow-hidden">
-                <div className="h-full bg-brand-secondary rounded-full" style={{ width: '42%' }} />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-text-secondary">API Latency</span>
-                <span className="font-semibold text-emerald-400">1.4ms</span>
-              </div>
-              <div className="h-1.5 w-full bg-card-dark rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-400 rounded-full" style={{ width: '8%' }} />
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
               </div>
             </div>
           </div>

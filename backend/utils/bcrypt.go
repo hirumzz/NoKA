@@ -4,9 +4,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// HashPassword generates a bcrypt hash of the password with salt cost 10
+// HashPassword generates a bcrypt hash of the password with salt cost 12 (OWASP recommended minimum)
 func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }
 

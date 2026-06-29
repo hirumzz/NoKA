@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Lock, Mail, User, Activity, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, ArrowLeft } from 'lucide-react';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -33,7 +33,6 @@ export const Register: React.FC = () => {
         firstName,
         lastName
       });
-      // Registration successful, redirect to login
       navigate('/login');
     } catch (err: any) {
       console.error(err);
@@ -44,37 +43,29 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-dark relative overflow-hidden px-4 py-12">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-brand-primary/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-brand-accent/10 blur-[120px] pointer-events-none" />
-
-      <div className="w-full max-w-lg z-10">
+    <div className="min-h-screen flex items-center justify-center bg-bg-light px-4 py-12">
+      <div className="w-full max-w-lg">
         {/* Brand Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center shadow-xl shadow-brand-primary/20 mb-3">
-            <Activity className="w-6 h-6 text-white" />
-          </div>
-          <h2 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-text-primary to-text-secondary">
-            Setup Admin Account
+        <div className="flex flex-col items-center mb-6">
+          <img src="/conga.svg" alt="NOKA Logo" className="w-16 h-16 object-contain mb-3" />
+          <h2 className="text-3xl font-extrabold tracking-wider text-brand-primary font-montserrat uppercase">
+            NOKA
           </h2>
-          <p className="text-sm text-text-muted mt-1">Configure your primary system administrator</p>
+          <p className="text-xs text-text-secondary mt-1 font-bold uppercase tracking-wider">Nocta Kong Admin</p>
         </div>
 
         {/* Card */}
-        <div className="glass-panel p-8 rounded-3xl border border-border-dark shadow-2xl relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none rounded-3xl" />
-          
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold">Admin Registration</h3>
-            <Link to="/login" className="flex items-center text-xs text-text-muted hover:text-text-primary transition-colors duration-200">
-              <ArrowLeft className="w-4 h-4 mr-1" /> Back to Login
+        <div className="bg-white p-8 rounded-lg border border-border-light card-shadow">
+          <div className="flex items-center justify-between mb-6 border-b border-border-light pb-4">
+            <h3 className="text-lg font-bold text-text-primary uppercase tracking-wide">Register Admin</h3>
+            <Link to="/login" className="flex items-center text-xs font-bold text-text-secondary hover:text-brand-primary transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Login
             </Link>
           </div>
 
           {error && (
-            <div className="flex items-center gap-3 p-4 mb-6 rounded-2xl border border-brand-accent/20 bg-brand-accent/5 text-brand-accent text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <div className="flex items-center gap-3 p-4 mb-6 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -82,35 +73,35 @@ export const Register: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {/* First Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">First Name</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">First Name</label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="John"
-                  className="w-full px-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  placeholder="e.g. John"
+                  className="w-full px-3 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
 
               {/* Last Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Name</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Last Name</label>
                 <input
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  className="w-full px-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  placeholder="e.g. Doe"
+                  className="w-full px-3 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
             </div>
 
             {/* Username */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Username</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Username</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
                   <User className="w-4 h-4" />
                 </div>
                 <input
@@ -119,16 +110,16 @@ export const Register: React.FC = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="admin"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
             </div>
 
             {/* Email */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Email Address</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Email Address</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -136,17 +127,17 @@ export const Register: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@konga.test"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  placeholder="admin@noka.test"
+                  className="w-full pl-10 pr-4 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Password (Min 7 chars)</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Password (Min 7 chars)</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -156,16 +147,16 @@ export const Register: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
             </div>
 
             {/* Password Confirm */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Confirm Password</label>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Confirm Password</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-text-muted">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -174,7 +165,7 @@ export const Register: React.FC = () => {
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-bg-dark/50 border border-border-dark focus:border-brand-primary/50 focus:ring-1 focus:ring-brand-primary/50 outline-none transition-all duration-200 placeholder:text-text-muted text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 rounded border border-border-light bg-slate-50 focus:border-brand-primary outline-none text-xs font-medium transition-colors"
                 />
               </div>
             </div>
@@ -183,10 +174,10 @@ export const Register: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 mt-4 rounded-xl bg-gradient-to-r from-brand-primary to-brand-secondary text-white font-semibold shadow-lg shadow-brand-primary/25 hover:shadow-brand-primary/35 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center text-sm"
+              className="w-full py-3 mt-4 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs shadow-sm hover:scale-[1.005] transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer uppercase tracking-wider"
             >
               {loading ? (
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 'Create Administrator'
               )}

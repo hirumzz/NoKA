@@ -11,6 +11,7 @@ interface User {
   node: number | null;
   firstName?: string;
   lastName?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
