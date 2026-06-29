@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -12,6 +12,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useAuth } from '../context/AuthContext';
 
 interface KongService {
   id: string;
@@ -44,11 +45,17 @@ interface KongPlugin {
 
 export const ServiceDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [service, setService] = useState<KongService | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'routes' | 'plugins'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    navigate('/services');
+  }, [user?.node]);
 
   // Service fields
   const [name, setName] = useState('');

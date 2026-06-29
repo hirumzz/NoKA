@@ -173,6 +173,7 @@ func main() {
 		// Notifications management
 		api.GET("/notifications", handlers.GetNotifications)
 		api.POST("/notifications", handlers.CreateNotification)
+		api.DELETE("/notifications/:id", handlers.DeleteNotification)
 
 		// User Management — list requires auth, mutation requires admin
 		api.GET("/users", func(c *gin.Context) {

@@ -8,6 +8,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Consumer {
   id: string;
   username?: string;
@@ -16,6 +18,7 @@ interface Consumer {
 }
 
 export const Consumers: React.FC = () => {
+  const { user } = useAuth();
   const [consumers, setConsumers] = useState<Consumer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,7 +30,7 @@ export const Consumers: React.FC = () => {
 
   useEffect(() => {
     fetchConsumers();
-  }, []);
+  }, [user?.node]);
 
   const fetchConsumers = async () => {
     setLoading(true);

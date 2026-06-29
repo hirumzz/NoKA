@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
   Trash2, 
@@ -39,6 +40,7 @@ interface RouteItem {
 }
 
 export const Plugins: React.FC = () => {
+  const { user } = useAuth();
   const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
@@ -66,7 +68,7 @@ export const Plugins: React.FC = () => {
 
   useEffect(() => {
     fetchPluginsAndResources();
-  }, []);
+  }, [user?.node]);
 
   const fetchPluginsAndResources = async () => {
     setLoading(true);

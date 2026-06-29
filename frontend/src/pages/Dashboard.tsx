@@ -23,7 +23,10 @@ interface GatewayInfo {
   };
 }
 
+import { useAuth } from '../context/AuthContext';
+
 export const Dashboard: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({
     services: 0,
@@ -36,7 +39,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [user?.node]);
 
   const fetchDashboardData = async () => {
     setLoading(true);

@@ -18,7 +18,8 @@ import {
   HelpCircle,
   Bell,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 
 interface ConnectionNode {
@@ -27,6 +28,15 @@ interface ConnectionNode {
 	kong_admin_url: string;
 	active: boolean;
 	kong_version: string;
+}
+
+interface NotificationItem {
+  id: number;
+  message: string;
+  icon?: string;
+  state?: string;
+  stateParams?: string;
+  createdAt: string;
 }
 
 interface LayoutProps {
@@ -40,10 +50,61 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [connections, setConnections] = useState<ConnectionNode[]>([]);
   const [activeNode, setActiveNode] = useState<ConnectionNode | null>(null);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [lastReadTime, setLastReadTime] = useState<string>(
+    localStorage.getItem('noka_last_read_time') || new Date(0).toISOString()
+  );
 
   useEffect(() => {
     fetchConnections();
   }, [user]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const response = await axios.get('/api/notifications');
+      setNotifications(response.data || []);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
+  const handleToggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications) {
+      const now = new Date().toISOString();
+      setLastReadTime(now);
+      localStorage.setItem('noka_last_read_time', now);
+    }
+  };
+
+  const handleNotificationClick = (notif: NotificationItem) => {
+    setShowNotifications(false);
+    if (notif.state) {
+      navigate(`/${notif.state}`);
+    }
+  };
+
+  const handleDeleteNotification = async (e: React.MouseEvent, notifId: number) => {
+    e.stopPropagation();
+    try {
+      await axios.delete(`/api/notifications/${notifId}`);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
+  const unreadCount = notifications.filter(
+    n => new Date(n.createdAt).getTime() > new Date(lastReadTime).getTime()
+  ).length;
 
   const fetchConnections = async () => {
     if (!user) return;
@@ -190,10 +251,69 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Profile & Notifications */}
           <div className="flex items-center gap-6">
-            <button className="p-1 text-text-secondary hover:text-brand-primary transition-colors duration-150 relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2 h-2 bg-brand-primary rounded-full border border-white" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={handleToggleNotifications}
+                className="p-1.5 text-text-secondary hover:text-brand-primary hover:bg-slate-100 rounded-full transition-colors duration-150 relative outline-none cursor-pointer"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 px-1 min-w-4 h-4 bg-brand-primary text-white font-extrabold text-[8px] rounded-full flex items-center justify-center border border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-border-light rounded-lg shadow-xl py-2 z-30 card-shadow">
+                  <div className="px-4 py-2 border-b border-border-light flex justify-between items-center bg-slate-50/75">
+                    <span className="text-xs font-bold text-text-primary uppercase tracking-wide">Notifications</span>
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1 rounded hover:bg-slate-100 text-text-secondary hover:text-text-primary"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-border-light/60">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-text-muted font-medium">
+                        No notifications found...
+                      </div>
+                    ) : (
+                      notifications.map((notif) => {
+                        const isNew = new Date(notif.createdAt).getTime() > new Date(lastReadTime).getTime();
+                        return (
+                          <div 
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            className={`p-3 text-left hover:bg-slate-50/75 transition-colors flex items-start gap-2.5 cursor-pointer relative ${
+                              isNew ? 'bg-brand-primary/[0.03]' : ''
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold text-text-primary leading-normal break-words">
+                                {notif.message}
+                              </p>
+                              <span className="text-[9px] text-text-muted font-medium block mt-1">
+                                {new Date(notif.createdAt).toLocaleTimeString()} — {new Date(notif.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => handleDeleteNotification(e, notif.id)}
+                              className="p-1 rounded hover:bg-slate-100 text-text-secondary hover:text-red-500 opacity-60 hover:opacity-100 transition-all flex-shrink-0"
+                              title="Dismiss"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="relative">
               <button 

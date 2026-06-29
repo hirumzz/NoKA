@@ -21,12 +21,15 @@ interface RouteItem {
   created_at: number;
 }
 
+import { useAuth } from '../context/AuthContext';
+
 interface Service {
   id: string;
   name: string;
 }
 
 export const Routes: React.FC = () => {
+  const { user } = useAuth();
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +47,7 @@ export const Routes: React.FC = () => {
 
   useEffect(() => {
     fetchRoutesAndServices();
-  }, []);
+  }, [user?.node]);
 
   const fetchRoutesAndServices = async () => {
     setLoading(true);

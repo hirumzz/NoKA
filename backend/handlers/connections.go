@@ -81,8 +81,24 @@ func DeleteConnection(c *gin.Context) {
 		return
 	}
 
-	if err := db.DB.Delete(&models.KongNode{}, uint(id)).Error; err != nil {
+	// Begin TX
+	tx := db.DB.Begin()
+
+	// Clear active connection reference for all users using this node
+	if err := tx.Model(&models.User{}).Where("node = ?", uint(id)).Update("node", nil).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update user connection references"})
+		return
+	}
+
+	if err := tx.Delete(&models.KongNode{}, uint(id)).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete connection"})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit node deletion"})
 		return
 	}
 

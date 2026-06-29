@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -16,6 +16,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useAuth } from '../context/AuthContext';
 
 interface Consumer {
   id: string;
@@ -70,11 +71,17 @@ interface AclGroup {
 
 export const ConsumerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [consumer, setConsumer] = useState<Consumer | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'credentials' | 'acls'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    navigate('/consumers');
+  }, [user?.node]);
 
   // Edit details fields
   const [username, setUsername] = useState('');

@@ -6,21 +6,21 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-montserrat: 'Montserrat', sans-serif;
   
-  /* Konga Classic Color Palette */
-  --color-brand-primary: #00c0ef;        /* Konga Cyan/Blue */
+  /* Konga Premium Dark Theme Palette */
+  --color-brand-primary: #00c0ef;        /* Konga Cyber Cyan */
   --color-brand-primary-hover: #00a7d0;
-  --color-brand-royal: #222d32;          /* Classic AdminLTE Sidebar Dark */
-  --color-brand-royal-dark: #1a2226;     /* Sidebar Brand Header */
-  --color-brand-royal-light: #1d2529;    /* Active Sidebar Highlight */
+  --color-brand-royal: #141a1d;          /* Sidebar Dark Charcoal */
+  --color-brand-royal-dark: #0c1012;     /* Sidebar Header Deep Black */
+  --color-brand-royal-light: #202a2f;    /* Sidebar Active Highlight */
   --color-brand-mint: #b8c7ce;           /* Sidebar Text */
   
-  --color-bg-light: #ecf0f5;             /* Light body background */
-  --color-card-bg: #ffffff;
-  --color-border-light: #d2d6de;
+  --color-bg-light: #0c1012;             /* Body background */
+  --color-card-bg: #141a1d;              /* Card background */
+  --color-border-light: #202a2f;         /* Border color */
   
-  --color-text-primary: #333333;
-  --color-text-secondary: #777777;
-  --color-text-muted: #999999;
+  --color-text-primary: #f8fafc;         /* White text */
+  --color-text-secondary: #94a3b8;       /* Muted text */
+  --color-text-muted: #64748b;           /* Extra muted text */
 }
 
 /* Custom Scrollbar */
@@ -29,10 +29,10 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f4f6f8;
+  background: #0c1012;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #202a2f;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -46,20 +46,87 @@ body {
   overflow-x: hidden;
 }
 
-/* Glassmorphism utility card for classic light mode panels */
+/* Global overrides for hardcoded light classes to enforce dark mode */
+.bg-white {
+  background-color: var(--color-card-bg) !important;
+}
+.bg-slate-50 {
+  background-color: #0c1012 !important;
+}
+.bg-slate-50\/25 {
+  background-color: rgba(12, 16, 18, 0.25) !important;
+}
+.bg-slate-50\/75 {
+  background-color: rgba(12, 16, 18, 0.75) !important;
+}
+.hover\:bg-slate-50\/25:hover {
+  background-color: rgba(20, 26, 29, 0.45) !important;
+}
+.hover\:bg-slate-50:hover {
+  background-color: #1c2429 !important;
+}
+.border-border-light {
+  border-color: var(--color-border-light) !important;
+}
+.border-slate-100, .border-slate-200 {
+  border-color: var(--color-border-light) !important;
+}
+.text-text-primary {
+  color: var(--color-text-primary) !important;
+}
+.text-text-secondary {
+  color: var(--color-text-secondary) !important;
+}
+.text-text-muted {
+  color: var(--color-text-muted) !important;
+}
+.text-slate-500, .text-slate-600, .text-slate-700 {
+  color: var(--color-text-secondary) !important;
+}
+.text-slate-800, .text-slate-900 {
+  color: var(--color-text-primary) !important;
+}
+.text-slate-400 {
+  color: var(--color-text-muted) !important;
+}
+.bg-indigo-50 {
+  background-color: rgba(0, 192, 239, 0.1) !important;
+  color: #00c0ef !important;
+}
+.text-indigo-600 {
+  color: #00c0ef !important;
+}
+.border-indigo-100 {
+  border-color: rgba(0, 192, 239, 0.2) !important;
+}
+
+/* Inputs & Textareas dark theme styling */
+input, select, textarea {
+  background-color: #1c2429 !important;
+  border-color: var(--color-border-light) !important;
+  color: var(--color-text-primary) !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-brand-primary) !important;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-muted) !important;
+}
+
+/* Glassmorphism utility card for classic dark mode panels */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(20, 26, 29, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .card-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
 }
 
 .card-shadow-hover:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
   transform: translateY(-1px);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }

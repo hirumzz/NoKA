@@ -3,21 +3,24 @@ package handlers
 import (
 	"net/http"
 
-	"konga-backend/db"
-	"konga-backend/models"
+	"konga-backend/services"
 
 	"github.com/gin-gonic/gin"
 )
 
-// GetAuditLogs fetches audit logs sorted descending by creation date
-func GetAuditLogs(c *gin.Context) {
-	var logs []models.AuditLog
+type AuditHandler struct {
+	auditService services.AuditService
+}
 
-	// Load logs sorted by createdAt descending
-	if err := db.DB.Order("\"createdAt\" DESC").Limit(100).Find(&logs).Error; err != nil {
+func NewAuditHandler(svc services.AuditService) *AuditHandler {
+	return &AuditHandler{auditService: svc}
+}
+
+func (h *AuditHandler) GetAuditLogs(c *gin.Context) {
+	logs, err := h.auditService.GetRecentAuditLogs()
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch audit logs", "error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, logs)
 }

@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"konga-backend/db"
 	"konga-backend/models"
 	"konga-backend/repositories"
 	"konga-backend/utils"
@@ -117,6 +119,38 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 		}
 		
 		// I'll fix c.Request.URL.Path inside the service
+
+		// Import db and create a system notification for the change
+		icon := "mdi-message-outline"
+		state := ""
+		if entity == "services" {
+			icon = "mdi-cloud"
+			state = "services"
+		} else if entity == "routes" {
+			icon = "mdi-git"
+			state = "routes"
+		} else if entity == "consumers" {
+			icon = "mdi-account"
+			state = "consumers"
+		} else if entity == "plugins" {
+			icon = "mdi-power"
+			state = "plugins"
+		}
+
+		notificationMessage := fmt.Sprintf("%s %s %s on connection '%s'", username, method, entity, node.Name)
+		notif := &models.KongaNotification{
+			Message:     notificationMessage,
+			Icon:        icon,
+			State:       state,
+			StateParams: "{}",
+			UserID:      userID,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+
+		if err := db.DB.Create(notif).Error; err != nil {
+			log.Printf("Failed to write notification: %v", err)
+		}
 
 		if err := s.auditRepo.CreateLog(auditLog); err != nil {
 			log.Printf("Failed to write audit log: %v", err)

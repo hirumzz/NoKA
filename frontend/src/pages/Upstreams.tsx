@@ -8,6 +8,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Upstream {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ interface Upstream {
 }
 
 export const Upstreams: React.FC = () => {
+  const { user } = useAuth();
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,7 +30,7 @@ export const Upstreams: React.FC = () => {
 
   useEffect(() => {
     fetchUpstreams();
-  }, []);
+  }, [user?.node]);
 
   const fetchUpstreams = async () => {
     setLoading(true);

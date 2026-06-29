@@ -64,7 +64,9 @@ func ResolveKongNode() gin.HandlerFunc {
 
 			// Load user's default node
 			if err := db.DB.First(&node, *user.Node).Error; err != nil {
-				c.JSON(http.StatusNotFound, gin.H{"message": "Default connection node not found"})
+				// Clear user active node reference in DB
+				db.DB.Model(user).Update("node", nil)
+				c.JSON(http.StatusNotFound, gin.H{"message": "The selected active connection node no longer exists. Please go to Connections settings and select a valid connection."})
 				c.Abort()
 				return
 			}

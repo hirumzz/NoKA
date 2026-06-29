@@ -7,6 +7,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Vault {
   id: string;
   prefix: string;
@@ -15,6 +17,7 @@ interface Vault {
 }
 
 export const Vaults: React.FC = () => {
+  const { user } = useAuth();
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,7 +30,7 @@ export const Vaults: React.FC = () => {
 
   useEffect(() => {
     fetchVaults();
-  }, []);
+  }, [user?.node]);
 
   const fetchVaults = async () => {
     setLoading(true);

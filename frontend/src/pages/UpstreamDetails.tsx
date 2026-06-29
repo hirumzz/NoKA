@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -10,6 +10,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useAuth } from '../context/AuthContext';
 
 interface KongUpstream {
   id: string;
@@ -29,11 +30,17 @@ interface KongTarget {
 
 export const UpstreamDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [upstream, setUpstream] = useState<KongUpstream | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'targets'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    navigate('/upstreams');
+  }, [user?.node]);
 
   // Upstream fields
   const [name, setName] = useState('');

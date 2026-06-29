@@ -7,6 +7,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface KeySet {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ interface KeySet {
 }
 
 export const KeySets: React.FC = () => {
+  const { user } = useAuth();
   const [keySets, setKeySets] = useState<KeySet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,7 +27,7 @@ export const KeySets: React.FC = () => {
 
   useEffect(() => {
     fetchKeySets();
-  }, []);
+  }, [user?.node]);
 
   const fetchKeySets = async () => {
     setLoading(true);

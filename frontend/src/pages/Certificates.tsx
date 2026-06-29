@@ -8,6 +8,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Certificate {
   id: string;
   cert: string;
@@ -17,6 +19,7 @@ interface Certificate {
 }
 
 export const Certificates: React.FC = () => {
+  const { user } = useAuth();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,7 +32,7 @@ export const Certificates: React.FC = () => {
 
   useEffect(() => {
     fetchCertificates();
-  }, []);
+  }, [user?.node]);
 
   const fetchCertificates = async () => {
     setLoading(true);
