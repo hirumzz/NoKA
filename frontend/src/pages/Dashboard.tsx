@@ -577,10 +577,10 @@ export const Dashboard: React.FC = () => {
           </h3>
           <div className="flex items-end h-48 gap-4 justify-around mt-4">
             {[
-              { label: 'Active', value: nodeInfo?.server?.connections_active || 0, color: '#3b82f6' },
-              { label: 'Reading', value: nodeInfo?.server?.connections_reading || 0, color: '#10b981' },
-              { label: 'Writing', value: nodeInfo?.server?.connections_writing || 0, color: '#f59e0b' },
-              { label: 'Waiting', value: nodeInfo?.server?.connections_waiting || 0, color: '#ef4444' }
+              { label: 'Active', value: status?.server?.connections_active || 0, color: '#3b82f6' },
+              { label: 'Reading', value: status?.server?.connections_reading || 0, color: '#10b981' },
+              { label: 'Writing', value: status?.server?.connections_writing || 0, color: '#f59e0b' },
+              { label: 'Waiting', value: status?.server?.connections_waiting || 0, color: '#ef4444' }
             ].map((item, idx) => (
               <div key={idx} className="flex flex-col items-center flex-1">
                 <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>

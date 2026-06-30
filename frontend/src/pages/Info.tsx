@@ -51,6 +51,7 @@ export const Info: React.FC = () => {
   const [info, setInfo] = useState<KongInfo | null>(null);
   const [status, setStatus] = useState<KongStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showRaw, setShowRaw] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -396,6 +397,23 @@ export const Info: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Collapsible Raw Configuration Details */}
+      <div className="flex flex-col items-center pt-6 pb-4">
+        <button
+          onClick={() => setShowRaw(!showRaw)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-sm transition-all uppercase tracking-wider"
+        >
+          <span className="shrink-0 text-slate-500">👁</span>
+          {showRaw ? 'Hide Raw Configuration Details' : 'Reveal Raw Configuration Details'}
+        </button>
+
+        {showRaw && (
+          <div className="w-full mt-6 bg-slate-900 text-slate-100 rounded-xl p-6 shadow-inner font-mono text-xs overflow-x-auto border border-slate-850 max-h-[500px]">
+            <pre>{JSON.stringify(info, null, 2)}</pre>
+          </div>
+        )}
       </div>
     </div>
   );
