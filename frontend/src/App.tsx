@@ -23,6 +23,9 @@ import { RouteDetails } from './pages/RouteDetails';
 import { ConsumerDetails } from './pages/ConsumerDetails';
 import { UpstreamDetails } from './pages/UpstreamDetails';
 import { CertificateDetails } from './pages/CertificateDetails';
+import { Info } from './pages/Info';
+import { Snapshots } from './pages/Snapshots';
+import { Settings } from './pages/Settings';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -202,6 +205,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Help />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/info"
+            element={
+              <ProtectedRoute>
+                <Info />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/snapshots"
+            element={
+              <ProtectedRoute>
+                <Snapshots />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />

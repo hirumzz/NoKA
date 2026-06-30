@@ -19,7 +19,10 @@ import {
   Bell,
   LogOut,
   ChevronDown,
-  X
+  X,
+  Info,
+  Settings,
+  Camera
 } from 'lucide-react';
 
 interface ConnectionNode {
@@ -111,8 +114,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     try {
       const response = await axios.get('/api/connections');
       setConnections(response.data);
-      const active = response.data.find((c: ConnectionNode) => c.id === user?.node) ||
-                     response.data.find((c: ConnectionNode) => c.active === true);
+      const active = response.data.find((c: ConnectionNode) => c.active === true);
       if (active) {
         setActiveNode(active);
       }
@@ -142,7 +144,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const sidebarGroups = [
     {
       items: [
-        { path: '/dashboard', label: 'DASHBOARD', icon: LayoutDashboard }
+        { path: '/dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
+        { path: '/info', label: 'INFO', icon: Info }
       ]
     },
     {
@@ -156,7 +159,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         { path: '/certificates', label: 'CERTIFICATES', icon: Award },
         { path: '/vaults', label: 'VAULTS', icon: Lock },
         { path: '/keys', label: 'KEYS', icon: Key },
-        { path: '/key-sets', label: 'KEY SETS', icon: Layers }
+        { path: '/key-sets', label: 'KEY SETS', icon: Layers },
+        { path: '/snapshots', label: 'SNAPSHOTS', icon: Camera }
       ]
     },
     {
@@ -164,6 +168,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       items: [
         { path: '/users', label: 'USERS', icon: UsersIcon },
         { path: '/connections', label: 'CONNECTIONS', icon: Radio },
+        { path: '/settings', label: 'SETTINGS', icon: Settings },
         { path: '/help', label: 'HELP', icon: HelpCircle }
       ]
     }

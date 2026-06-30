@@ -21,6 +21,12 @@ interface GatewayInfo {
   configuration?: {
     database?: string;
   };
+  server?: {
+    connections_active?: number;
+    connections_reading?: number;
+    connections_writing?: number;
+    connections_waiting?: number;
+  };
 }
 
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +45,15 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    const intervalStr = localStorage.getItem('noka_refresh_interval');
+    const interval = intervalStr ? parseInt(intervalStr, 10) : 30000;
+    
+    if (interval > 0) {
+      const timer = setInterval(() => {
+        fetchDashboardData();
+      }, interval);
+      return () => clearInterval(timer);
+    }
   }, [user?.node]);
 
   const fetchDashboardData = async () => {
@@ -202,6 +217,75 @@ export const Dashboard: React.FC = () => {
                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SVG Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+            <Server className="w-4 h-4 text-brand-primary" /> Server Activity
+          </h3>
+          <div className="flex items-end h-48 gap-4 justify-around mt-4">
+            {[
+              { label: 'Active', value: nodeInfo?.server?.connections_active || 0, color: '#3b82f6' },
+              { label: 'Reading', value: nodeInfo?.server?.connections_reading || 0, color: '#10b981' },
+              { label: 'Writing', value: nodeInfo?.server?.connections_writing || 0, color: '#f59e0b' },
+              { label: 'Waiting', value: nodeInfo?.server?.connections_waiting || 0, color: '#ef4444' }
+            ].map((item, idx) => (
+              <div key={idx} className="flex flex-col items-center flex-1">
+                <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
+                <div className="w-full flex justify-center h-32 relative">
+                  <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <rect 
+                      x="0" 
+                      y={100 - Math.max(5, item.value > 0 ? (item.value / 100) * 100 : 5)} 
+                      width="100" 
+                      height={Math.max(5, item.value > 0 ? (item.value / 100) * 100 : 5)} 
+                      fill={item.color} 
+                      rx="4" 
+                    />
+                  </svg>
+                </div>
+                <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+            <Database className="w-4 h-4 text-brand-primary" /> Database Distribution
+          </h3>
+          <div className="flex items-end h-48 gap-4 justify-around mt-4">
+            {[
+              { label: 'Services', value: counts.services, color: '#6366f1' },
+              { label: 'Routes', value: counts.routes, color: '#8b5cf6' },
+              { label: 'Consumers', value: counts.consumers, color: '#ec4899' },
+              { label: 'Plugins', value: counts.plugins, color: '#14b8a6' }
+            ].map((item, idx) => {
+              const maxVal = Math.max(1, counts.services, counts.routes, counts.consumers, counts.plugins);
+              const heightPct = (item.value / maxVal) * 100;
+              return (
+                <div key={idx} className="flex flex-col items-center flex-1">
+                  <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
+                  <div className="w-full flex justify-center h-32 relative">
+                    <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <rect 
+                        x="0" 
+                        y={100 - Math.max(5, heightPct)} 
+                        width="100" 
+                        height={Math.max(5, heightPct)} 
+                        fill={item.color} 
+                        rx="4" 
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
