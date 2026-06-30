@@ -103,6 +103,12 @@ type ErrorRouteDetail struct {
 	Count float64 `json:"count"`
 }
 
+type ErrorPathDetail struct {
+	Paths []string `json:"paths"`
+	Code  string   `json:"code"`
+	Count float64  `json:"count"`
+}
+
 var (
 	requestsTotalRegex = regexp.MustCompile(`^kong_http_requests_total(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
 	latencySumRegex    = regexp.MustCompile(`^kong_request_latency_ms_sum(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
@@ -367,5 +373,130 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 		"top5xxEndpoints":  top5xxEndpoints,
 		"errorDetails4xx":  errorDetails4xx,
 		"errorDetails5xx":  errorDetails5xx,
+	})
+}
+
+func (h *KongHandler) GetErrorDetails(c *gin.Context) {
+	service := c.Query("service")
+	category := c.Query("category") // "4xx" or "5xx"
+	if service == "" || category == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Missing service or category query parameter"})
+		return
+	}
+
+	nodeVal, exists := c.Get("kongNode")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "No active Kong connection found"})
+		return
+	}
+	node := nodeVal.(*models.KongNode)
+
+	var user *models.User
+	userVal, userExists := c.Get("user")
+	if userExists {
+		u, ok := userVal.(*models.User)
+		if ok {
+			user = u
+		}
+	}
+
+	clientIP := c.ClientIP()
+
+	// 1. Fetch metrics
+	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user)
+	if err != nil || statusCode != http.StatusOK {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Prometheus plugin is not enabled or not reachable on this node"})
+		return
+	}
+
+	// 2. Parse metrics to get route+code+count for the specific service
+	// map[route:code] -> count
+	routeCodeCountMap := make(map[string]float64)
+	lines := strings.Split(string(respBytes), "\n")
+	prefixMatch := "5"
+	if category == "4xx" {
+		prefixMatch = "4"
+	}
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if match := requestsTotalRegex.FindStringSubmatch(line); len(match) > 2 {
+			labels := match[1]
+			valStr := match[2]
+			val, err := strconv.ParseFloat(valStr, 64)
+			if err == nil {
+				svcEp := getEndpoint(labels)
+				if svcEp == service {
+					var code string
+					if codeMatch := codeLabelRegex.FindStringSubmatch(labels); len(codeMatch) > 1 {
+						code = codeMatch[1]
+					}
+					if strings.HasPrefix(code, prefixMatch) {
+						var routeLabel string
+						if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
+							routeLabel = rm[1]
+						}
+						if routeLabel == "" {
+							routeLabel = svcEp
+						}
+						key := routeLabel + ":" + code
+						routeCodeCountMap[key] += val
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Fetch /routes from Kong to build routeName -> paths mapping
+	var routesResp struct {
+		Data []struct {
+			Name  string   `json:"name"`
+			Paths []string `json:"paths"`
+		} `json:"data"`
+	}
+	routePathMap := make(map[string][]string)
+	
+	rStatusCode, _, rRespBytes, rErr := h.kongService.ForwardRequest(node, "GET", "/routes?size=1000", "", nil, clientIP, user)
+	if rErr == nil && rStatusCode == http.StatusOK {
+		if jsonErr := json.Unmarshal(rRespBytes, &routesResp); jsonErr == nil {
+			for _, r := range routesResp.Data {
+				if r.Name != "" && len(r.Paths) > 0 {
+					routePathMap[r.Name] = r.Paths
+				}
+			}
+		}
+	}
+
+	// 4. Build response array
+	var details []ErrorPathDetail
+	for key, count := range routeCodeCountMap {
+		parts := strings.SplitN(key, ":", 2)
+		routeName := parts[0]
+		code := "unknown"
+		if len(parts) > 1 {
+			code = parts[1]
+		}
+		paths, ok := routePathMap[routeName]
+		if !ok || len(paths) == 0 {
+			// fallback to route name if paths not found
+			paths = []string{routeName}
+		}
+		details = append(details, ErrorPathDetail{
+			Paths: paths,
+			Code:  code,
+			Count: count,
+		})
+	}
+
+	// Sort by count descending
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].Count > details[j].Count
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"details": details,
 	})
 }

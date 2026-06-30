@@ -197,6 +197,8 @@ func main() {
 	kongGroup := r.Group("")
 	kongGroup.Use(middleware.AuthRequired(), middleware.ResolveKongNode(), middleware.KongRBAC())
 	{
+		kongGroup.GET("/api/kong/prometheus-metrics", kongHandler.GetPrometheusMetrics)
+		kongGroup.GET("/api/kong/error-details", kongHandler.GetErrorDetails)
 		kongGroup.Any("/kong/*proxyPath", pathTraversalGuard(), kongHandler.ProxyKong)
 		kongGroup.Any("/api/kong/*proxyPath", pathTraversalGuard(), kongHandler.ProxyKong)
 	}

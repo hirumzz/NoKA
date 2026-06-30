@@ -85,7 +85,9 @@ export const Dashboard: React.FC = () => {
   const [errorModal, setErrorModal] = useState<{
     service: string;
     category: '4xx' | '5xx';
-    details: Array<{ route: string; code: string; count: number }>;
+    totalCount: number;
+    details: Array<{ paths: string[]; code: string; count: number }>;
+    loading: boolean;
   } | null>(null);
   const [error, setError] = useState('');
 
@@ -130,6 +132,21 @@ export const Dashboard: React.FC = () => {
       setError('Failed to fetch gateway statistics. Please verify that a connection is active.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openErrorModal = async (service: string, category: '4xx' | '5xx', totalCount: number) => {
+    setErrorModal({ service, category, totalCount, details: [], loading: true });
+    try {
+      const resp = await axios.get(`/api/kong/error-details?service=${service}&category=${category}`);
+      if (resp.data && resp.data.success) {
+        setErrorModal({ service, category, totalCount, details: resp.data.details, loading: false });
+      } else {
+        setErrorModal({ service, category, totalCount, details: [], loading: false });
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorModal({ service, category, totalCount, details: [], loading: false });
     }
   };
 
@@ -582,11 +599,7 @@ export const Dashboard: React.FC = () => {
                                 <button
                                   className="font-mono text-red-500 truncate max-w-[120px] hover:underline cursor-pointer text-left"
                                   title={`Click to see ${item.endpoint} error details`}
-                                  onClick={() => setErrorModal({
-                                    service: item.endpoint,
-                                    category: '5xx',
-                                    details: prometheusMetrics!.errorDetails5xx?.[item.endpoint] ?? []
-                                  })}
+                                  onClick={() => openErrorModal(item.endpoint, '5xx', item.count)}
                                 >
                                   {item.endpoint}
                                 </button>
@@ -615,11 +628,7 @@ export const Dashboard: React.FC = () => {
                                 <button
                                   className="font-mono text-orange-500 truncate max-w-[120px] hover:underline cursor-pointer text-left"
                                   title={`Click to see ${item.endpoint} error details`}
-                                  onClick={() => setErrorModal({
-                                    service: item.endpoint,
-                                    category: '4xx',
-                                    details: prometheusMetrics!.errorDetails4xx?.[item.endpoint] ?? []
-                                  })}
+                                  onClick={() => openErrorModal(item.endpoint, '4xx', item.count)}
                                 >
                                   {item.endpoint}
                                 </button>
@@ -734,37 +743,47 @@ export const Dashboard: React.FC = () => {
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
-              <div className="flex items-center gap-3 min-w-0">
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                    errorModal.category === '5xx'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-orange-100 text-orange-600'
-                  }`}
+            <div className="flex flex-col border-b border-border-light px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      errorModal.category === '5xx'
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-orange-100 text-orange-600'
+                    }`}
+                  >
+                    {errorModal.category.toUpperCase()}
+                  </span>
+                  <span className="font-mono font-bold text-sm text-slate-800 truncate" title={errorModal.service}>
+                    {errorModal.service}
+                  </span>
+                </div>
+                <button
+                  className="ml-4 shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
+                  onClick={() => setErrorModal(null)}
                 >
-                  {errorModal.category.toUpperCase()}
-                </span>
-                <span className="font-mono font-bold text-sm text-slate-800 truncate" title={errorModal.service}>
-                  {errorModal.service}
-                </span>
+                  ✕
+                </button>
               </div>
-              <button
-                className="ml-4 shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
-                onClick={() => setErrorModal(null)}
-              >
-                ✕
-              </button>
+              <div className="mt-2 text-[11px] text-slate-500 font-medium">
+                Total {errorModal.category} errors from this service: <span className="font-bold text-slate-700">{errorModal.totalCount.toLocaleString()}</span>
+              </div>
             </div>
             {/* Modal Body */}
             <div className="overflow-y-auto flex-1 px-6 py-4">
-              {errorModal.details.length === 0 ? (
+              {errorModal.loading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mb-4"></div>
+                  <p className="text-xs text-text-muted">Fetching URL paths from Kong Admin...</p>
+                </div>
+              ) : errorModal.details.length === 0 ? (
                 <p className="text-xs text-text-muted text-center py-8">No detailed breakdown available.</p>
               ) : (
                 <table className="w-full text-left border-collapse text-[11px]">
                   <thead>
                     <tr className="border-b-2 border-border-light text-text-secondary font-bold uppercase tracking-wider">
-                      <th className="py-2 pr-4">Route / Identifier</th>
+                      <th className="py-2 pr-4">URL Paths</th>
                       <th className="py-2 pr-4 text-center">Code</th>
                       <th className="py-2 text-right">Count</th>
                     </tr>
@@ -778,15 +797,25 @@ export const Dashboard: React.FC = () => {
                         : 'bg-slate-100 text-slate-700';
                       return (
                         <tr key={i} className={`border-b border-border-light ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
-                          <td className="py-2 pr-4 font-mono text-[10px] text-slate-700 max-w-[220px] truncate" title={d.route}>
-                            {d.route}
+                          <td className="py-2 pr-4 max-w-[260px]">
+                            {d.paths && d.paths.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {d.paths.map((p, idx) => (
+                                  <span key={idx} className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 break-all border border-slate-200">
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic font-mono text-[10px]">unknown</span>
+                            )}
                           </td>
-                          <td className="py-2 pr-4 text-center">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${codeBg}`}>
+                          <td className="py-2 pr-4 text-center align-top">
+                            <span className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${codeBg}`}>
                               {d.code}
                             </span>
                           </td>
-                          <td className="py-2 text-right font-semibold text-slate-800">
+                          <td className="py-2 text-right font-semibold text-slate-800 align-top pt-2.5">
                             {d.count.toLocaleString()}
                           </td>
                         </tr>
