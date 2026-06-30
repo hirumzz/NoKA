@@ -117,7 +117,7 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			CreatedAt:    now,
 			UpdatedAt:    now,
 		}
-		
+
 		// I'll fix c.Request.URL.Path inside the service
 
 		// Import db and create a system notification for the change

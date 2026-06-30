@@ -44,21 +44,21 @@ func CreateConnection(c *gin.Context) {
 
 	now := time.Now()
 	node := models.KongNode{
-		Name:         req.Name,
-		KongAdminURL: req.KongAdminURL,
-		Type:         req.Type,
-		KongAPIKey:   req.KongAPIKey,
-		Username:     req.Username,
-		Password:     req.Password,
-		JWTAlgorithm: req.JWTAlgorithm,
-		JWTKey:       req.JWTKey,
-		JWTSecret:    req.JWTSecret,
-		NetdataURL:   req.NetdataURL,
-		Active:       false,
-		KongVersion:  "3.9.2", // Default to newest
-		HealthCheckDetails: "{}", // Must be a valid JSON string for Postgres JSON column
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		Name:               req.Name,
+		KongAdminURL:       req.KongAdminURL,
+		Type:               req.Type,
+		KongAPIKey:         req.KongAPIKey,
+		Username:           req.Username,
+		Password:           req.Password,
+		JWTAlgorithm:       req.JWTAlgorithm,
+		JWTKey:             req.JWTKey,
+		JWTSecret:          req.JWTSecret,
+		NetdataURL:         req.NetdataURL,
+		Active:             false,
+		KongVersion:        "3.9.2", // Default to newest
+		HealthCheckDetails: "{}",    // Must be a valid JSON string for Postgres JSON column
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 
 	if node.Type == "" {
