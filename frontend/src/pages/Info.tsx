@@ -6,11 +6,11 @@ import {
   Cpu,
   Globe,
   Clock,
-  Zap,
   Plug,
   Activity,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 
 interface KongInfo {
@@ -50,6 +50,7 @@ export const Info: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [info, setInfo] = useState<KongInfo | null>(null);
   const [status, setStatus] = useState<KongStatus | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -74,6 +75,42 @@ export const Info: React.FC = () => {
     }
   };
 
+  const formatAdminListen = (listen: any) => {
+    if (Array.isArray(listen)) return listen.join(', ');
+    if (typeof listen === 'string') return listen;
+    return 'N/A';
+  };
+
+  const getDatastoreDetails = (config: any) => {
+    if (!config) return { dbms: 'N/A', host: 'N/A', name: 'N/A', user: 'N/A', port: 'N/A' };
+    const dbms = config.database || 'N/A';
+    if (dbms === 'postgres') {
+      return {
+        dbms: 'PostgreSQL',
+        host: config.pg_host || 'N/A',
+        name: config.pg_database || 'N/A',
+        user: config.pg_user || 'N/A',
+        port: config.pg_port || 'N/A'
+      };
+    }
+    if (dbms === 'cassandra') {
+      return {
+        dbms: 'Cassandra',
+        host: Array.isArray(config.cassandra_contact_points) ? config.cassandra_contact_points.join(', ') : (config.cassandra_contact_points || 'N/A'),
+        name: config.cassandra_keyspace || 'N/A',
+        user: config.cassandra_username || 'N/A',
+        port: config.cassandra_port || 'N/A'
+      };
+    }
+    return {
+      dbms: dbms,
+      host: 'N/A',
+      name: 'N/A',
+      user: 'N/A',
+      port: 'N/A'
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64 text-text-secondary">
@@ -94,10 +131,10 @@ export const Info: React.FC = () => {
 
   if (!info || !status) return null;
 
-  const plugins = info.plugins.available_on_server || {};
-  const enabledPlugins = Object.entries(plugins)
-    .filter(([_, isEnabled]) => isEnabled)
-    .map(([name]) => name);
+  const allPlugins = Object.keys(info.plugins.available_on_server || {}).sort();
+  const filteredPlugins = allPlugins.filter(name => 
+    name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-6 font-sans">
@@ -119,101 +156,243 @@ export const Info: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
-            <Server className="w-4 h-4 text-brand-primary" /> System Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
-                <Cpu className="w-4 h-4" />
+      {/* 3-column layout card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Card 1: Node specifications */}
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+              <Server className="w-4 h-4 text-brand-primary" /> Node Specifications
+            </h3>
+            <div className="space-y-4 mt-4">
+              <div className="flex items-start gap-3">
+                <Cpu className="w-4 h-4 text-text-secondary mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-text-muted font-bold uppercase">Hostname</p>
+                  <p className="text-xs font-bold text-text-primary mt-0.5">{info.hostname}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] text-text-muted font-bold uppercase">Hostname</p>
-                <p className="text-sm font-bold text-text-primary mt-0.5">{info.hostname}</p>
+              <div className="flex items-start gap-3">
+                <Server className="w-4 h-4 text-text-secondary mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-text-muted font-bold uppercase">Kong Version</p>
+                  <p className="text-xs font-bold text-text-primary mt-0.5">{info.version}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
-                <Server className="w-4 h-4" />
+              <div className="flex items-start gap-3">
+                <Globe className="w-4 h-4 text-text-secondary mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-text-muted font-bold uppercase">Lua VM Version</p>
+                  <p className="text-xs font-bold text-text-primary mt-0.5">{info.lua_version}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] text-text-muted font-bold uppercase">Kong Version</p>
-                <p className="text-sm font-bold text-text-primary mt-0.5">{info.version}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
-                <Globe className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] text-text-muted font-bold uppercase">Lua VM</p>
-                <p className="text-sm font-bold text-text-primary mt-0.5">{info.lua_version}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded bg-slate-100 text-text-secondary">
-                <Database className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-[10px] text-text-muted font-bold uppercase">Datastore</p>
-                <p className="text-sm font-bold text-text-primary mt-0.5 capitalize">{info.configuration.database}</p>
+              <div className="flex items-start gap-3">
+                <Activity className="w-4 h-4 text-text-secondary mt-0.5" />
+                <div>
+                  <p className="text-[10px] text-text-muted font-bold uppercase">Admin Listener</p>
+                  <p className="text-xs font-bold text-text-primary mt-0.5 break-all">
+                    {formatAdminListen(info.configuration?.admin_listen)}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
-            <Activity className="w-4 h-4 text-brand-primary" /> Node Status
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-slate-50 rounded border border-slate-100">
-              <p className="text-[10px] text-text-muted font-bold uppercase mb-1">Active Connections</p>
-              <p className="text-2xl font-extrabold text-brand-primary">{status.server.connections_active}</p>
-            </div>
-            <div className="p-4 bg-slate-50 rounded border border-slate-100">
-              <p className="text-[10px] text-text-muted font-bold uppercase mb-1">Total Requests</p>
-              <p className="text-2xl font-extrabold text-indigo-600">{status.server.total_requests}</p>
-            </div>
-          </div>
+        {/* Card 2: Lua VM Timers */}
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+              <Clock className="w-4 h-4 text-brand-primary" /> Lua VM Timers
+            </h3>
+            <svg className="hidden">
+              <defs>
+                <linearGradient id="pendingTimerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#d97706" />
+                </linearGradient>
+                <linearGradient id="runningTimerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
+            </svg>
+            {info.timers ? (
+              <div className="flex items-center justify-around h-full py-6">
+                {/* Pending Timers */}
+                <div className="flex flex-col items-center">
+                  <div className="relative w-24 h-24">
+                    <svg className="w-full h-full animate-[spin_25s_linear_infinite]" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
+                      <circle 
+                        cx="50" 
+                        cy="50" 
+                        r="40" 
+                        stroke="url(#pendingTimerGrad)" 
+                        strokeWidth="8" 
+                        fill="transparent" 
+                        strokeDasharray="251.2" 
+                        strokeDashoffset={251.2 - Math.min(251.2, (info.timers.pending / Math.max(10, info.timers.pending, info.timers.running)) * 251.2)} 
+                        strokeLinecap="round"
+                        transform="rotate(-90 50 50)"
+                        className="transition-all duration-1000 ease-out"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-xl font-extrabold text-amber-500">{info.timers.pending}</span>
+                      <span className="text-[9px] text-text-secondary uppercase font-bold">Pending</span>
+                    </div>
+                  </div>
+                </div>
 
-          {info.timers && (
-            <div className="mt-4 pt-4 border-t border-border-light flex space-x-6">
-              <div className="flex items-center text-sm font-semibold">
-                <Clock className="w-4 h-4 mr-2 text-amber-500" />
-                <span className="text-text-secondary">Pending Timers:</span>
-                <span className="ml-2 text-text-primary">{info.timers.pending}</span>
+                {/* Running Timers */}
+                <div className="flex flex-col items-center">
+                  <div className="relative w-24 h-24">
+                    <svg className="w-full h-full animate-[spin_25s_linear_infinite]" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
+                      <circle 
+                        cx="50" 
+                        cy="50" 
+                        r="40" 
+                        stroke="url(#runningTimerGrad)" 
+                        strokeWidth="8" 
+                        fill="transparent" 
+                        strokeDasharray="251.2" 
+                        strokeDashoffset={251.2 - Math.min(251.2, (info.timers.running / Math.max(10, info.timers.pending, info.timers.running)) * 251.2)} 
+                        strokeLinecap="round"
+                        transform="rotate(-90 50 50)"
+                        className="transition-all duration-1000 ease-out"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-xl font-extrabold text-emerald-500">{info.timers.running}</span>
+                      <span className="text-[9px] text-text-secondary uppercase font-bold">Running</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center text-sm font-semibold">
-                <Zap className="w-4 h-4 mr-2 text-emerald-500" />
-                <span className="text-text-secondary">Running Timers:</span>
-                <span className="ml-2 text-text-primary">{info.timers.running}</span>
+            ) : (
+              <div className="text-center py-10 text-xs text-text-muted">Timer statistics not available.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 3: Datastore configuration */}
+        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-center justify-between border-b border-border-light pb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+                <Database className="w-4 h-4 text-brand-primary" /> Datastore Config
+              </h3>
+              <div className="flex items-center space-x-2 text-xs font-bold">
+                {status.database.reachable ? (
+                  <span className="flex items-center text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                    <span className="relative flex h-2 w-2 mr-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    Reachable
+                  </span>
+                ) : (
+                  <span className="flex items-center text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+                    <span className="h-2 w-2 mr-1.5 rounded-full bg-red-500" />
+                    Unreachable
+                  </span>
+                )}
               </div>
             </div>
-          )}
+
+            {(() => {
+              const details = getDatastoreDetails(info.configuration);
+              return (
+                <div className="grid grid-cols-2 gap-y-4 gap-x-2 mt-4">
+                  <div>
+                    <p className="text-[10px] text-text-muted font-bold uppercase">DBMS</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 capitalize">{details.dbms}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted font-bold uppercase">Host</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.host)}>{details.host}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted font-bold uppercase">Database Name</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.name)}>{details.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted font-bold uppercase">User</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.user)}>{details.user}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-text-muted font-bold uppercase">Port</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5">{details.port}</p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
+
       </div>
 
-      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-6">
-          <Plug className="w-4 h-4 text-brand-primary" /> Enabled Plugins on Node
-        </h3>
+      {/* Plugins Grid Section */}
+      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border-light pb-4">
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+              <Plug className="w-4 h-4 text-brand-primary" /> Plugins Registry
+            </h3>
+            <p className="text-xs text-text-secondary mt-0.5">
+              List of all plugins available on the server. Active plugins are highlighted.
+            </p>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="relative max-w-xs w-full">
+            <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text"
+              placeholder="Filter plugins by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-brand-primary focus:bg-white transition-all font-sans font-medium"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {enabledPlugins.map((plugin) => (
-            <div 
-              key={plugin}
-              className="flex items-center justify-center p-3 bg-slate-50 border border-slate-200 rounded-md shadow-sm hover:border-brand-primary transition-colors"
-            >
-              <span className="text-xs font-semibold text-text-primary text-center truncate w-full" title={plugin}>
-                {plugin}
-              </span>
-            </div>
-          ))}
-          {enabledPlugins.length === 0 && (
-            <div className="col-span-full text-center text-sm text-text-muted py-4">
-              No plugins available.
+          {filteredPlugins.map((plugin) => {
+            const isActive = info.plugins.enabled_in_cluster ? info.plugins.enabled_in_cluster.includes(plugin) : false;
+            return (
+              <div 
+                key={plugin}
+                style={
+                  isActive 
+                    ? { borderColor: '#8ec400', boxShadow: '0 0 12px rgba(142, 196, 0, 0.35)' }
+                    : undefined
+                }
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-300 ${
+                  isActive 
+                    ? 'bg-[#8ec400]/5 border-2 text-slate-800 scale-[1.03] font-bold' 
+                    : 'bg-slate-50/50 border-slate-200 text-text-secondary opacity-60 hover:opacity-100 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <span className="text-xs font-bold text-center truncate w-full" title={plugin}>
+                  {plugin}
+                </span>
+                <span className={`text-[8px] uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded-full ${
+                  isActive 
+                    ? 'bg-[#8ec400]/20 text-[#679100] font-extrabold' 
+                    : 'bg-slate-200/50 text-slate-500 font-bold'
+                }`}>
+                  {isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            );
+          })}
+          {filteredPlugins.length === 0 && (
+            <div className="col-span-full text-center text-xs text-text-muted py-8">
+              No plugins match your search filter.
             </div>
           )}
         </div>

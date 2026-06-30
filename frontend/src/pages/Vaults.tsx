@@ -4,7 +4,8 @@ import {
   Plus, 
   Trash2, 
   Lock, 
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -12,9 +13,27 @@ import { useAuth } from '../context/AuthContext';
 interface Vault {
   id: string;
   prefix: string;
+  backend?: string;
   description?: string;
+  tags?: string[];
   created_at: number;
 }
+
+const getTagBadgeStyle = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = [
+    'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+    'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    'bg-amber-50 text-amber-700 border-amber-200/60',
+    'bg-rose-50 text-rose-700 border-rose-200/60',
+    'bg-sky-50 text-sky-700 border-sky-200/60',
+    'bg-purple-50 text-purple-700 border-purple-200/60',
+  ];
+  return colors[Math.abs(hash) % colors.length];
+};
 
 export const Vaults: React.FC = () => {
   const { user } = useAuth();
@@ -27,6 +46,11 @@ export const Vaults: React.FC = () => {
   const [prefix, setPrefix] = useState('');
   const [backend, setBackend] = useState('env');
   const [description, setDescription] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
+
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
 
   useEffect(() => {
     fetchVaults();
@@ -51,15 +75,19 @@ export const Vaults: React.FC = () => {
     if (!prefix) return;
     setError('');
 
+    const parsedTags = tagsInput.split(',').map(t => t.trim()).filter(t => t !== '');
+
     try {
       await axios.post('/api/kong/vaults', {
         prefix,
         backend,
-        description
+        description,
+        tags: parsedTags
       });
       setPrefix('');
       setBackend('env');
       setDescription('');
+      setTagsInput('');
       setShowAddForm(false);
       fetchVaults();
     } catch (err: any) {
@@ -138,11 +166,24 @@ export const Vaults: React.FC = () => {
                   className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                 />
               </div>
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="e.g. env, production, secure"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setTagsInput('');
+                }}
                 className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
               >
                 Cancel
@@ -159,63 +200,141 @@ export const Vaults: React.FC = () => {
       )}
 
       <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
+        {!loading && (vaults.length > 0 || searchTerm || selectedTag) && (
+          <div className="p-4 border-b border-border-light bg-slate-50/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-muted" />
+              <input
+                type="text"
+                placeholder="Search vaults by prefix, ID, backend, or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-medium"
+              />
+            </div>
+            <div className="flex gap-2 items-center w-full sm:w-auto justify-end">
+              <span className="text-[10px] font-bold text-text-secondary uppercase whitespace-nowrap">Filter by Tag:</span>
+              <select
+                value={selectedTag}
+                onChange={(e) => setSelectedTag(e.target.value)}
+                className="px-3 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-semibold text-text-primary min-w-[140px]"
+              >
+                <option value="">All Tags</option>
+                {Array.from(new Set(vaults.flatMap(v => v.tags || []))).sort().map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="p-12 text-center text-text-muted text-xs font-semibold flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
             Loading vaults...
           </div>
-        ) : vaults.length > 0 ? (
+        ) : vaults.filter(v => {
+          const searchMatch = !searchTerm || [
+            v.prefix,
+            v.id,
+            v.backend,
+            v.description
+          ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
+          const tagMatch = !selectedTag || (v.tags && v.tags.includes(selectedTag));
+          return searchMatch && tagMatch;
+        }).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
                   <th className="px-6 py-3.5">Prefix</th>
                   <th className="px-6 py-3.5">Backend</th>
+                  <th className="px-6 py-3.5">Tags</th>
                   <th className="px-6 py-3.5">Created At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {vaults.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-50/25 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded bg-red-50 text-red-600">
-                          <Lock className="w-4 h-4" />
+                {vaults
+                  .filter(v => {
+                    const searchMatch = !searchTerm || [
+                      v.prefix,
+                      v.id,
+                      v.backend,
+                      v.description
+                    ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
+                    const tagMatch = !selectedTag || (v.tags && v.tags.includes(selectedTag));
+                    return searchMatch && tagMatch;
+                  })
+                  .map((v) => (
+                    <tr key={v.id} className="hover:bg-slate-50/25 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded bg-red-50 text-red-600">
+                            <Lock className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-sm block">{v.prefix}</span>
+                            <span className="text-[10px] text-text-muted font-mono block select-all">{v.id}</span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-bold text-sm block">{v.prefix}</span>
-                          <span className="text-[10px] text-text-muted font-mono block select-all">{v.id}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-text-secondary text-[10px] font-bold uppercase">
+                          {v.backend || 'env'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {v.tags && v.tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {v.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold transition-all hover:opacity-85 cursor-pointer ${getTagBadgeStyle(tag)}`}
+                                onClick={() => setSelectedTag(tag === selectedTag ? '' : tag)}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-text-muted italic text-[11px]">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-text-secondary font-medium">
+                        {new Date(v.created_at * 1000).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleDeleteVault(v.id)}
+                            className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
+                            title="Delete Vault"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-text-secondary text-[10px] font-bold uppercase">
-                        {v.prefix}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-text-secondary font-medium">
-                      {new Date(v.created_at * 1000).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleDeleteVault(v.id)}
-                          className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
-                          title="Delete Vault"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">
-            No vaults found. Click "ADD VAULT" to register a secrets vault backend.
+            {vaults.length > 0 ? (
+              <div className="space-y-3">
+                <p>No vaults match your search or filter criteria.</p>
+                <button
+                  onClick={() => { setSearchTerm(''); setSelectedTag(''); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-border-light rounded text-[10px] font-bold text-text-primary transition-colors"
+                >
+                  CLEAR FILTERS
+                </button>
+              </div>
+            ) : (
+              'No vaults found. Click "ADD VAULT" to register a secrets vault backend.'
+            )}
           </div>
         )}
       </div>

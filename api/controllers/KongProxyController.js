@@ -322,11 +322,31 @@ function parsePrometheus(text) {
 
   var hitsByEndpoint = {};
   var totalRequests = 0;
+  var statusCodes = {
+    '2xx': 0,
+    '3xx': 0,
+    '4xx': 0,
+    '5xx': 0
+  };
   for (var j = 0; j < httpRequests.length; j++) {
     var req = httpRequests[j];
     var key = req.route !== 'unknown' ? req.route : (req.service !== 'unknown' ? req.service : 'unknown');
     hitsByEndpoint[key] = (hitsByEndpoint[key] || 0) + req.count;
     totalRequests += req.count;
+
+    var code = req.code;
+    if (code && code.length > 0) {
+      var firstChar = code.charAt(0);
+      if (firstChar === '2') {
+        statusCodes['2xx'] += req.count;
+      } else if (firstChar === '3') {
+        statusCodes['3xx'] += req.count;
+      } else if (firstChar === '4') {
+        statusCodes['4xx'] += req.count;
+      } else if (firstChar === '5') {
+        statusCodes['5xx'] += req.count;
+      }
+    }
   }
 
   var sortedHits = Object.keys(hitsByEndpoint).map(function(endpoint) {
@@ -365,6 +385,7 @@ function parsePrometheus(text) {
   return {
     totalRequests: totalRequests,
     topHits: sortedHits.slice(0, 10),
-    slowestEndpoints: sortedLatencies.slice(0, 10)
+    slowestEndpoints: sortedLatencies.slice(0, 10),
+    statusCodes: statusCodes
   };
 }
