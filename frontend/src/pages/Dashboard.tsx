@@ -62,6 +62,8 @@ interface PrometheusMetrics {
   };
   top4xxEndpoints: Array<{ endpoint: string; count: number }>;
   top5xxEndpoints: Array<{ endpoint: string; count: number }>;
+  errorDetails4xx: Record<string, Array<{ route: string; code: string; count: number }>>;
+  errorDetails5xx: Record<string, Array<{ route: string; code: string; count: number }>>;
   message?: string;
 }
 
@@ -80,6 +82,11 @@ export const Dashboard: React.FC = () => {
   const [status, setStatus] = useState<KongStatus | null>(null);
   const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(null);
   const [hoveredCode, setHoveredCode] = useState<{ label: string; value: number; percent: number } | null>(null);
+  const [errorModal, setErrorModal] = useState<{
+    service: string;
+    category: '4xx' | '5xx';
+    details: Array<{ route: string; code: string; count: number }>;
+  } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -571,7 +578,17 @@ export const Dashboard: React.FC = () => {
                             const wPct = (item.count / maxVal) * 100;
                             return (
                               <div key={idx} className="flex items-center justify-between text-[10px]">
-                                <span className="font-mono text-slate-600 truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</span>
+                                <button
+                                  className="font-mono text-red-500 truncate max-w-[120px] hover:underline cursor-pointer text-left"
+                                  title={`Click to see ${item.endpoint} error details`}
+                                  onClick={() => setErrorModal({
+                                    service: item.endpoint,
+                                    category: '5xx',
+                                    details: prometheusMetrics!.errorDetails5xx?.[item.endpoint] ?? []
+                                  })}
+                                >
+                                  {item.endpoint}
+                                </button>
                                 <div className="flex items-center space-x-2 flex-1 ml-2">
                                   <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                     <div className="h-full bg-red-400 rounded-full" style={{ width: `${wPct}%` }} />
@@ -594,7 +611,17 @@ export const Dashboard: React.FC = () => {
                             const wPct = (item.count / maxVal) * 100;
                             return (
                               <div key={idx} className="flex items-center justify-between text-[10px]">
-                                <span className="font-mono text-slate-600 truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</span>
+                                <button
+                                  className="font-mono text-orange-500 truncate max-w-[120px] hover:underline cursor-pointer text-left"
+                                  title={`Click to see ${item.endpoint} error details`}
+                                  onClick={() => setErrorModal({
+                                    service: item.endpoint,
+                                    category: '4xx',
+                                    details: prometheusMetrics!.errorDetails4xx?.[item.endpoint] ?? []
+                                  })}
+                                >
+                                  {item.endpoint}
+                                </button>
                                 <div className="flex items-center space-x-2 flex-1 ml-2">
                                   <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                     <div className="h-full bg-orange-400 rounded-full" style={{ width: `${wPct}%` }} />
@@ -694,6 +721,86 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
     </div>
+
+      {/* Error Detail Modal */}
+      {errorModal && (
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          onClick={() => setErrorModal(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-light">
+              <div className="flex items-center gap-3 min-w-0">
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    errorModal.category === '5xx'
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-orange-100 text-orange-600'
+                  }`}
+                >
+                  {errorModal.category.toUpperCase()}
+                </span>
+                <span className="font-mono font-bold text-sm text-slate-800 truncate" title={errorModal.service}>
+                  {errorModal.service}
+                </span>
+              </div>
+              <button
+                className="ml-4 shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
+                onClick={() => setErrorModal(null)}
+              >
+                ✕
+              </button>
+            </div>
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+              {errorModal.details.length === 0 ? (
+                <p className="text-xs text-text-muted text-center py-8">No detailed breakdown available.</p>
+              ) : (
+                <table className="w-full text-left border-collapse text-[11px]">
+                  <thead>
+                    <tr className="border-b-2 border-border-light text-text-secondary font-bold uppercase tracking-wider">
+                      <th className="py-2 pr-4">Route / Identifier</th>
+                      <th className="py-2 pr-4 text-center">Code</th>
+                      <th className="py-2 text-right">Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {errorModal.details.map((d, i) => {
+                      const codeNum = parseInt(d.code, 10);
+                      const codeBg =
+                        codeNum >= 500 ? 'bg-red-100 text-red-700'
+                        : codeNum >= 400 ? 'bg-orange-100 text-orange-700'
+                        : 'bg-slate-100 text-slate-700';
+                      return (
+                        <tr key={i} className={`border-b border-border-light ${i % 2 === 1 ? 'bg-slate-50/50' : ''}`}>
+                          <td className="py-2 pr-4 font-mono text-[10px] text-slate-700 max-w-[220px] truncate" title={d.route}>
+                            {d.route}
+                          </td>
+                          <td className="py-2 pr-4 text-center">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${codeBg}`}>
+                              {d.code}
+                            </span>
+                          </td>
+                          <td className="py-2 text-right font-semibold text-slate-800">
+                            {d.count.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-border-light text-[10px] text-text-muted">
+              Data sourced from Kong Prometheus metrics · Click outside to close
+            </div>
+          </div>
+        </div>
+      )}
   );
 };
 

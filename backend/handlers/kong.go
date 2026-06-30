@@ -97,6 +97,12 @@ type ErrorEndpoint struct {
 	Count    float64 `json:"count"`
 }
 
+type ErrorRouteDetail struct {
+	Route string  `json:"route"`
+	Code  string  `json:"code"`
+	Count float64 `json:"count"`
+}
+
 var (
 	requestsTotalRegex = regexp.MustCompile(`^kong_http_requests_total(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
 	latencySumRegex    = regexp.MustCompile(`^kong_request_latency_ms_sum(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
@@ -121,13 +127,16 @@ func getEndpoint(labels string) string {
 	return route
 }
 
-func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint) {
+func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
 	var totalRequests float64
 	hitsByEndpoint := make(map[string]float64)
 	latencySumByEndpoint := make(map[string]float64)
 	latencyCountByEndpoint := make(map[string]float64)
 	errorsByEndpoint4xx := make(map[string]float64)
 	errorsByEndpoint5xx := make(map[string]float64)
+	// map[service][route+":"+code] -> *ErrorRouteDetail
+	errDetailRaw4xx := make(map[string]map[string]*ErrorRouteDetail)
+	errDetailRaw5xx := make(map[string]map[string]*ErrorRouteDetail)
 
 	statusCodes := map[string]float64{
 		"2xx": 0,
@@ -165,15 +174,45 @@ func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEnd
 						statusCodes["3xx"] += val
 					} else if strings.HasPrefix(code, "4") {
 						statusCodes["4xx"] += val
-						endpoint := getEndpoint(labels)
-						if endpoint != "" {
-							errorsByEndpoint4xx[endpoint] += val
+						svcEp := getEndpoint(labels)
+						if svcEp != "" {
+							errorsByEndpoint4xx[svcEp] += val
+							var routeLabel string
+							if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
+								routeLabel = rm[1]
+							}
+							if routeLabel == "" {
+								routeLabel = svcEp
+							}
+							key := routeLabel + ":" + code
+							if errDetailRaw4xx[svcEp] == nil {
+								errDetailRaw4xx[svcEp] = make(map[string]*ErrorRouteDetail)
+							}
+							if errDetailRaw4xx[svcEp][key] == nil {
+								errDetailRaw4xx[svcEp][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
+							}
+							errDetailRaw4xx[svcEp][key].Count += val
 						}
 					} else if strings.HasPrefix(code, "5") {
 						statusCodes["5xx"] += val
-						endpoint := getEndpoint(labels)
-						if endpoint != "" {
-							errorsByEndpoint5xx[endpoint] += val
+						svcEp := getEndpoint(labels)
+						if svcEp != "" {
+							errorsByEndpoint5xx[svcEp] += val
+							var routeLabel string
+							if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
+								routeLabel = rm[1]
+							}
+							if routeLabel == "" {
+								routeLabel = svcEp
+							}
+							key := routeLabel + ":" + code
+							if errDetailRaw5xx[svcEp] == nil {
+								errDetailRaw5xx[svcEp] = make(map[string]*ErrorRouteDetail)
+							}
+							if errDetailRaw5xx[svcEp][key] == nil {
+								errDetailRaw5xx[svcEp][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
+							}
+							errDetailRaw5xx[svcEp][key].Count += val
 						}
 					}
 				}
@@ -265,7 +304,27 @@ func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEnd
 		top5xxEndpoints = top5xxEndpoints[:10]
 	}
 
-	return totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints
+	// Flatten error details maps
+	errorDetails4xx := make(map[string][]ErrorRouteDetail)
+	for svc, routeMap := range errDetailRaw4xx {
+		for _, d := range routeMap {
+			errorDetails4xx[svc] = append(errorDetails4xx[svc], *d)
+		}
+		sort.Slice(errorDetails4xx[svc], func(i, j int) bool {
+			return errorDetails4xx[svc][i].Count > errorDetails4xx[svc][j].Count
+		})
+	}
+	errorDetails5xx := make(map[string][]ErrorRouteDetail)
+	for svc, routeMap := range errDetailRaw5xx {
+		for _, d := range routeMap {
+			errorDetails5xx[svc] = append(errorDetails5xx[svc], *d)
+		}
+		sort.Slice(errorDetails5xx[svc], func(i, j int) bool {
+			return errorDetails5xx[svc][i].Count > errorDetails5xx[svc][j].Count
+		})
+	}
+
+	return totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints, errorDetails4xx, errorDetails5xx
 }
 
 func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
@@ -296,7 +355,7 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints := parsePrometheusMetrics(string(respBytes))
+	totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints, errorDetails4xx, errorDetails5xx := parsePrometheusMetrics(string(respBytes))
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":          true,
@@ -306,5 +365,7 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 		"statusCodes":      statusCodes,
 		"top4xxEndpoints":  top4xxEndpoints,
 		"top5xxEndpoints":  top5xxEndpoints,
+		"errorDetails4xx":  errorDetails4xx,
+		"errorDetails5xx":  errorDetails5xx,
 	})
 }
