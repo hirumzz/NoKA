@@ -5,8 +5,11 @@ import {
   Plus, 
   Trash2, 
   GitBranch, 
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
+
+import { useAuth } from '../context/AuthContext';
 
 interface RouteItem {
   id: string;
@@ -19,14 +22,31 @@ interface RouteItem {
     id: string;
   };
   created_at: number;
+  tags?: string[];
 }
-
-import { useAuth } from '../context/AuthContext';
 
 interface Service {
   id: string;
   name: string;
 }
+
+const getTagStyle = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = [
+    { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+    { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+    { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+    { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+  ];
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
 
 export const Routes: React.FC = () => {
   const { user } = useAuth();
@@ -42,6 +62,11 @@ export const Routes: React.FC = () => {
   const [hosts, setHosts] = useState('');
   const [methods, setMethods] = useState<string[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
+
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
 
   const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
 
@@ -86,6 +111,9 @@ export const Routes: React.FC = () => {
     // Parse comma-separated paths & hosts
     const parsedPaths = paths.split(',').map(p => p.trim()).filter(p => p !== '');
     const parsedHosts = hosts ? hosts.split(',').map(h => h.trim()).filter(h => h !== '') : undefined;
+    const parsedTags = tagsInput
+      ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
+      : [];
 
     const payload: any = {
       paths: parsedPaths,
@@ -94,6 +122,7 @@ export const Routes: React.FC = () => {
     if (name) payload.name = name;
     if (parsedHosts && parsedHosts.length > 0) payload.hosts = parsedHosts;
     if (methods.length > 0) payload.methods = methods;
+    if (parsedTags.length > 0) payload.tags = parsedTags;
 
     try {
       await axios.post('/api/kong/routes', payload);
@@ -101,6 +130,7 @@ export const Routes: React.FC = () => {
       setPaths('');
       setHosts('');
       setMethods([]);
+      setTagsInput('');
       setShowAddForm(false);
       fetchRoutesAndServices();
     } catch (err: any) {
@@ -118,6 +148,33 @@ export const Routes: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to delete route');
     }
   };
+
+  // Extract unique tags
+  const uniqueTags = React.useMemo(() => {
+    const tagsSet = new Set<string>();
+    routes.forEach(route => {
+      if (route.tags) {
+        route.tags.forEach(tag => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet).sort();
+  }, [routes]);
+
+  // Filtered routes
+  const filteredRoutes = React.useMemo(() => {
+    return routes.filter(route => {
+      const nameMatch = (route.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const idMatch = (route.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const hostMatch = route.hosts
+        ? route.hosts.some(h => h.toLowerCase().includes(searchTerm.toLowerCase()))
+        : false;
+      const matchesSearch = nameMatch || idMatch || hostMatch;
+
+      const matchesTag = !selectedTag || (route.tags && route.tags.includes(selectedTag));
+
+      return matchesSearch && matchesTag;
+    });
+  }, [routes, searchTerm, selectedTag]);
 
   return (
     <div className="space-y-6">
@@ -202,6 +259,17 @@ export const Routes: React.FC = () => {
                 />
               </div>
 
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="e.g. production, core, v1"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (optional)</label>
                 <div className="flex flex-wrap gap-2">
@@ -247,12 +315,48 @@ export const Routes: React.FC = () => {
 
       {/* Routes List Table */}
       <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
+        {/* Search and Filter Toolbar */}
+        <div className="p-4 bg-slate-50/50 border-b border-border-light flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by name, ID, or host..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-medium"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary text-[10px] font-bold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <span className="text-[10px] font-bold text-text-secondary uppercase whitespace-nowrap">Filter by Tag:</span>
+            <select
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+              className="w-full sm:w-48 px-2.5 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+            >
+              <option value="">All Tags</option>
+              {uniqueTags.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="p-12 text-center text-text-muted text-xs font-semibold flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
             Loading routes...
           </div>
-        ) : routes.length > 0 ? (
+        ) : filteredRoutes.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -265,7 +369,7 @@ export const Routes: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {routes.map((route) => {
+                {filteredRoutes.map((route) => {
                   const linkedSvc = services.find(s => s.id === route.service.id);
                   return (
                     <tr key={route.id} className="hover:bg-slate-50/25 transition-colors">
@@ -279,6 +383,18 @@ export const Routes: React.FC = () => {
                               {route.name || 'Unnamed Route'}
                             </Link>
                             <span className="text-[10px] text-text-muted font-mono block select-all">{route.id}</span>
+                            {route.tags && route.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {route.tags.map((tag, idx) => {
+                                  const style = getTagStyle(tag);
+                                  return (
+                                    <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
+                                      {tag}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -337,6 +453,10 @@ export const Routes: React.FC = () => {
                 })}
               </tbody>
             </table>
+          </div>
+        ) : routes.length > 0 ? (
+          <div className="p-12 text-center text-text-muted text-xs font-medium">
+            No routes match your search or filter criteria.
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">
