@@ -152,6 +152,7 @@ export const Dashboard: React.FC = () => {
   ];
 
   return (
+    <>
     <div className="space-y-6 font-sans">
       {/* Welcome Banner */}
       <div className="p-8 rounded-lg bg-white border border-border-light shadow-sm relative overflow-hidden">
@@ -801,6 +802,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+    </>
   );
 };
 
