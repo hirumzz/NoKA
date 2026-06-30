@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, AlertCircle } from 'lucide-react';
 
@@ -10,6 +11,19 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupEnabled, setSignupEnabled] = useState(false);
+
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        const response = await axios.get('/info');
+        setSignupEnabled(!!response.data?.signup_enabled);
+      } catch (err) {
+        console.error('Failed to fetch info:', err);
+      }
+    };
+    fetchInfo();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,12 +112,14 @@ export const Login: React.FC = () => {
           </form>
 
           {/* Setup Redirect Link */}
-          <div className="text-center mt-6 text-xs font-medium text-text-secondary">
-            First time setting up?{' '}
-            <Link to="/register" className="text-brand-primary hover:text-brand-primary-hover font-bold transition-colors">
-              Create Admin Account
-            </Link>
-          </div>
+          {signupEnabled && (
+            <div className="text-center mt-6 text-xs font-medium text-text-secondary">
+              First time setting up?{' '}
+              <Link to="/register" className="text-brand-primary hover:text-brand-primary-hover font-bold transition-colors">
+                Create Admin Account
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
