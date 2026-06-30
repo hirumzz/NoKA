@@ -5,7 +5,8 @@ import {
   Plus, 
   Trash2, 
   Layers, 
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -18,7 +19,26 @@ interface Service {
   protocol: string;
   path: string;
   created_at: number;
+  tags?: string[];
 }
+
+const getTagStyle = (tag: string) => {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colors = [
+    { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+    { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+    { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+    { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+    { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+    { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+  ];
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
 
 export const Services: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +55,11 @@ export const Services: React.FC = () => {
   const [protocol, setProtocol] = useState('http');
   const [path, setPath] = useState('');
   const [useUrlField, setUseUrlField] = useState(true);
+  const [tagsInput, setTagsInput] = useState('');
+
+  // Search & Filter
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
 
   useEffect(() => {
     fetchServices();
@@ -59,6 +84,10 @@ export const Services: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    const parsedTags = tagsInput
+      ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
+      : [];
+
     const payload: any = { name };
     if (useUrlField) {
       if (!url) return;
@@ -70,6 +99,9 @@ export const Services: React.FC = () => {
       payload.protocol = protocol;
       payload.path = path;
     }
+    if (parsedTags.length > 0) {
+      payload.tags = parsedTags;
+    }
 
     try {
       await axios.post('/api/kong/services', payload);
@@ -79,6 +111,7 @@ export const Services: React.FC = () => {
       setPort(80);
       setProtocol('http');
       setPath('');
+      setTagsInput('');
       setShowAddForm(false);
       fetchServices();
     } catch (err: any) {
@@ -96,6 +129,31 @@ export const Services: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to delete service');
     }
   };
+
+  // Extract unique tags
+  const uniqueTags = React.useMemo(() => {
+    const tagsSet = new Set<string>();
+    services.forEach(svc => {
+      if (svc.tags) {
+        svc.tags.forEach(tag => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet).sort();
+  }, [services]);
+
+  // Filtered services
+  const filteredServices = React.useMemo(() => {
+    return services.filter(svc => {
+      const nameMatch = (svc.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const idMatch = (svc.id || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const hostMatch = (svc.host || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = nameMatch || idMatch || hostMatch;
+
+      const matchesTag = !selectedTag || (svc.tags && svc.tags.includes(selectedTag));
+
+      return matchesSearch && matchesTag;
+    });
+  }, [services, searchTerm, selectedTag]);
 
   return (
     <div className="space-y-6">
@@ -221,6 +279,17 @@ export const Services: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="e.g. production, core, v1"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <button
@@ -243,12 +312,48 @@ export const Services: React.FC = () => {
 
       {/* Services List Table */}
       <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
+        {/* Search and Filter Toolbar */}
+        <div className="p-4 bg-slate-50/50 border-b border-border-light flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search by name, ID, or host..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-medium"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary text-[10px] font-bold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <span className="text-[10px] font-bold text-text-secondary uppercase whitespace-nowrap">Filter by Tag:</span>
+            <select
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+              className="w-full sm:w-48 px-2.5 py-1.5 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+            >
+              <option value="">All Tags</option>
+              {uniqueTags.map(tag => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="p-12 text-center text-text-muted text-xs font-semibold flex items-center justify-center gap-2">
             <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
             Loading services...
           </div>
-        ) : services.length > 0 ? (
+        ) : filteredServices.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -261,7 +366,7 @@ export const Services: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {services.map((svc) => (
+                {filteredServices.map((svc) => (
                   <tr key={svc.id} className="hover:bg-slate-50/25 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -273,6 +378,18 @@ export const Services: React.FC = () => {
                             {svc.name || 'Unnamed'}
                           </Link>
                           <span className="text-[10px] text-text-muted font-mono block select-all">{svc.id}</span>
+                          {svc.tags && svc.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {svc.tags.map((tag, idx) => {
+                                const style = getTagStyle(tag);
+                                return (
+                                  <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
+                                    {tag}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -305,6 +422,10 @@ export const Services: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : services.length > 0 ? (
+          <div className="p-12 text-center text-text-muted text-xs font-medium">
+            No services match your search or filter criteria.
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">
