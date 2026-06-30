@@ -10,7 +10,10 @@ import {
   Activity,
   CheckCircle2,
   AlertCircle,
-  Search
+  Search,
+  Eye,
+  EyeOff,
+  ChevronDown
 } from 'lucide-react';
 
 interface KongInfo {
@@ -51,8 +54,9 @@ export const Info: React.FC = () => {
   const [info, setInfo] = useState<KongInfo | null>(null);
   const [status, setStatus] = useState<KongStatus | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showRaw, setShowRaw] = useState(false);
   const [error, setError] = useState('');
+  const [showRawConfig, setShowRawConfig] = useState(false);
+  const [rawSearch, setRawSearch] = useState('');
 
   useEffect(() => {
     fetchInfo();
@@ -400,18 +404,189 @@ export const Info: React.FC = () => {
       </div>
 
       {/* Collapsible Raw Configuration Details */}
-      <div className="flex flex-col items-center pt-6 pb-4">
+      <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
+        {/* Toggle Button */}
         <button
-          onClick={() => setShowRaw(!showRaw)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-sm transition-all uppercase tracking-wider"
+          onClick={() => setShowRawConfig(prev => !prev)}
+          className="w-full flex items-center justify-center gap-2.5 px-6 py-4 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 transition-colors duration-150 border-0 cursor-pointer"
         >
-          <span className="shrink-0 text-slate-500">👁</span>
-          {showRaw ? 'Hide Raw Configuration Details' : 'Reveal Raw Configuration Details'}
+          {showRawConfig
+            ? <EyeOff className="w-4 h-4 text-slate-500" />
+            : <Eye className="w-4 h-4 text-slate-500" />}
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
+            {showRawConfig ? 'Hide' : 'Reveal'} Raw Configuration Details
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${
+              showRawConfig ? 'rotate-180' : 'rotate-0'
+            }`}
+          />
         </button>
 
-        {showRaw && (
-          <div className="w-full mt-6 bg-slate-900 text-slate-100 rounded-xl p-6 shadow-inner font-mono text-xs overflow-x-auto border border-slate-850 max-h-[500px]">
-            <pre>{JSON.stringify(info, null, 2)}</pre>
+        {/* Collapsible Panel */}
+        {showRawConfig && (
+          <div className="p-6 border-t border-border-light">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary">
+                Full Node Configuration (Raw)
+              </h3>
+              {/* Raw config search bar */}
+              <div className="relative max-w-xs w-full">
+                <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search configuration parameters..."
+                  value={rawSearch}
+                  onChange={(e) => setRawSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-brand-primary focus:bg-white transition-all font-sans font-medium"
+                />
+              </div>
+            </div>
+
+            {/* ── General Information accordion ───────────────────────────── */}
+            <details
+              open
+              className="group mb-4 rounded-lg border border-slate-200 overflow-hidden"
+            >
+              <summary className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer select-none list-none hover:bg-slate-100 transition-colors">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">General Information</span>
+                <ChevronDown className="w-4 h-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+
+              <div className="px-4 py-4 space-y-3 text-xs">
+                {/* Kong Version */}
+                {(rawSearch === '' || 'kong version'.includes(rawSearch.toLowerCase()) || (info.version || '').toLowerCase().includes(rawSearch.toLowerCase())) && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-text-muted font-semibold w-36 shrink-0">Kong Version</span>
+                    <span className="text-text-primary font-mono font-medium">{info.version}</span>
+                  </div>
+                )}
+
+                {/* Node ID */}
+                {(rawSearch === '' || 'node id'.includes(rawSearch.toLowerCase()) || (info.configuration?.node_id || (info as any).id || '').toLowerCase().includes(rawSearch.toLowerCase())) && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-text-muted font-semibold w-36 shrink-0">Node ID</span>
+                    <span className="text-red-400 font-mono font-semibold break-all">
+                      {info.configuration?.node_id || (info as any).id || 'N/A'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Hostname */}
+                {(rawSearch === '' || 'hostname'.includes(rawSearch.toLowerCase()) || (info.hostname || '').toLowerCase().includes(rawSearch.toLowerCase())) && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-text-muted font-semibold w-36 shrink-0">Hostname</span>
+                    <span className="text-text-primary font-mono font-medium">{info.hostname}</span>
+                  </div>
+                )}
+
+                {/* Lua Version */}
+                {(rawSearch === '' || 'lua version'.includes(rawSearch.toLowerCase()) || (info.lua_version || '').toLowerCase().includes(rawSearch.toLowerCase())) && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-text-muted font-semibold w-36 shrink-0">Lua Version</span>
+                    <span className="text-text-primary font-mono font-medium">{info.lua_version}</span>
+                  </div>
+                )}
+
+                {/* Available Plugins */}
+                {(rawSearch === '' || 'available plugins'.includes(rawSearch.toLowerCase()) || allPlugins.some(p => p.toLowerCase().includes(rawSearch.toLowerCase()))) && (
+                  <div className="flex items-start gap-2">
+                    <span className="text-text-muted font-semibold w-36 shrink-0 pt-0.5">Available Plugins</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allPlugins
+                        .filter(p => rawSearch === '' || p.toLowerCase().includes(rawSearch.toLowerCase()))
+                        .map(plugin => {
+                          const isActive = info.plugins.enabled_in_cluster?.includes(plugin);
+                          return (
+                            <span
+                              key={plugin}
+                              style={isActive ? { borderColor: '#8ec400', boxShadow: '0 0 8px rgba(142,196,0,0.3)' } : undefined}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                                isActive
+                                  ? 'bg-[#8ec400]/10 text-[#679100] border-[#8ec400]/40'
+                                  : 'bg-slate-100 text-slate-500 border-slate-200'
+                              }`}
+                            >
+                              {plugin}
+                            </span>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </details>
+
+            {/* ── Detailed Gateway Configuration Settings accordion ────────── */}
+            <details className="group rounded-lg border border-slate-200 overflow-hidden">
+              <summary className="flex items-center justify-between px-4 py-3 bg-slate-50 cursor-pointer select-none list-none hover:bg-slate-100 transition-colors">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Detailed Gateway Configuration Settings</span>
+                <ChevronDown className="w-4 h-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+              </summary>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b border-slate-200">
+                      <th className="px-4 py-2.5 text-left font-bold uppercase tracking-wider text-slate-600 w-1/3">Parameter</th>
+                      <th className="px-4 py-2.5 text-left font-bold uppercase tracking-wider text-slate-600">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(info.configuration || {})
+                      .filter(([key, val]) => {
+                        if (rawSearch === '') return true;
+                        const q = rawSearch.toLowerCase();
+                        const valStr = Array.isArray(val)
+                          ? val.join(', ')
+                          : typeof val === 'object' && val !== null
+                          ? JSON.stringify(val)
+                          : String(val ?? '');
+                        return key.toLowerCase().includes(q) || valStr.toLowerCase().includes(q);
+                      })
+                      .map(([key, val], idx) => {
+                        let displayVal: string;
+                        if (Array.isArray(val)) {
+                          displayVal = val.join(', ');
+                        } else if (typeof val === 'object' && val !== null) {
+                          displayVal = JSON.stringify(val, null, 2);
+                        } else {
+                          displayVal = String(val ?? '');
+                        }
+                        return (
+                          <tr
+                            key={key}
+                            className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
+                          >
+                            <td className="px-4 py-2 font-mono font-semibold text-slate-700 border-b border-slate-100 align-top whitespace-nowrap">
+                              {key}
+                            </td>
+                            <td className="px-4 py-2 font-mono text-slate-600 border-b border-slate-100 break-all">
+                              <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{displayVal}</pre>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {Object.entries(info.configuration || {}).filter(([key, val]) => {
+                      if (rawSearch === '') return true;
+                      const q = rawSearch.toLowerCase();
+                      const valStr = Array.isArray(val)
+                        ? val.join(', ')
+                        : typeof val === 'object' && val !== null
+                        ? JSON.stringify(val)
+                        : String(val ?? '');
+                      return key.toLowerCase().includes(q) || valStr.toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <tr>
+                        <td colSpan={2} className="px-4 py-8 text-center text-text-muted">
+                          No configuration parameters match your search.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </div>
         )}
       </div>
