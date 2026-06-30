@@ -45,47 +45,15 @@ func ResolveKongNode() gin.HandlerFunc {
 				return
 			}
 		} else {
-			// Get default node from authenticated user context
-			userVal, exists := c.Get("user")
-			if !exists {
-				c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized - User session not found"})
-				c.Abort()
-				return
-			}
-
-			user := userVal.(*models.User)
-			if user.Node == nil {
-				// Fallback: check if there is a globally active node in the database
-				var activeNode models.KongNode
-				if err := db.DB.Where("active = ?", true).First(&activeNode).Error; err == nil {
-					nodeID := activeNode.ID
-					db.DB.Model(user).Update("node", nodeID)
-					user.Node = &nodeID
-					node = activeNode
-				} else {
+			// Load globally active node
+			if err := db.DB.Where("active = ?", true).First(&node).Error; err != nil {
+				// Fallback to first available connection node
+				if err := db.DB.First(&node).Error; err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "No connection is selected. Please activate a connection in settings",
 					})
 					c.Abort()
 					return
-				}
-			} else {
-				// Load user's default node
-				if err := db.DB.First(&node, *user.Node).Error; err != nil {
-					// Fallback to globally active node if user's node record is missing/deleted
-					var activeNode models.KongNode
-					if err := db.DB.Where("active = ?", true).First(&activeNode).Error; err == nil {
-						nodeID := activeNode.ID
-						db.DB.Model(user).Update("node", nodeID)
-						user.Node = &nodeID
-						node = activeNode
-					} else {
-						// Clear user active node reference in DB
-						db.DB.Model(user).Update("node", nil)
-						c.JSON(http.StatusNotFound, gin.H{"message": "The selected active connection node no longer exists. Please go to Connections settings and select a valid connection."})
-						c.Abort()
-						return
-					}
 				}
 			}
 		}

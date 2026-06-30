@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 export const Snapshots: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<any>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -44,7 +43,6 @@ export const Snapshots: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
