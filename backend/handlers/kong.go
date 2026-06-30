@@ -31,6 +31,10 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 	node := nodeVal.(*models.KongNode)
 
 	proxyPath := c.Param("proxyPath")
+	if strings.TrimPrefix(proxyPath, "/") == "prometheus-metrics" {
+		h.GetPrometheusMetrics(c)
+		return
+	}
 	method := c.Request.Method
 	rawQuery := c.Request.URL.RawQuery
 
