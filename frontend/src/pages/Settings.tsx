@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Save,
   Clock,
-  Globe,
-  Mail,
   Bell,
   Shield,
   Users,
