@@ -76,8 +76,8 @@ services:
       timeout: 2s
       retries: 15
     ports:
-      - "8000:8000"
-      - "8001:8001"
+      - "8080:8000"
+      - "8081:8001"
       - "8443:8443"
 
   #######################################
@@ -96,7 +96,7 @@ services:
       KONGA_LOG_LEVEL: debug
       TOKEN_SECRET: "some_secure_token_secret"
     ports:
-      - "13337:1337"
+      - "1337:1337"
     volumes:
       - noka-data:/app/kongadata
     depends_on:
