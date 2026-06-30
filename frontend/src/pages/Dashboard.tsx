@@ -60,6 +60,8 @@ interface PrometheusMetrics {
     '4xx': number;
     '5xx': number;
   };
+  top4xxEndpoints: Array<{ endpoint: string; count: number }>;
+  top5xxEndpoints: Array<{ endpoint: string; count: number }>;
   message?: string;
 }
 
@@ -559,6 +561,52 @@ export const Dashboard: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                    {/* TOP 5XX ERRORS */}
+                    {prometheusMetrics!.top5xxEndpoints && prometheusMetrics!.top5xxEndpoints.length > 0 && (
+                      <div className="w-full mt-4 pt-4 border-t border-border-light">
+                        <h4 className="text-[10px] font-bold text-red-500 uppercase tracking-wider mb-2">Top 5xx Server Errors</h4>
+                        <div className="space-y-2">
+                          {prometheusMetrics!.top5xxEndpoints.map((item, idx) => {
+                            const maxVal = Math.max(...prometheusMetrics!.top5xxEndpoints.map(i => i.count), 1);
+                            const wPct = (item.count / maxVal) * 100;
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-[10px]">
+                                <span className="font-mono text-slate-600 truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</span>
+                                <div className="flex items-center space-x-2 flex-1 ml-2">
+                                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-red-400 rounded-full" style={{ width: `${wPct}%` }} />
+                                  </div>
+                                  <span className="font-semibold text-slate-700 w-8 text-right">{item.count}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {/* TOP 4XX ERRORS */}
+                    {prometheusMetrics!.top4xxEndpoints && prometheusMetrics!.top4xxEndpoints.length > 0 && (
+                      <div className="w-full mt-2 pt-4 border-t border-border-light">
+                        <h4 className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-2">Top 4xx Client Errors</h4>
+                        <div className="space-y-2">
+                          {prometheusMetrics!.top4xxEndpoints.map((item, idx) => {
+                            const maxVal = Math.max(...prometheusMetrics!.top4xxEndpoints.map(i => i.count), 1);
+                            const wPct = (item.count / maxVal) * 100;
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-[10px]">
+                                <span className="font-mono text-slate-600 truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</span>
+                                <div className="flex items-center space-x-2 flex-1 ml-2">
+                                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-orange-400 rounded-full" style={{ width: `${wPct}%` }} />
+                                  </div>
+                                  <span className="font-semibold text-slate-700 w-8 text-right">{item.count}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
