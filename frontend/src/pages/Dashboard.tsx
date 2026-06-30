@@ -325,249 +325,247 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Gateway Performance & Analytics (Conditional section if Prometheus metrics are enabled) */}
-      {prometheusMetrics && prometheusMetrics.success && (
+      {/* Gateway Performance & Analytics - always visible */}
+      {(() => {
+        const hasPrometheus = prometheusMetrics?.success && prometheusMetrics.totalRequests > 0;
+        return (
         <div className="space-y-6">
-          <div className="border-t border-border-light pt-8">
-            <h2 className="text-lg font-bold tracking-tight text-text-primary uppercase flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-brand-primary" /> Gateway Performance & Analytics
-            </h2>
-            <p className="text-xs text-text-secondary mt-1">Detailed real-time metrics parsed from Prometheus integration.</p>
+          <div className="border-t border-border-light pt-8 flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold tracking-tight text-text-primary uppercase flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-brand-primary" /> Gateway Performance & Analytics
+              </h2>
+              <p className="text-xs text-text-secondary mt-1">Real-time metrics parsed from Kong's Prometheus plugin.</p>
+            </div>
+            {hasPrometheus && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping inline-block" /> Live Metrics
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Top 10 Most Hit Endpoints */}
-            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
-                  <BarChart2 className="w-4 h-4 text-teal-500" /> Top 10 Most Hit Endpoints
-                </h3>
-                {prometheusMetrics.topHits && prometheusMetrics.topHits.length > 0 ? (
-                  <div>
-                    {/* SVG Horizontal Bar Chart */}
-                    <svg viewBox="0 0 400 300" className="w-full h-auto">
-                      <defs>
-                        <linearGradient id="tealBlueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#14b8a6" />
-                          <stop offset="100%" stopColor="#3b82f6" />
-                        </linearGradient>
-                      </defs>
-                      {prometheusMetrics.topHits.map((item, index) => {
-                        const y = index * 28 + 10;
-                        const maxHits = Math.max(...prometheusMetrics.topHits.map(t => t.hits), 1);
-                        const barWidth = (item.hits / maxHits) * 240;
-                        return (
-                          <g key={index} className="group">
-                            <text x="0" y={y + 14} className="text-[10px] font-semibold fill-slate-500 font-sans">
-                              {item.endpoint.length > 18 ? item.endpoint.substring(0, 16) + '..' : item.endpoint}
-                              <title>{item.endpoint}</title>
-                            </text>
-                            <rect x="110" y={y + 4} width="240" height="12" rx="4" fill="#f1f5f9" />
-                            <rect x="110" y={y + 4} width={barWidth} height="12" rx="4" fill="url(#tealBlueGrad)" className="transition-all duration-1000 ease-out" />
-                            <text x={110 + barWidth + 6} y={y + 14} className="text-[9px] font-bold fill-slate-800 font-sans">
-                              {formatNumber(item.hits)}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                    
-                    {/* Table below */}
-                    <div className="overflow-x-auto mt-4 max-h-60 overflow-y-auto">
-                      <table className="w-full text-left border-collapse text-[11px]">
-                        <thead>
-                          <tr className="border-b border-border-light text-text-secondary font-bold">
-                            <th className="py-2">Endpoint</th>
-                            <th className="py-2 text-right">Hits</th>
+            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+                <BarChart2 className="w-4 h-4 text-teal-500" /> Top 10 Most Hit Endpoints
+              </h3>
+              {!hasPrometheus ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-10 text-center space-y-3">
+                  <BarChart2 className="w-10 h-10 text-slate-200" />
+                  <p className="text-xs font-semibold text-slate-400">Prometheus plugin not active</p>
+                  <p className="text-[10px] text-slate-300 max-w-[180px] leading-relaxed">Enable the Prometheus plugin on Kong to see top hit endpoints here.</p>
+                </div>
+              ) : prometheusMetrics!.topHits && prometheusMetrics!.topHits.length > 0 ? (
+                <div>
+                  <svg viewBox="0 0 400 300" className="w-full h-auto">
+                    <defs>
+                      <linearGradient id="tealBlueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#14b8a6" />
+                        <stop offset="100%" stopColor="#3b82f6" />
+                      </linearGradient>
+                    </defs>
+                    {prometheusMetrics!.topHits.map((item, index) => {
+                      const y = index * 28 + 10;
+                      const maxHits = Math.max(...prometheusMetrics!.topHits.map(t => t.hits), 1);
+                      const barWidth = (item.hits / maxHits) * 240;
+                      return (
+                        <g key={index}>
+                          <text x="0" y={y + 14} fontSize="10" fontWeight="600" fill="#64748b" fontFamily="monospace">
+                            {item.endpoint.length > 18 ? item.endpoint.substring(0, 16) + '..' : item.endpoint}
+                            <title>{item.endpoint}</title>
+                          </text>
+                          <rect x="110" y={y + 4} width="240" height="12" rx="4" fill="#f1f5f9" />
+                          <rect x="110" y={y + 4} width={barWidth} height="12" rx="4" fill="url(#tealBlueGrad)" />
+                          <text x={110 + barWidth + 6} y={y + 14} fontSize="9" fontWeight="700" fill="#1e293b" fontFamily="sans-serif">
+                            {formatNumber(item.hits)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  <div className="overflow-x-auto mt-4 max-h-60 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="border-b border-border-light text-text-secondary font-bold">
+                          <th className="py-2">Endpoint</th>
+                          <th className="py-2 text-right">Hits</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prometheusMetrics!.topHits.map((item, idx) => (
+                          <tr key={idx} className="border-b border-border-light hover:bg-slate-50/50">
+                            <td className="py-2 font-mono text-[10px] text-text-primary truncate max-w-[150px]" title={item.endpoint}>{item.endpoint}</td>
+                            <td className="py-2 text-right font-semibold text-text-primary">{item.hits.toLocaleString()}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {prometheusMetrics.topHits.map((item, idx) => (
-                            <tr key={idx} className="border-b border-border-light hover:bg-slate-50/50">
-                              <td className="py-2 font-mono text-[10px] text-text-primary truncate max-w-[150px]" title={item.endpoint}>{item.endpoint}</td>
-                              <td className="py-2 text-right font-semibold text-text-primary">{item.hits.toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-xs text-text-muted">No hits data available</div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-xs text-text-muted">No hits data yet</div>
+              )}
             </div>
 
             {/* Top 10 Slowest Endpoints */}
-            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
-                  <Clock className="w-4 h-4 text-orange-500" /> Top 10 Slowest Endpoints (Latency)
-                </h3>
-                {prometheusMetrics.slowestEndpoints && prometheusMetrics.slowestEndpoints.length > 0 ? (
-                  <div>
-                    {/* SVG Horizontal Bar Chart */}
-                    <svg viewBox="0 0 400 300" className="w-full h-auto">
-                      <defs>
-                        <linearGradient id="orangeRedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#f97316" />
-                          <stop offset="100%" stopColor="#ef4444" />
-                        </linearGradient>
-                      </defs>
-                      {prometheusMetrics.slowestEndpoints.map((item, index) => {
-                        const y = index * 28 + 10;
-                        const maxLat = Math.max(...prometheusMetrics.slowestEndpoints.map(s => s.avgLatency), 1);
-                        const barWidth = (item.avgLatency / maxLat) * 240;
-                        return (
-                          <g key={index} className="group">
-                            <text x="0" y={y + 14} className="text-[10px] font-semibold fill-slate-500 font-sans">
-                              {item.endpoint.length > 18 ? item.endpoint.substring(0, 16) + '..' : item.endpoint}
-                              <title>{item.endpoint}</title>
-                            </text>
-                            <rect x="110" y={y + 4} width="240" height="12" rx="4" fill="#f1f5f9" />
-                            <rect x="110" y={y + 4} width={barWidth} height="12" rx="4" fill="url(#orangeRedGrad)" className="transition-all duration-1000 ease-out" />
-                            <text x={110 + barWidth + 6} y={y + 14} className="text-[9px] font-bold fill-slate-800 font-sans">
-                              {item.avgLatency.toFixed(1)}ms
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </svg>
-                    
-                    {/* Table below */}
-                    <div className="overflow-x-auto mt-4 max-h-60 overflow-y-auto">
-                      <table className="w-full text-left border-collapse text-[11px]">
-                        <thead>
-                          <tr className="border-b border-border-light text-text-secondary font-bold">
-                            <th className="py-2">Endpoint</th>
-                            <th className="py-2 text-right">Avg Latency</th>
-                            <th className="py-2 text-right">Calls</th>
+            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+                <Clock className="w-4 h-4 text-orange-500" /> Top 10 Slowest Endpoints
+              </h3>
+              {!hasPrometheus ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-10 text-center space-y-3">
+                  <Clock className="w-10 h-10 text-slate-200" />
+                  <p className="text-xs font-semibold text-slate-400">Prometheus plugin not active</p>
+                  <p className="text-[10px] text-slate-300 max-w-[180px] leading-relaxed">Enable the Prometheus plugin on Kong to see slowest endpoint latencies here.</p>
+                </div>
+              ) : prometheusMetrics!.slowestEndpoints && prometheusMetrics!.slowestEndpoints.length > 0 ? (
+                <div>
+                  <svg viewBox="0 0 400 300" className="w-full h-auto">
+                    <defs>
+                      <linearGradient id="orangeRedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f97316" />
+                        <stop offset="100%" stopColor="#ef4444" />
+                      </linearGradient>
+                    </defs>
+                    {prometheusMetrics!.slowestEndpoints.map((item, index) => {
+                      const y = index * 28 + 10;
+                      const maxLat = Math.max(...prometheusMetrics!.slowestEndpoints.map(s => s.avgLatency), 1);
+                      const barWidth = (item.avgLatency / maxLat) * 240;
+                      return (
+                        <g key={index}>
+                          <text x="0" y={y + 14} fontSize="10" fontWeight="600" fill="#64748b" fontFamily="monospace">
+                            {item.endpoint.length > 18 ? item.endpoint.substring(0, 16) + '..' : item.endpoint}
+                            <title>{item.endpoint}</title>
+                          </text>
+                          <rect x="110" y={y + 4} width="240" height="12" rx="4" fill="#f1f5f9" />
+                          <rect x="110" y={y + 4} width={barWidth} height="12" rx="4" fill="url(#orangeRedGrad)" />
+                          <text x={110 + barWidth + 6} y={y + 14} fontSize="9" fontWeight="700" fill="#1e293b" fontFamily="sans-serif">
+                            {item.avgLatency.toFixed(1)}ms
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  <div className="overflow-x-auto mt-4 max-h-60 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-[11px]">
+                      <thead>
+                        <tr className="border-b border-border-light text-text-secondary font-bold">
+                          <th className="py-2">Endpoint</th>
+                          <th className="py-2 text-right">Avg Latency</th>
+                          <th className="py-2 text-right">Calls</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prometheusMetrics!.slowestEndpoints.map((item, idx) => (
+                          <tr key={idx} className="border-b border-border-light hover:bg-slate-50/50">
+                            <td className="py-2 font-mono text-[10px] text-text-primary truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</td>
+                            <td className="py-2 text-right font-semibold text-text-primary">{item.avgLatency.toFixed(1)} ms</td>
+                            <td className="py-2 text-right text-text-secondary">{item.count.toLocaleString()}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {prometheusMetrics.slowestEndpoints.map((item, idx) => (
-                            <tr key={idx} className="border-b border-border-light hover:bg-slate-50/50">
-                              <td className="py-2 font-mono text-[10px] text-text-primary truncate max-w-[120px]" title={item.endpoint}>{item.endpoint}</td>
-                              <td className="py-2 text-right font-semibold text-text-primary">{item.avgLatency.toFixed(1)} ms</td>
-                              <td className="py-2 text-right text-text-secondary">{item.count.toLocaleString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-xs text-text-muted">No latency data available</div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-xs text-text-muted">No latency data yet</div>
+              )}
             </div>
 
             {/* HTTP Status Code Distribution Donut Chart */}
-            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
-                  <PieChart className="w-4 h-4 text-indigo-500" /> HTTP Status Code Distribution
-                </h3>
-                
-                {prometheusMetrics.statusCodes && Object.values(prometheusMetrics.statusCodes).reduce((a, b) => a + b, 0) > 0 ? (() => {
-                  const codes = prometheusMetrics.statusCodes;
-                  const total = Object.values(codes).reduce((a, b) => a + b, 0);
-                  const data = [
-                    { label: '2xx Success', value: codes['2xx'], color: '#10b981' },
-                    { label: '3xx Redirection', value: codes['3xx'], color: '#3b82f6' },
-                    { label: '4xx Client Error', value: codes['4xx'], color: '#f59e0b' },
-                    { label: '5xx Server Error', value: codes['5xx'], color: '#ef4444' }
-                  ];
-                  
-                  const circ = 2 * Math.PI * 50; // 314.159
-                  let accumulatedLength = 0;
-                  const segments = data.map((item) => {
-                    const percent = total > 0 ? (item.value / total) * 100 : 0;
-                    const strokeLength = (percent / 100) * circ;
-                    const accumulatedLengthBefore = accumulatedLength;
-                    accumulatedLength += strokeLength;
-                    return {
-                      ...item,
-                      percent,
-                      strokeLength,
-                      accumulatedLengthBefore
-                    };
-                  });
-
-                  return (
-                    <div className="flex flex-col items-center justify-center space-y-6 py-4">
-                      <div className="relative w-44 h-44">
-                        <svg viewBox="0 0 140 140" className="w-full h-full">
-                          {/* Background Circle */}
-                          <circle cx="70" cy="70" r="50" fill="transparent" stroke="#f8fafc" strokeWidth="14" />
-                          
-                          {segments.map((seg, idx) => {
-                            if (seg.percent === 0) return null;
-                            return (
-                              <circle
-                                key={idx}
-                                cx="70"
-                                cy="70"
-                                r="50"
-                                fill="transparent"
-                                stroke={seg.color}
-                                strokeWidth="14"
-                                strokeDasharray={`${seg.strokeLength} ${circ}`}
-                                strokeDashoffset={-seg.accumulatedLengthBefore}
-                                transform="rotate(-90 70 70)"
-                                className="transition-all duration-300 cursor-pointer origin-center hover:stroke-[16px]"
-                                onMouseEnter={() => setHoveredCode({ label: seg.label, value: seg.value, percent: seg.percent })}
-                                onMouseLeave={() => setHoveredCode(null)}
-                              >
-                                <title>{seg.label}: {seg.value.toLocaleString()} ({seg.percent.toFixed(1)}%)</title>
-                              </circle>
-                            );
-                          })}
-                        </svg>
-                        
-                        {/* Center Text */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            {hoveredCode ? hoveredCode.label.split(' ')[0] : 'Total Req'}
+            <div className="lg:col-span-1 bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+                <PieChart className="w-4 h-4 text-indigo-500" /> HTTP Status Code Distribution
+              </h3>
+              {!hasPrometheus ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-10 text-center space-y-3">
+                  <PieChart className="w-10 h-10 text-slate-200" />
+                  <p className="text-xs font-semibold text-slate-400">Prometheus plugin not active</p>
+                  <p className="text-[10px] text-slate-300 max-w-[180px] leading-relaxed">Enable the Prometheus plugin on Kong to see HTTP status code distribution here.</p>
+                </div>
+              ) : (() => {
+                const codes = prometheusMetrics!.statusCodes;
+                const total = Object.values(codes).reduce((a, b) => a + b, 0);
+                if (total === 0) return <div className="text-center py-12 text-xs text-text-muted">No request data yet</div>;
+                const data = [
+                  { label: '2xx Success', value: codes['2xx'], color: '#10b981' },
+                  { label: '3xx Redirection', value: codes['3xx'], color: '#3b82f6' },
+                  { label: '4xx Client Error', value: codes['4xx'], color: '#f59e0b' },
+                  { label: '5xx Server Error', value: codes['5xx'], color: '#ef4444' }
+                ];
+                const circ = 2 * Math.PI * 50;
+                let accumulatedLength = 0;
+                const segments = data.map((item) => {
+                  const percent = total > 0 ? (item.value / total) * 100 : 0;
+                  const strokeLength = (percent / 100) * circ;
+                  const accumulatedLengthBefore = accumulatedLength;
+                  accumulatedLength += strokeLength;
+                  return { ...item, percent, strokeLength, accumulatedLengthBefore };
+                });
+                return (
+                  <div className="flex flex-col items-center justify-center space-y-6 py-4">
+                    <div className="relative w-44 h-44">
+                      <svg viewBox="0 0 140 140" className="w-full h-full">
+                        <circle cx="70" cy="70" r="50" fill="transparent" stroke="#f8fafc" strokeWidth="14" />
+                        {segments.map((seg, idx) => {
+                          if (seg.percent === 0) return null;
+                          return (
+                            <circle
+                              key={idx}
+                              cx="70" cy="70" r="50"
+                              fill="transparent"
+                              stroke={seg.color}
+                              strokeWidth="14"
+                              strokeDasharray={`${seg.strokeLength} ${circ}`}
+                              strokeDashoffset={-seg.accumulatedLengthBefore}
+                              transform="rotate(-90 70 70)"
+                              className="transition-all duration-300 cursor-pointer"
+                              onMouseEnter={() => setHoveredCode({ label: seg.label, value: seg.value, percent: seg.percent })}
+                              onMouseLeave={() => setHoveredCode(null)}
+                            >
+                              <title>{seg.label}: {seg.value.toLocaleString()} ({seg.percent.toFixed(1)}%)</title>
+                            </circle>
+                          );
+                        })}
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4 text-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {hoveredCode ? hoveredCode.label.split(' ')[0] : 'Total Req'}
+                        </span>
+                        <span className="text-lg font-extrabold text-slate-800 leading-tight">
+                          {hoveredCode ? `${hoveredCode.percent.toFixed(1)}%` : formatNumber(total)}
+                        </span>
+                        {hoveredCode && (
+                          <span className="text-[9px] text-slate-500 font-semibold mt-0.5">
+                            {hoveredCode.value.toLocaleString()}
                           </span>
-                          <span className="text-lg font-extrabold text-slate-800 leading-tight">
-                            {hoveredCode ? `${hoveredCode.percent.toFixed(1)}%` : formatNumber(total)}
-                          </span>
-                          {hoveredCode && (
-                            <span className="text-[9px] text-slate-500 font-semibold mt-0.5">
-                              {hoveredCode.value.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Legends */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full text-[11px]">
-                        {segments.map((seg, idx) => (
-                          <div 
-                            key={idx} 
-                            className="flex items-center space-x-2 p-1.5 rounded-lg border border-slate-50 hover:bg-slate-50 cursor-pointer"
-                            onMouseEnter={() => setHoveredCode({ label: seg.label, value: seg.value, percent: seg.percent })}
-                            onMouseLeave={() => setHoveredCode(null)}
-                          >
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-slate-700 truncate">{seg.label}</p>
-                              <p className="text-slate-400 text-[10px] font-medium">{seg.value.toLocaleString()} ({seg.percent.toFixed(1)}%)</p>
-                            </div>
-                          </div>
-                        ))}
+                        )}
                       </div>
                     </div>
-                  );
-                })() : (
-                  <div className="text-center py-12 text-xs text-text-muted">No request status code data available</div>
-                )}
-              </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 w-full text-[11px]">
+                      {segments.map((seg, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center space-x-2 p-1.5 rounded-lg border border-slate-50 hover:bg-slate-50 cursor-pointer"
+                          onMouseEnter={() => setHoveredCode({ label: seg.label, value: seg.value, percent: seg.percent })}
+                          onMouseLeave={() => setHoveredCode(null)}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-slate-700 truncate">{seg.label}</p>
+                            <p className="text-slate-400 text-[10px] font-medium">{seg.value.toLocaleString()} ({seg.percent.toFixed(1)}%)</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
-        </div>
-      )}
+        </div>);
+      })()}
 
       {/* SVG Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -575,31 +573,41 @@ export const Dashboard: React.FC = () => {
           <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
             <Server className="w-4 h-4 text-brand-primary" /> Server Activity
           </h3>
-          <div className="flex items-end h-48 gap-4 justify-around mt-4">
-            {[
+          {(() => {
+            const serverItems = [
               { label: 'Active', value: status?.server?.connections_active || 0, color: '#3b82f6' },
               { label: 'Reading', value: status?.server?.connections_reading || 0, color: '#10b981' },
               { label: 'Writing', value: status?.server?.connections_writing || 0, color: '#f59e0b' },
               { label: 'Waiting', value: status?.server?.connections_waiting || 0, color: '#ef4444' }
-            ].map((item, idx) => (
-              <div key={idx} className="flex flex-col items-center flex-1">
-                <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
-                <div className="w-full flex justify-center h-32 relative">
-                  <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <rect 
-                      x="0" 
-                      y={100 - Math.max(5, item.value > 0 ? (item.value / 100) * 100 : 5)} 
-                      width="100" 
-                      height={Math.max(5, item.value > 0 ? (item.value / 100) * 100 : 5)} 
-                      fill={item.color} 
-                      rx="4" 
-                    />
-                  </svg>
-                </div>
-                <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
+            ];
+            const maxServerVal = Math.max(1, ...serverItems.map(i => i.value));
+            return (
+              <div className="flex items-end h-48 gap-4 justify-around mt-4">
+                {serverItems.map((item, idx) => {
+                  const heightPct = Math.max(4, (item.value / maxServerVal) * 96);
+                  return (
+                    <div key={idx} className="flex flex-col items-center flex-1">
+                      <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
+                      <div className="w-full flex justify-center h-32 relative">
+                        <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x="0" y="0" width="100" height="100" fill="#f1f5f9" rx="4" />
+                          <rect
+                            x="0"
+                            y={100 - heightPct}
+                            width="100"
+                            height={heightPct}
+                            fill={item.color}
+                            rx="4"
+                          />
+                        </svg>
+                      </div>
+                      <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
 
         <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
