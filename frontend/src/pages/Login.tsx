@@ -30,12 +30,9 @@ export const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-bg-light px-4 relative">
       <div className="w-full max-w-md">
         {/* Brand Logo */}
-        <div className="flex flex-col items-center mb-6">
-          <img src="/conga.svg" alt="NOKA Logo" className="w-16 h-16 object-contain mb-3" />
-          <h2 className="text-3xl font-extrabold tracking-wider text-brand-primary font-montserrat uppercase">
-            NOKA
-          </h2>
-          <p className="text-xs text-text-secondary mt-1 font-bold uppercase tracking-wider">Nocta Kong Admin</p>
+        <div className="flex flex-col items-center justify-center mb-8 animate-fadeIn">
+          <h1 className="text-4xl font-black text-brand-primary tracking-wider">NOKA</h1>
+          <p className="text-xs font-bold text-text-secondary uppercase tracking-widest mt-1">Nocta Kong Admin</p>
         </div>
 
         {/* Card */}
