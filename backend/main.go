@@ -198,6 +198,7 @@ func main() {
 	kongGroup.Use(middleware.AuthRequired(), middleware.ResolveKongNode(), middleware.KongRBAC())
 	{
 		kongGroup.Any("/kong/*proxyPath", pathTraversalGuard(), kongHandler.ProxyKong)
+		kongGroup.GET("/api/kong/prometheus-metrics", kongHandler.GetPrometheusMetrics)
 		kongGroup.Any("/api/kong/*proxyPath", pathTraversalGuard(), kongHandler.ProxyKong)
 	}
 
