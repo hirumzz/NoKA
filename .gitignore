@@ -173,3 +173,6 @@ docker-compose.local.yml
 # ── IDE / editor ─────────────────────────────
 .vscode/settings.json
 *.swp
+
+# ── Agent custom configurations ──────────────
+.agents/
