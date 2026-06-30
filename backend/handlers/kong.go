@@ -36,6 +36,10 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 		h.GetPrometheusMetrics(c)
 		return
 	}
+	if strings.TrimPrefix(proxyPath, "/") == "error-details" {
+		h.GetErrorDetails(c)
+		return
+	}
 	method := c.Request.Method
 	rawQuery := c.Request.URL.RawQuery
 
