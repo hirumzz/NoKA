@@ -2,15 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { 
   Plus, 
   Trash2, 
-  Plug, 
-  AlertCircle,
   X,
   Settings,
   Search
 } from 'lucide-react';
+import { PluginDynamicForm } from '../components/PluginDynamicForm';
+import { PluginGallery } from '../components/PluginGallery';
+import { Pagination } from '../components/Pagination';
 
 interface PluginItem {
   id: string;
@@ -61,156 +63,120 @@ const getTagColor = (tag: string) => {
 
 export const Plugins: React.FC = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-
-  // Form fields
-  const [pluginName, setPluginName] = useState('cors');
-  const [scope, setScope] = useState('global'); // global, service, route
-  const [targetServiceId, setTargetServiceId] = useState('');
-  const [targetRouteId, setTargetRouteId] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-
-  // Search & Filter fields
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
 
-  // Key-Auth config
-  const [keyNames, setKeyNames] = useState('apikey');
-
-  // Rate Limiting config
-  const [rlSecond, setRlSecond] = useState('');
-  const [rlHour, setRlHour] = useState('');
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Edit Modal fields
   const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null);
   const [editEnabled, setEditEnabled] = useState(true);
-  const [editConfig, setEditConfig] = useState('{}');
+  const [editConfig, setEditConfig] = useState<any>({});
 
   useEffect(() => {
     fetchPluginsAndResources();
   }, [user?.node]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTag]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddForm(false);
+        setEditingPlugin(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const fetchPluginsAndResources = async () => {
     setLoading(true);
-    setError('');
+
     try {
       const [pluginsResp, servicesResp, routesResp] = await Promise.all([
-        axios.get('/api/kong/plugins'),
-        axios.get('/api/kong/services'),
-        axios.get('/api/kong/routes')
+        axios.get('/api/kong/plugins?size=1000'),
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/kong/routes?size=1000')
       ]);
       setPlugins(pluginsResp.data?.data || []);
       setServices(servicesResp.data?.data || []);
       setRoutes(routesResp.data?.data || []);
-
-      if (servicesResp.data?.data?.length > 0) {
-        setTargetServiceId(servicesResp.data.data[0].id);
-      }
-      if (routesResp.data?.data?.length > 0) {
-        setTargetRouteId(routesResp.data.data[0].id);
-      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch plugins and metadata');
+      addToast('error', err.response?.data?.message || 'Failed to fetch plugins', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddPlugin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+  const handleAddPluginFromGallery = async (pluginName: string, config: any, tags: string[]) => {
+
 
     const payload: any = {
       name: pluginName,
-      enabled: true
+      enabled: true,
+      config: config
     };
 
-    // Attach scope
-    if (scope === 'service' && targetServiceId) {
-      payload.service = { id: targetServiceId };
-    } else if (scope === 'route' && targetRouteId) {
-      payload.route = { id: targetRouteId };
-    }
-
-    // Attach configurations
-    if (pluginName === 'key-auth') {
-      payload.config = {
-        key_names: keyNames.split(',').map(k => k.trim())
-      };
-    } else if (pluginName === 'rate-limiting') {
-      const configrl: any = {};
-      if (rlSecond) configrl.second = Number(rlSecond);
-      if (rlHour) configrl.hour = Number(rlHour);
-      payload.config = configrl;
-    }
-
-    // Parse and attach tags
-    const parsedTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-    if (parsedTags.length > 0) {
-      payload.tags = parsedTags;
+    if (tags && tags.length > 0) {
+      payload.tags = tags;
     }
 
     try {
       await axios.post('/api/kong/plugins', payload);
-      setScope('global');
-      setRlSecond('');
-      setRlHour('');
-      setKeyNames('apikey');
-      setTagsInput('');
       setShowAddForm(false);
+      addToast('success', 'Plugin successfully enabled', 'Success');
       fetchPluginsAndResources();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to enable plugin');
+      addToast('error', err.response?.data?.message || 'Failed to enable plugin', 'Error');
     }
   };
 
   const handleUpdatePlugin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPlugin) return;
-    setError('');
+
 
     try {
-      let parsedConfig = {};
-      try {
-        parsedConfig = JSON.parse(editConfig);
-      } catch (jsonErr) {
-        setError('Invalid Configuration JSON format');
-        return;
-      }
-
       await axios.patch(`/api/kong/plugins/${editingPlugin.id}`, {
         enabled: editEnabled,
-        config: parsedConfig
+        config: editConfig
       });
 
       setEditingPlugin(null);
+      addToast('success', 'Plugin successfully updated', 'Success');
       fetchPluginsAndResources();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update plugin');
+      addToast('error', err.response?.data?.message || 'Failed to update plugin', 'Error');
     }
   };
 
   const handleDeletePlugin = async (id: string) => {
     if (!window.confirm('Are you sure you want to disable and delete this plugin?')) return;
-    setError('');
     try {
       await axios.delete(`/api/kong/plugins/${id}`);
+      addToast('success', 'Plugin successfully deleted', 'Success');
       fetchPluginsAndResources();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to disable plugin');
+      addToast('error', err.response?.data?.message || 'Failed to delete plugin', 'Error');
     }
   };
 
   const openEditModal = (plugin: PluginItem) => {
     setEditingPlugin(plugin);
-    setEditEnabled(plugin.enabled);
-    setEditConfig(JSON.stringify(plugin.config, null, 2));
+    setEditEnabled(plugin.enabled !== false);
+    setEditConfig(plugin.config || {});
   };
 
   const uniqueTags = Array.from(
@@ -231,6 +197,13 @@ export const Plugins: React.FC = () => {
     return matchesSearch && matchesTag;
   });
 
+  const paginatedPlugins = React.useMemo(() => {
+    return filteredPlugins.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredPlugins, currentPage, pageSize]);
+
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
@@ -247,143 +220,13 @@ export const Plugins: React.FC = () => {
         </button>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
-
-      {/* Add Form */}
+      {/* Add Form / Gallery */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Enable New Plugin</h3>
-          <form onSubmit={handleAddPlugin} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Plugin Type</label>
-                <select
-                  value={pluginName}
-                  onChange={(e) => setPluginName(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="cors">CORS (Cross-Origin Resource Sharing)</option>
-                  <option value="key-auth">Key Authentication</option>
-                  <option value="rate-limiting">Rate Limiting</option>
-                  <option value="prometheus">Prometheus Metrics</option>
-                  <option value="jwt">JWT Authentication</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Apply Scope</label>
-                <select
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="global">Global (All requests)</option>
-                  <option value="service" disabled={services.length === 0}>Service Specific</option>
-                  <option value="route" disabled={routes.length === 0}>Route Specific</option>
-                </select>
-              </div>
-
-              {scope === 'service' && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Select Target Service</label>
-                  <select
-                    value={targetServiceId}
-                    onChange={(e) => setTargetServiceId(e.target.value)}
-                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                  >
-                    {services.map(s => (
-                      <option key={s.id} value={s.id}>{s.name || s.id}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {scope === 'route' && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Select Target Route</label>
-                  <select
-                    value={targetRouteId}
-                    onChange={(e) => setTargetRouteId(e.target.value)}
-                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                  >
-                    {routes.map(r => (
-                      <option key={r.id} value={r.id}>{r.name || r.paths.join(', ')}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {pluginName === 'key-auth' && (
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">API Key Header Name(s)</label>
-                  <input
-                    type="text"
-                    required
-                    value={keyNames}
-                    onChange={(e) => setKeyNames(e.target.value)}
-                    placeholder="e.g. apikey, X-API-KEY"
-                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                  />
-                </div>
-              )}
-
-              {pluginName === 'rate-limiting' && (
-                <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Requests per Second</label>
-                    <input
-                      type="number"
-                      value={rlSecond}
-                      onChange={(e) => setRlSecond(e.target.value)}
-                      placeholder="e.g. 5"
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Requests per Hour</label>
-                    <input
-                      type="number"
-                      value={rlHour}
-                      onChange={(e) => setRlHour(e.target.value)}
-                      placeholder="e.g. 1000"
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. production, auth, public"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD GLOBAL PLUGIN
-              </button>
-            </div>
-          </form>
-        </div>
+        <PluginGallery 
+          onAdd={handleAddPluginFromGallery} 
+          onCancel={() => setShowAddForm(false)} 
+          scopeContext="Globally" 
+        />
       )}
 
       {/* Search and Filter Panel */}
@@ -426,7 +269,8 @@ export const Plugins: React.FC = () => {
           </div>
         ) : plugins.length > 0 ? (
           <div className="overflow-x-auto">
-            {filteredPlugins.length > 0 ? (
+            {paginatedPlugins.length > 0 ? (
+              <>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
@@ -439,7 +283,7 @@ export const Plugins: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary animate-fadeIn">
-                  {filteredPlugins.map((plugin) => {
+                  {paginatedPlugins.map((plugin) => {
                     let scopeName = 'global';
                     let applyTarget = 'All Entrypoints';
 
@@ -459,8 +303,15 @@ export const Plugins: React.FC = () => {
                       <tr key={plugin.id} className="hover:bg-slate-50/25 transition-colors group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded bg-teal-50 text-teal-600">
-                              <Plug className="w-4 h-4" />
+                            <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-white border border-border-light shadow-sm">
+                              <img 
+                                src={`/images/kong/plugins/${plugin.name}.png`} 
+                                alt={plugin.name}
+                                onError={(e) => {
+                                  e.currentTarget.src = '/images/kong/plugins/kong.svg';
+                                }}
+                                className="max-w-full max-h-full object-contain p-1"
+                              />
                             </div>
                             <div>
                               {/* Clickable name opens edit modal */}
@@ -540,6 +391,14 @@ export const Plugins: React.FC = () => {
                   })}
                 </tbody>
               </table>
+              <Pagination
+                currentPage={currentPage}
+                totalItems={filteredPlugins.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setPageSize}
+              />
+              </>
             ) : (
               <div className="p-12 text-center text-text-muted text-xs font-medium">
                 No plugins match your search and filter criteria.
@@ -586,16 +445,14 @@ export const Plugins: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Configuration Payload JSON</label>
-                <textarea
-                  rows={10}
-                  required
-                  value={editConfig}
-                  onChange={(e) => setEditConfig(e.target.value)}
-                  className="w-full p-2.5 rounded border border-border-light bg-slate-50 text-xs font-mono leading-relaxed outline-none focus:border-brand-primary"
-                />
-                <p className="text-[9px] text-text-muted">Directly adjust configuration properties in GFE/Kong format.</p>
+              <div className="space-y-1 mt-4">
+                <div className="bg-white border border-border-light rounded-lg p-6">
+                  <PluginDynamicForm
+                    pluginName={editingPlugin.name}
+                    initialConfig={editConfig}
+                    onChange={(cfg) => setEditConfig(cfg)}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 justify-end pt-4 border-t border-border-light mt-4">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -16,7 +16,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { useAuth } from '../context/AuthContext';
+
 
 interface Consumer {
   id: string;
@@ -71,17 +71,13 @@ interface AclGroup {
 
 export const ConsumerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [consumer, setConsumer] = useState<Consumer | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'credentials' | 'acls'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    navigate('/consumers');
-  }, [user?.node]);
+
 
   // Edit details fields
   const [username, setUsername] = useState('');
@@ -181,12 +177,33 @@ export const ConsumerDetails: React.FC = () => {
     const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t !== '') : [];
 
     const payload: any = {};
-    if (username) payload.username = username;
-    if (customId) payload.custom_id = customId;
-    payload.tags = parsedTags;
+    const changedFields: string[] = [];
+
+    if ((username || '') !== (consumer?.username || '')) {
+      payload.username = username || null;
+      changedFields.push('username');
+    }
+    
+    if ((customId || '') !== (consumer?.custom_id || '')) {
+      payload.custom_id = customId || null;
+      changedFields.push('custom_id');
+    }
+    
+    const originalTags = consumer?.tags || [];
+    if (JSON.stringify([...parsedTags].sort()) !== JSON.stringify([...originalTags].sort())) {
+      payload.tags = parsedTags;
+      changedFields.push('tags');
+    }
+
+    if (Object.keys(payload).length === 0) {
+      setSuccess('No changes detected.');
+      return;
+    }
 
     try {
-      await axios.patch(`/api/kong/consumers/${id}`, payload);
+      await axios.patch(`/api/kong/consumers/${id}`, payload, {
+        headers: { 'X-Noka-Changed-Fields': changedFields.join(', ') }
+      });
       setSuccess('Details updated successfully!');
       fetchConsumerDetails();
     } catch (err: any) {
@@ -370,39 +387,38 @@ export const ConsumerDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs list */}
-      <div className="flex border-b border-border-light gap-2">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 border-b-2 text-xs font-bold transition-all uppercase tracking-wider ${
-            activeTab === 'details' 
-              ? 'border-brand-primary text-brand-primary' 
-              : 'border-transparent text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          Details & Comments
-        </button>
-        <button
-          onClick={() => setActiveTab('credentials')}
-          className={`px-4 py-2 border-b-2 text-xs font-bold transition-all uppercase tracking-wider ${
-            activeTab === 'credentials' 
-              ? 'border-brand-primary text-brand-primary' 
-              : 'border-transparent text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          Credentials
-        </button>
-        <button
-          onClick={() => setActiveTab('acls')}
-          className={`px-4 py-2 border-b-2 text-xs font-bold transition-all uppercase tracking-wider ${
-            activeTab === 'acls' 
-              ? 'border-brand-primary text-brand-primary' 
-              : 'border-transparent text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          ACL Groups
-        </button>
-      </div>
+      {/* Content Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Tabs */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'details' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" /> Consumer Details
+          </button>
+          <button
+            onClick={() => setActiveTab('credentials')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'credentials' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Key className="w-4 h-4" /> Credentials
+          </button>
+          <button
+            onClick={() => setActiveTab('acls')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'acls' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Shield className="w-4 h-4" /> ACL Groups
+          </button>
+        </div>
+
+        {/* Tab Contents */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
@@ -450,8 +466,8 @@ export const ConsumerDetails: React.FC = () => {
           </div>
 
           {/* Audit Comments Section */}
-          <div className="max-w-xl">
-            <CommentsSection referenceId={consumer.id} referenceType="consumer" />
+          <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
+            <CommentsSection referenceId={consumer.id} referenceType="consumer" referenceName={consumer.username || consumer.id} />
           </div>
         </div>
       )}
@@ -936,6 +952,8 @@ export const ConsumerDetails: React.FC = () => {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Users as UsersIcon, 
@@ -114,15 +115,17 @@ export const Users: React.FC = () => {
                           </div>
                         )}
                         <div>
-                          <span className="font-bold text-sm block">
+                          <Link to={`/users/${u.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
                             {u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : 'No Name'}
-                          </span>
+                          </Link>
                           <span className="text-[10px] text-text-muted font-mono block select-all">User ID: {u.id}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-text-primary">
-                      {u.username}
+                    <td className="px-6 py-4 font-semibold">
+                      <Link to={`/users/${u.id}`} className="text-blue-600 hover:underline">
+                        {u.username}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 font-medium text-text-secondary">
                       {u.email}

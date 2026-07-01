@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { Lock, Mail } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
   const [signupEnabled, setSignupEnabled] = useState(false);
 
   useEffect(() => {
@@ -27,14 +29,16 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setShake(false);
     setLoading(true);
     try {
       await login(identifier, password);
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Invalid username or password');
+      setShake(true);
+      setTimeout(() => setShake(false), 500); // reset shake animation
+      addToast('error', err.response?.data?.message || 'Invalid username or password', 'Login Failed');
     } finally {
       setLoading(false);
     }
@@ -50,15 +54,8 @@ export const Login: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white p-8 rounded-lg border border-border-light card-shadow">
+        <div className={`bg-white p-8 rounded-lg border border-border-light card-shadow ${shake ? 'animate-shake' : ''}`}>
           <h3 className="text-lg font-bold text-text-primary mb-6 uppercase tracking-wide">Sign In</h3>
-
-          {error && (
-            <div className="flex items-center gap-3 p-4 mb-6 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Identifier input */}

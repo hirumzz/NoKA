@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -17,6 +18,7 @@ import { Vaults } from './pages/Vaults';
 import { Keys } from './pages/Keys';
 import { KeySets } from './pages/KeySets';
 import { Users } from './pages/Users';
+import { UserProfile } from './pages/UserProfile';
 import { Help } from './pages/Help';
 import { ServiceDetails } from './pages/ServiceDetails';
 import { RouteDetails } from './pages/RouteDetails';
@@ -27,9 +29,8 @@ import { Info } from './pages/Info';
 import { Snapshots } from './pages/Snapshots';
 import { Settings } from './pages/Settings';
 
-// Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -39,7 +40,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
 
-  if (!token) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -48,8 +49,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <ToastProvider>
+      <AuthProvider>
+        <Router>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
@@ -193,6 +195,14 @@ function App() {
             }
           />
           <Route
+            path="/users/:id"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/audit-logs"
             element={
               <ProtectedRoute>
@@ -237,7 +247,8 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 }
 

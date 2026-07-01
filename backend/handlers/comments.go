@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,11 +15,13 @@ import (
 type CreateCommentRequest struct {
 	ReferenceID   string `json:"referenceId" binding:"required"`
 	ReferenceType string `json:"referenceType" binding:"required"` // route, service, consumer
+	ReferenceName string `json:"referenceName"`
 	Content       string `json:"content" binding:"required"`
 }
 
 type UpdateCommentRequest struct {
-	Content string `json:"content" binding:"required"`
+	Content       string `json:"content" binding:"required"`
+	ReferenceName string `json:"referenceName"`
 }
 
 // GetComments gets comments for a specific entity
@@ -82,6 +85,52 @@ func CreateComment(c *gin.Context) {
 	// Preload User and return
 	db.DB.Preload("User").First(&comment, comment.ID)
 
+	username := "anonymous"
+	if user.Username != "" {
+		username = user.Username
+	} else {
+		username = user.Email
+	}
+
+	// Create System Notification
+	icon := "mdi-comment-text-outline"
+	
+	refDisplayName := req.ReferenceType
+	if req.ReferenceName != "" {
+		refDisplayName = fmt.Sprintf("%s (%s)", req.ReferenceType, req.ReferenceName)
+	}
+
+	notificationMessage := fmt.Sprintf("%s commented on %s", username, refDisplayName)
+	notif := &models.KongaNotification{
+		Message:     notificationMessage,
+		Icon:        icon,
+		State:       req.ReferenceType + "s",
+		StateParams: "{}",
+		UserID:      &user.ID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	_ = db.DB.Create(notif)
+
+	// Create Audit Log
+	auditPath := "/api/comments"
+	if req.ReferenceName != "" {
+		auditPath = fmt.Sprintf("/api/comments (%s)", req.ReferenceName)
+	}
+	auditLog := &models.AuditLog{
+		IPAddress:    c.ClientIP(),
+		UserID:       &user.ID,
+		Username:     username,
+		Action:       "POST",
+		Entity:       "comments",
+		URL:          auditPath,
+		Payload:      fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, req.ReferenceType, req.ReferenceID, req.ReferenceName),
+		KongNodeName: "system",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	_ = db.DB.Create(auditLog)
+
 	c.JSON(http.StatusCreated, comment)
 }
 
@@ -129,6 +178,54 @@ func UpdateComment(c *gin.Context) {
 
 	db.DB.Preload("User").First(&comment, comment.ID)
 
+	username := "anonymous"
+	if user.Username != "" {
+		username = user.Username
+	} else {
+		username = user.Email
+	}
+
+	// Create System Notification
+	icon := "mdi-comment-edit-outline"
+
+	refDisplayName := comment.ReferenceType
+	if req.ReferenceName != "" {
+		refDisplayName = fmt.Sprintf("%s (%s)", comment.ReferenceType, req.ReferenceName)
+	}
+
+	notificationMessage := fmt.Sprintf("%s updated a comment on %s", username, refDisplayName)
+	notif := &models.KongaNotification{
+		Message:     notificationMessage,
+		Icon:        icon,
+		State:       comment.ReferenceType + "s",
+		StateParams: "{}",
+		UserID:      &user.ID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	_ = db.DB.Create(notif)
+
+	// Create Audit Log
+	auditUrl := "/api/comments/" + idStr
+	if req.ReferenceName != "" {
+		auditUrl = fmt.Sprintf("/api/comments/%s (%s: %s)", idStr, comment.ReferenceType, req.ReferenceName)
+	}
+	auditPayload := fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, comment.ReferenceType, comment.ReferenceID, req.ReferenceName)
+
+	auditLog := &models.AuditLog{
+		IPAddress:    c.ClientIP(),
+		UserID:       &user.ID,
+		Username:     username,
+		Action:       "PATCH",
+		Entity:       "comments",
+		URL:          auditUrl,
+		Payload:      auditPayload,
+		KongNodeName: "system",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	_ = db.DB.Create(auditLog)
+
 	c.JSON(http.StatusOK, comment)
 }
 
@@ -167,6 +264,55 @@ func DeleteComment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete comment"})
 		return
 	}
+
+	username := "anonymous"
+	if user.Username != "" {
+		username = user.Username
+	} else {
+		username = user.Email
+	}
+
+	// Create System Notification
+	icon := "mdi-comment-remove-outline"
+	
+	refName := c.Query("referenceName")
+	refDisplayName := comment.ReferenceType
+	if refName != "" {
+		refDisplayName = fmt.Sprintf("%s (%s)", comment.ReferenceType, refName)
+	}
+
+	notificationMessage := fmt.Sprintf("%s deleted a comment on %s", username, refDisplayName)
+	notif := &models.KongaNotification{
+		Message:     notificationMessage,
+		Icon:        icon,
+		State:       comment.ReferenceType + "s",
+		StateParams: "{}",
+		UserID:      &user.ID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	_ = db.DB.Create(notif)
+
+	// Create Audit Log
+	auditUrl := "/api/comments/" + idStr
+	if refName != "" {
+		auditUrl = fmt.Sprintf("/api/comments/%s (%s: %s)", idStr, comment.ReferenceType, refName)
+	}
+	auditPayload := fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, comment.ReferenceType, comment.ReferenceID, refName)
+
+	auditLog := &models.AuditLog{
+		IPAddress:    c.ClientIP(),
+		UserID:       &user.ID,
+		Username:     username,
+		Action:       "DELETE",
+		Entity:       "comments",
+		URL:          auditUrl,
+		Payload:      auditPayload,
+		KongNodeName: "system",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	_ = db.DB.Create(auditLog)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Comment deleted successfully", "id": id})
 }

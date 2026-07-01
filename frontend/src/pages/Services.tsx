@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Plus, 
   Trash2, 
   Layers, 
-  AlertCircle,
-  Search
+  Search,
+  Activity,
+  CheckCircle, 
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
-
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { Pagination } from '../components/Pagination';
 
 interface Service {
   id: string;
@@ -42,10 +46,13 @@ const getTagStyle = (tag: string) => {
 
 export const Services: React.FC = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [reachabilityStatus, setReachabilityStatus] = useState<Record<string, { status: 'checking' | 'reachable' | 'unreachable', message: string, code?: number }>>({});
 
   // Form fields
   const [name, setName] = useState('');
@@ -56,37 +63,89 @@ export const Services: React.FC = () => {
   const [path, setPath] = useState('');
   const [useUrlField, setUseUrlField] = useState(true);
   const [tagsInput, setTagsInput] = useState('');
+  
+  const [description, setDescription] = useState('');
+  const [retries, setRetries] = useState(5);
+  const [connectTimeout, setConnectTimeout] = useState(60000);
+  const [writeTimeout, setWriteTimeout] = useState(60000);
+  const [readTimeout, setReadTimeout] = useState(60000);
+  const [clientCertificateId, setClientCertificateId] = useState('');
 
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTag]);
+
   useEffect(() => {
     fetchServices();
   }, [user?.node]);
 
+
+
   const fetchServices = async () => {
     setLoading(true);
-    setError('');
     try {
-      const response = await axios.get('/api/kong/services');
+      const [response, reachResp] = await Promise.all([
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/reachability')
+      ]);
       // Kong returns services inside a "data" array
       setServices(response.data?.data || []);
+      
+      // Map reachability statuses
+      const statuses: Record<string, any> = {};
+      const statusData = reachResp.data?.data || [];
+      statusData.forEach((r: any) => {
+        if (r.entity_type === 'service') {
+          statuses[r.entity_id] = {
+            status: r.status,
+            message: r.message,
+            code: r.status_code
+          };
+        }
+      });
+      setReachabilityStatus(statuses);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch services. Make sure a connection is selected and active.');
+      addToast('error', err.response?.data?.message || 'Failed to fetch services', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRefreshAll = async () => {
+    setRefreshingAll(true);
+    try {
+      await axios.post('/api/reachability/refresh');
+      addToast('success', 'Reachability checks triggered successfully', 'Status Refresh');
+      // Wait a moment for checks to finish, then reload
+      setTimeout(() => {
+        fetchServices();
+        setRefreshingAll(false);
+      }, 3000);
+    } catch (err: any) {
+      addToast('error', err.response?.data?.message || 'Failed to refresh statuses', 'Refresh Error');
+      setRefreshingAll(false);
+    }
+  };
+
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
-    const parsedTags = tagsInput
+    let parsedTags = tagsInput
       ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
+
+    if (description) {
+      parsedTags.push(`noka-desc:${description}`);
+    }
 
     const payload: any = { name };
     if (useUrlField) {
@@ -97,11 +156,18 @@ export const Services: React.FC = () => {
       payload.host = host;
       payload.port = Number(port);
       payload.protocol = protocol;
-      payload.path = path;
+      if (path) payload.path = path;
     }
+
     if (parsedTags.length > 0) {
       payload.tags = parsedTags;
     }
+
+    payload.retries = Number(retries);
+    payload.connect_timeout = Number(connectTimeout);
+    payload.write_timeout = Number(writeTimeout);
+    payload.read_timeout = Number(readTimeout);
+    if (clientCertificateId) payload.client_certificate = { id: clientCertificateId };
 
     try {
       await axios.post('/api/kong/services', payload);
@@ -112,21 +178,50 @@ export const Services: React.FC = () => {
       setProtocol('http');
       setPath('');
       setTagsInput('');
+      setDescription('');
+      setRetries(5);
+      setConnectTimeout(60000);
+      setWriteTimeout(60000);
+      setReadTimeout(60000);
+      setClientCertificateId('');
+      setClientCertificateId('');
       setShowAddForm(false);
+      addToast('success', 'Service has been successfully created', 'Success');
       fetchServices();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create service');
+      addToast('error', err.response?.data?.message || 'Failed to create service', 'Error');
     }
   };
 
   const handleDeleteService = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this service? This will delete all associated routes.')) return;
-    setError('');
+    if (!window.confirm('Are you sure you want to delete this service?')) return;
     try {
       await axios.delete(`/api/kong/services/${id}`);
+      addToast('success', 'Service deleted successfully', 'Success');
       fetchServices();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete service');
+      addToast('error', err.response?.data?.message || 'Failed to delete service', 'Error');
+    }
+  };
+
+  const handleCheckReachability = async (id: string) => {
+    setReachabilityStatus(prev => ({ ...prev, [id]: { status: 'checking', message: 'Checking...' } }));
+    try {
+      const response = await axios.get(`/api/kong/services/${id}/check-reachability`);
+      const { reachable, statusCode, message } = response.data;
+      setReachabilityStatus(prev => ({
+        ...prev,
+        [id]: {
+          status: reachable ? 'reachable' : 'unreachable',
+          message: message || '',
+          code: statusCode
+        }
+      }));
+    } catch (err: any) {
+      setReachabilityStatus(prev => ({
+        ...prev,
+        [id]: { status: 'unreachable', message: err.response?.data?.message || 'Check failed' }
+      }));
     }
   };
 
@@ -135,7 +230,11 @@ export const Services: React.FC = () => {
     const tagsSet = new Set<string>();
     services.forEach(svc => {
       if (svc.tags) {
-        svc.tags.forEach(tag => tagsSet.add(tag));
+        svc.tags.forEach(tag => {
+          if (!tag.startsWith('noka-desc:')) {
+            tagsSet.add(tag);
+          }
+        });
       }
     });
     return Array.from(tagsSet).sort();
@@ -143,7 +242,7 @@ export const Services: React.FC = () => {
 
   // Filtered services
   const filteredServices = React.useMemo(() => {
-    return services.filter(svc => {
+    const filtered = services.filter(svc => {
       const nameMatch = (svc.name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const idMatch = (svc.id || '').toLowerCase().includes(searchTerm.toLowerCase());
       const hostMatch = (svc.host || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -153,7 +252,13 @@ export const Services: React.FC = () => {
 
       return matchesSearch && matchesTag;
     });
+    return filtered;
   }, [services, searchTerm, selectedTag]);
+
+  const paginatedServices = filteredServices.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   return (
     <div className="space-y-6">
@@ -171,13 +276,6 @@ export const Services: React.FC = () => {
         </button>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
-
       {/* Add Form */}
       {showAddForm && (
         <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
@@ -192,6 +290,17 @@ export const Services: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. users-api"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Description</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Optional description"
                   className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                 />
               </div>
@@ -290,6 +399,57 @@ export const Services: React.FC = () => {
                   className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                 />
               </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Retries</label>
+                <input
+                  type="number"
+                  value={retries}
+                  onChange={(e) => setRetries(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Connect Timeout (ms)</label>
+                <input
+                  type="number"
+                  value={connectTimeout}
+                  onChange={(e) => setConnectTimeout(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Write Timeout (ms)</label>
+                <input
+                  type="number"
+                  value={writeTimeout}
+                  onChange={(e) => setWriteTimeout(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Read Timeout (ms)</label>
+                <input
+                  type="number"
+                  value={readTimeout}
+                  onChange={(e) => setReadTimeout(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Client Certificate ID</label>
+                <input
+                  type="text"
+                  value={clientCertificateId}
+                  onChange={(e) => setClientCertificateId(e.target.value)}
+                  placeholder="Optional UUID"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <button
@@ -333,7 +493,16 @@ export const Services: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              onClick={handleRefreshAll}
+              disabled={refreshingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border-light hover:border-brand-primary text-text-secondary hover:text-brand-primary rounded shadow-sm text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
+              {refreshingAll ? 'Refreshing...' : 'Refresh All Status'}
+            </button>
+            <div className="h-5 w-px bg-border-light mx-1"></div>
             <span className="text-[10px] font-bold text-text-secondary uppercase whitespace-nowrap">Filter by Tag:</span>
             <select
               value={selectedTag}
@@ -361,13 +530,18 @@ export const Services: React.FC = () => {
                   <th className="px-6 py-3.5">Name</th>
                   <th className="px-6 py-3.5">Target Upstream</th>
                   <th className="px-6 py-3.5">Protocol</th>
+                  <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5">Created At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {filteredServices.map((svc) => (
-                  <tr key={svc.id} className="hover:bg-slate-50/25 transition-colors">
+                {paginatedServices.map((svc) => (
+                  <tr 
+                    key={svc.id} 
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/services/${svc.id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded bg-emerald-50 text-emerald-600">
@@ -378,31 +552,79 @@ export const Services: React.FC = () => {
                             {svc.name || 'Unnamed'}
                           </Link>
                           <span className="text-[10px] text-text-muted font-mono block select-all">{svc.id}</span>
-                          {svc.tags && svc.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {svc.tags.map((tag, idx) => {
-                                const style = getTagStyle(tag);
-                                return (
-                                  <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
-                                    {tag}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
+                          {(() => {
+                            let description = '';
+                            let normalTags: string[] = [];
+                            if (svc.tags) {
+                              const descTag = svc.tags.find((t: string) => t.startsWith('noka-desc:'));
+                              if (descTag) description = descTag.substring('noka-desc:'.length);
+                              normalTags = svc.tags.filter((t: string) => !t.startsWith('noka-desc:'));
+                            }
+                            return (
+                              <>
+                                {description && (
+                                  <div className="text-xs text-text-secondary mt-1">{description}</div>
+                                )}
+                                {normalTags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {normalTags.map((tag, idx) => {
+                                      const style = getTagStyle(tag);
+                                      return (
+                                        <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
+                                          {tag}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-mono text-xs font-medium">
-                        {svc.host}:{svc.port}
-                        {svc.path && <span className="text-text-muted">{svc.path}</span>}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs font-medium">
+                          {svc.host}:{svc.port}
+                          {svc.path && <span className="text-text-muted">{svc.path}</span>}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-0.5 rounded border border-blue-500/20 bg-blue-500/5 text-blue-600 text-[10px] font-bold uppercase">
                         {svc.protocol}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {reachabilityStatus[svc.id] ? (
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                          {reachabilityStatus[svc.id].status === 'checking' && (
+                            <span className="flex items-center gap-1 text-slate-500">
+                              <span className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                              Checking...
+                            </span>
+                          )}
+                          {reachabilityStatus[svc.id].status === 'reachable' && (
+                            <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title={reachabilityStatus[svc.id].message}>
+                              <CheckCircle className="w-3 h-3" /> Online
+                            </span>
+                          )}
+                          {reachabilityStatus[svc.id].status === 'unreachable' && (
+                            <span className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={reachabilityStatus[svc.id].message}>
+                              <XCircle className="w-3 h-3" /> Unreachable
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCheckReachability(svc.id); }}
+                          className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                          title="Check Upstream Reachability"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-text-secondary font-medium">
                       {new Date(svc.created_at * 1000).toLocaleDateString()}
@@ -410,7 +632,7 @@ export const Services: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleDeleteService(svc.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteService(svc.id); }}
                           className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
                           title="Delete Service"
                         >
@@ -422,6 +644,13 @@ export const Services: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredServices.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : services.length > 0 ? (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

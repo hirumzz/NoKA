@@ -213,6 +213,7 @@ export const Settings: React.FC = () => {
   // ── General ──
   const [refreshInterval, setRefreshInterval] = useState('30000');
   const [baseUrl, setBaseUrl] = useState('');
+  const [proxyUrl, setProxyUrl] = useState('');
 
   // ── Sign Up ──
   const [allowSignup, setAllowSignup] = useState(true);
@@ -240,6 +241,9 @@ export const Settings: React.FC = () => {
 
     const bu = localStorage.getItem('noka_base_url');
     if (bu !== null) setBaseUrl(bu);
+
+    const pu = localStorage.getItem('noka_proxy_url');
+    if (pu !== null) setProxyUrl(pu);
 
     const as = localStorage.getItem('noka_allow_signup');
     if (as !== null) setAllowSignup(as === 'true');
@@ -277,6 +281,7 @@ export const Settings: React.FC = () => {
   const handleSave = () => {
     localStorage.setItem('noka_refresh_interval', refreshInterval);
     localStorage.setItem('noka_base_url', baseUrl);
+    localStorage.setItem('noka_proxy_url', proxyUrl);
     localStorage.setItem('noka_allow_signup', String(allowSignup));
     localStorage.setItem('noka_send_activation_email', String(sendActivationEmail));
     localStorage.setItem('noka_email_sender_name', emailSenderName);
@@ -368,6 +373,18 @@ export const Settings: React.FC = () => {
             onChange={(e) => setBaseUrl(e.target.value)}
             className="w-full max-w-sm px-3 py-2 border border-border-light rounded text-sm font-semibold text-text-primary focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
             placeholder="ex. http://my-konga.io"
+          />
+        </FieldRow>
+        <FieldRow
+          label="Kong Proxy URL"
+          description="The default Proxy URL NOKA uses to check the reachability of your Kong routes. (e.g., http://your-kong-gateway:8000)"
+        >
+          <input
+            type="text"
+            value={proxyUrl}
+            onChange={(e) => setProxyUrl(e.target.value)}
+            className="w-full max-w-sm px-3 py-2 border border-border-light rounded text-sm font-semibold text-text-primary focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
+            placeholder="ex. http://10.0.0.1:8000"
           />
         </FieldRow>
       </SectionCard>

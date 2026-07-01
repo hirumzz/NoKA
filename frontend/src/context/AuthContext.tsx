@@ -16,7 +16,6 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   loading: boolean;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
@@ -25,36 +24,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Ensure axios sends cookies with all requests
+axios.defaults.withCredentials = true;
+
+// CSRF Interceptor
+axios.interceptors.request.use((config) => {
+  const match = document.cookie.match(new RegExp('(^| )konga_csrf=([^;]+)'));
+  if (match) {
+    config.headers['X-CSRF-Token'] = match[2];
+  }
+  return config;
+});
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('konga_token'));
   const [loading, setLoading] = useState(true);
-
-  // Setup axios Authorization header and interceptors
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      localStorage.setItem('konga_token', token);
-    } else {
-      delete axios.defaults.headers.common['Authorization'];
-      localStorage.removeItem('konga_token');
-    }
-  }, [token]);
 
   // Load current user on start
   useEffect(() => {
     const fetchUser = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       try {
         const response = await axios.get('/api/me');
         setUser(response.data);
       } catch (err) {
         console.error('Failed to fetch current user:', err);
-        // Clear expired/invalid token
-        setToken(null);
         setUser(null);
       } finally {
         setLoading(false);
@@ -62,22 +55,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     fetchUser();
-  }, [token]);
+  }, []);
 
   const login = async (identifier: string, password: string) => {
     const response = await axios.post('/login', { identifier, password });
-    setToken(response.data.token);
     setUser(response.data.user);
   };
 
-  const logout = () => {
-    setToken(null);
+  const logout = async () => {
+    try {
+      await axios.post('/api/auth/logout');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setUser(null);
-    localStorage.removeItem('konga_token');
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, setUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

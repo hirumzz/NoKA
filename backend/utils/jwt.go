@@ -38,18 +38,26 @@ func GetJWTSecret() []byte {
 
 // IssueToken issues a JWT token for a given user ID
 func IssueToken(userID uint) (string, error) {
+	// Generate a secure 16-byte hex string for jti
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	jti := hex.EncodeToString(b)
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": fmt.Sprintf("%d", userID),
 		"id":  userID,
 		"exp": time.Now().Add(8 * time.Hour).Unix(), // 8h TTL (was 24h)
 		"iat": time.Now().Unix(),
+		"jti": jti,
 	})
 
 	return token.SignedString(GetJWTSecret())
 }
 
-// VerifyToken validates the JWT token and returns the user ID from the claims
-func VerifyToken(tokenStr string) (uint, error) {
+// VerifyToken validates the JWT token and returns the user ID and jti from the claims
+func VerifyToken(tokenStr string) (uint, string, error) {
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
@@ -58,17 +66,22 @@ func VerifyToken(tokenStr string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		var jti string
+		if jtiVal, exists := claims["jti"]; exists {
+			jti, _ = jtiVal.(string)
+		}
+
 		// Try to read "id" or "sub"
 		if idVal, exists := claims["id"]; exists {
 			switch v := idVal.(type) {
 			case float64:
-				return uint(v), nil
+				return uint(v), jti, nil
 			case int64:
-				return uint(v), nil
+				return uint(v), jti, nil
 			}
 		}
 
@@ -76,15 +89,15 @@ func VerifyToken(tokenStr string) (uint, error) {
 			if subStr, ok := subVal.(string); ok {
 				var id uint
 				if _, err := fmt.Sscanf(subStr, "%d", &id); err == nil {
-					return id, nil
+					return id, jti, nil
 				}
 			}
 		}
 
-		return 0, fmt.Errorf("invalid token claims")
+		return 0, "", fmt.Errorf("invalid token claims")
 	}
 
-	return 0, fmt.Errorf("invalid token")
+	return 0, "", fmt.Errorf("invalid token")
 }
 
 // IssueKongConnectionToken issues a JWT token for Kong's Admin API JWT authentication

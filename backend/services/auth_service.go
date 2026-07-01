@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"konga-backend/models"
@@ -16,7 +17,8 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepo repositories.UserRepository
+	userRepo   repositories.UserRepository
+	registerMu sync.Mutex
 }
 
 func NewAuthService(userRepo repositories.UserRepository) AuthService {
@@ -51,6 +53,9 @@ func (s *authService) Login(identifier, password string) (*models.User, string, 
 }
 
 func (s *authService) RegisterFirstAdmin(username, email, password, firstName, lastName string) (*models.User, string, error) {
+	s.registerMu.Lock()
+	defer s.registerMu.Unlock()
+
 	count, err := s.userRepo.CountUsers()
 	if err != nil {
 		return nil, "", errors.New("Failed to check user count")

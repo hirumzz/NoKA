@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -9,14 +9,19 @@ import {
   Trash2, 
   AlertCircle,
   CheckCircle,
-  ExternalLink
+  Activity,
+  XCircle,
+  GitBranch,
+  Users
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { useAuth } from '../context/AuthContext';
+import { PluginDynamicForm } from '../components/PluginDynamicForm';
+
 
 interface KongService {
   id: string;
   name: string;
+  description?: string;
   host: string;
   port: number;
   protocol: string;
@@ -25,6 +30,8 @@ interface KongService {
   write_timeout: number;
   read_timeout: number;
   retries: number;
+  tags?: string[];
+  client_certificate?: { id: string };
 }
 
 interface KongRoute {
@@ -45,20 +52,18 @@ interface KongPlugin {
 
 export const ServiceDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [service, setService] = useState<KongService | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'routes' | 'plugins'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [reachabilityStatus, setReachabilityStatus] = useState<{ status: 'idle' | 'checking' | 'reachable' | 'unreachable', message: string, code?: number }>({ status: 'idle', message: '' });
 
-  useEffect(() => {
-    navigate('/services');
-  }, [user?.node]);
+
 
   // Service fields
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [host, setHost] = useState('');
   const [port, setPort] = useState(80);
   const [protocol, setProtocol] = useState('http');
@@ -67,6 +72,8 @@ export const ServiceDetails: React.FC = () => {
   const [writeTimeout, setWriteTimeout] = useState(60000);
   const [readTimeout, setReadTimeout] = useState(60000);
   const [retries, setRetries] = useState(5);
+  const [clientCertificateId, setClientCertificateId] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
   const [routes, setRoutes] = useState<KongRoute[]>([]);
@@ -75,7 +82,7 @@ export const ServiceDetails: React.FC = () => {
   // Add Plugin Modal states
   const [showAddPlugin, setShowAddPlugin] = useState(false);
   const [pluginName, setPluginName] = useState('key-auth');
-  const [pluginConfig, setPluginConfig] = useState('{}');
+  const [pluginConfig, setPluginConfig] = useState<any>({});
 
   useEffect(() => {
     fetchServiceDetails();
@@ -90,6 +97,16 @@ export const ServiceDetails: React.FC = () => {
       const data = response.data;
       setService(data);
       setName(data.name || '');
+      
+      let fetchedDesc = '';
+      let fetchedTags: string[] = [];
+      if (data.tags) {
+        const descTag = data.tags.find((t: string) => t.startsWith('noka-desc:'));
+        if (descTag) fetchedDesc = descTag.substring('noka-desc:'.length);
+        fetchedTags = data.tags.filter((t: string) => !t.startsWith('noka-desc:'));
+      }
+      setDescription(fetchedDesc);
+      setTagsInput(fetchedTags.join(', '));
       setHost(data.host || '');
       setPort(data.port || 80);
       setProtocol(data.protocol || 'http');
@@ -98,9 +115,12 @@ export const ServiceDetails: React.FC = () => {
       setWriteTimeout(data.write_timeout || 60000);
       setReadTimeout(data.read_timeout || 60000);
       setRetries(data.retries || 5);
+      setClientCertificateId(data.client_certificate?.id || '');
 
       // Fetch routes and plugins
       fetchSubResources();
+      // Auto check reachability
+      handleCheckReachability();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch service details');
       console.error(err);
@@ -128,16 +148,88 @@ export const ServiceDetails: React.FC = () => {
     setSuccess('');
 
     try {
-      await axios.patch(`/api/kong/services/${id}`, {
-        name: name || null,
-        host,
-        port: Number(port),
-        protocol,
-        path: path || null,
-        connect_timeout: Number(connectTimeout),
-        write_timeout: Number(writeTimeout),
-        read_timeout: Number(readTimeout),
-        retries: Number(retries)
+      const payload: any = {};
+      const changedFields: string[] = [];
+
+      if ((name || '') !== (service?.name || '')) {
+        payload.name = name || null;
+        changedFields.push('name');
+      }
+      if (host !== (service?.host || '')) {
+        payload.host = host;
+        changedFields.push('host');
+      }
+      if (Number(port) !== (service?.port || 80)) {
+        payload.port = Number(port);
+        changedFields.push('port');
+      }
+      if (protocol !== (service?.protocol || 'http')) {
+        payload.protocol = protocol;
+        changedFields.push('protocol');
+      }
+      if ((path || '') !== (service?.path || '')) {
+        payload.path = path || null;
+        changedFields.push('path');
+      }
+      if (Number(connectTimeout) !== (service?.connect_timeout || 60000)) {
+        payload.connect_timeout = Number(connectTimeout);
+        changedFields.push('connect_timeout');
+      }
+      if (Number(writeTimeout) !== (service?.write_timeout || 60000)) {
+        payload.write_timeout = Number(writeTimeout);
+        changedFields.push('write_timeout');
+      }
+      if (Number(readTimeout) !== (service?.read_timeout || 60000)) {
+        payload.read_timeout = Number(readTimeout);
+        changedFields.push('read_timeout');
+      }
+      if (Number(retries) !== (service?.retries || 5)) {
+        payload.retries = Number(retries);
+        changedFields.push('retries');
+      }
+      
+      let fetchedDesc = '';
+      if (service?.tags) {
+        const descTag = service.tags.find((t: string) => t.startsWith('noka-desc:'));
+        if (descTag) fetchedDesc = descTag.substring('noka-desc:'.length);
+      }
+      
+      
+      if (description !== fetchedDesc || tagsInput !== (service?.tags?.filter((t: string) => !t.startsWith('noka-desc:')).join(', ') || '')) {
+        let newTags = tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : [];
+        if (description) {
+          newTags.push(`noka-desc:${description}`);
+        }
+        
+        // Deep compare array elements
+        const currentServiceTags = service?.tags || [];
+        const sortedNew = [...newTags].sort();
+        const sortedOld = [...currentServiceTags].sort();
+        if (JSON.stringify(sortedNew) !== JSON.stringify(sortedOld)) {
+            if (description !== fetchedDesc) {
+              changedFields.push('description');
+            }
+            if (tagsInput !== (service?.tags?.filter((t: string) => !t.startsWith('noka-desc:')).join(', ') || '')) {
+              changedFields.push('tags');
+            }
+            payload.tags = newTags;
+        }
+      }
+
+      if ((clientCertificateId || '') !== (service?.client_certificate?.id || '')) {
+        payload.client_certificate = clientCertificateId ? { id: clientCertificateId } : null;
+        changedFields.push('client_certificate');
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setSuccess('No changes detected.');
+        return;
+      }
+      
+      await axios.patch(`/api/kong/services/${id}`, payload, {
+        headers: {
+          'X-Noka-Changed-Fields': changedFields.join(', ')
+        }
       });
       setSuccess('Service parameters updated successfully!');
       fetchServiceDetails();
@@ -146,26 +238,34 @@ export const ServiceDetails: React.FC = () => {
     }
   };
 
+  const handleCheckReachability = async () => {
+    setReachabilityStatus({ status: 'checking', message: 'Checking...' });
+    try {
+      const response = await axios.get(`/api/kong/services/${id}/check-reachability`);
+      const { reachable, statusCode, message } = response.data;
+      setReachabilityStatus({
+        status: reachable ? 'reachable' : 'unreachable',
+        message: message || '',
+        code: statusCode
+      });
+    } catch (err: any) {
+      setReachabilityStatus({ 
+        status: 'unreachable', 
+        message: err.response?.data?.message || 'Check failed' 
+      });
+    }
+  };
+
   const handleAddPlugin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
-      let parsedConfig = {};
-      try {
-        if (pluginConfig.trim()) {
-          parsedConfig = JSON.parse(pluginConfig);
-        }
-      } catch (jsonErr) {
-        setError('Invalid Plugin Config JSON format');
-        return;
-      }
-
       await axios.post(`/api/kong/services/${id}/plugins`, {
         name: pluginName,
-        config: parsedConfig
+        config: pluginConfig
       });
       setShowAddPlugin(false);
-      setPluginConfig('{}');
+      setPluginConfig({});
       fetchSubResources();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to enable plugin');
@@ -230,39 +330,83 @@ export const ServiceDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-border-light gap-6 text-xs font-bold uppercase tracking-wider text-text-secondary">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'details' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Details & Notes
-        </button>
-        <button
-          onClick={() => setActiveTab('routes')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'routes' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Routes ({routes.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('plugins')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'plugins' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Plugins ({plugins.length})
-        </button>
-      </div>
+      {/* Content Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Tabs */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'details' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" /> Service Details
+          </button>
+          <button
+            onClick={() => setActiveTab('routes')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'routes' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" /> Routes
+          </button>
+          <button
+            onClick={() => setActiveTab('plugins')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'plugins' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Plug className="w-4 h-4" /> Plugins
+          </button>
+          <button
+            disabled
+            className="flex items-center justify-between px-4 py-3 rounded text-xs font-bold bg-transparent text-text-secondary opacity-70 cursor-not-allowed"
+          >
+            <span className="flex items-center gap-3"><Users className="w-4 h-4" /> Eligible consumers</span>
+            <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] uppercase tracking-wider">beta</span>
+          </button>
+        </div>
+
+        {/* Tab Contents */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Service Specifications</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Service Specifications</h3>
+              <div className="flex items-center gap-2">
+                {reachabilityStatus.status !== 'idle' && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold mr-2">
+                    {reachabilityStatus.status === 'checking' && (
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                        Checking...
+                      </span>
+                    )}
+                    {reachabilityStatus.status === 'reachable' && (
+                      <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200" title={reachabilityStatus.message}>
+                        <CheckCircle className="w-4 h-4" /> Reachable {reachabilityStatus.code ? `(${reachabilityStatus.code})` : ''}
+                      </span>
+                    )}
+                    {reachabilityStatus.status === 'unreachable' && (
+                      <span className="flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200" title={reachabilityStatus.message}>
+                        <XCircle className="w-4 h-4" /> Unreachable
+                      </span>
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCheckReachability}
+                  disabled={reachabilityStatus.status === 'checking'}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold rounded flex items-center gap-1.5 transition-colors uppercase disabled:opacity-50"
+                >
+                  <Activity className="w-3.5 h-3.5" /> Refresh Status
+                </button>
+              </div>
+            </div>
             <form onSubmit={handleUpdateDetails} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -272,6 +416,26 @@ export const ServiceDetails: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. users-api"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Description</label>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Optional description"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. production, api (comma-separated)"
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                   />
                 </div>
@@ -357,6 +521,16 @@ export const ServiceDetails: React.FC = () => {
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Client Certificate ID</label>
+                  <input
+                    type="text"
+                    value={clientCertificateId}
+                    onChange={(e) => setClientCertificateId(e.target.value)}
+                    placeholder="Optional UUID"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
               </div>
               <button
                 type="submit"
@@ -368,7 +542,7 @@ export const ServiceDetails: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-            <CommentsSection referenceId={service.id} referenceType="service" />
+            <CommentsSection referenceId={service.id} referenceType="service" referenceName={service.name || service.id} />
           </div>
         </div>
       )}
@@ -388,11 +562,12 @@ export const ServiceDetails: React.FC = () => {
           <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase">
-                <th className="px-6 py-3.5">Route Name</th>
-                <th className="px-6 py-3.5">Paths</th>
+                <th className="px-6 py-3.5">Name / ID</th>
                 <th className="px-6 py-3.5">Hosts</th>
-                <th className="px-6 py-3.5">Methods</th>
+                <th className="px-6 py-3.5">Paths</th>
                 <th className="px-6 py-3.5">Protocols</th>
+                <th className="px-6 py-3.5">Methods</th>
+                <th className="px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light font-semibold text-text-primary">
@@ -400,27 +575,47 @@ export const ServiceDetails: React.FC = () => {
                 routes.map(route => (
                   <tr key={route.id} className="hover:bg-slate-50/50">
                     <td className="px-6 py-4">
-                      {/* CRITICAL RELATION: Link to Route Details page */}
                       <Link 
                         to={`/routes/${route.id}`} 
                         className="text-brand-primary hover:underline flex items-center gap-1 font-bold"
                       >
                         {route.name || 'Unnamed Route'}
-                        <ExternalLink className="w-3 h-3 opacity-60" />
                       </Link>
                       <span className="text-[10px] text-text-muted block font-mono mt-0.5">{route.id}</span>
                     </td>
                     <td className="px-6 py-4 font-mono text-[10px] text-text-secondary">
-                      {route.paths ? route.paths.join(', ') : 'N/A'}
+                      {route.hosts && route.hosts.length > 0 ? route.hosts.join(', ') : '-'}
                     </td>
                     <td className="px-6 py-4 font-mono text-[10px] text-text-secondary">
-                      {route.hosts ? route.hosts.join(', ') : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 font-mono text-[10px] text-text-secondary">
-                      {route.methods ? route.methods.join(', ') : 'ANY'}
+                      {route.paths && route.paths.length > 0 ? route.paths.join(', ') : '-'}
                     </td>
                     <td className="px-6 py-4 font-mono text-[10px] text-text-secondary">
                       {route.protocols.join(', ')}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-[10px] text-text-secondary">
+                      {route.methods && route.methods.length > 0 ? route.methods.join(', ') : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-3 text-[10px] font-bold uppercase tracking-wider">
+                        <Link 
+                          to={`/routes/${route.id}`} 
+                          className="flex items-center gap-1 text-orange-500 hover:text-orange-600 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                          Edit
+                        </Link>
+                        <button 
+                          className="flex items-center gap-1 text-red-500 hover:text-red-600 transition-colors"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this route?')) {
+                              axios.delete(`/api/kong/routes/${route.id}`).then(() => fetchSubResources());
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -472,14 +667,13 @@ export const ServiceDetails: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Configuration JSON</label>
-                  <textarea
-                    rows={4}
-                    value={pluginConfig}
-                    onChange={(e) => setPluginConfig(e.target.value)}
-                    className="w-full p-2.5 rounded border border-border-light bg-white text-xs outline-none font-mono"
-                  />
-                  <p className="text-[9px] text-text-muted">Enter configuration parameters as raw JSON (e.g. {"{}"})</p>
+                  <div className="bg-white border border-border-light rounded p-4">
+                    <PluginDynamicForm
+                      pluginName={pluginName}
+                      initialConfig={pluginConfig}
+                      onChange={setPluginConfig}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => setShowAddPlugin(false)} className="px-3 py-1.5 border rounded bg-white text-xs font-semibold">Cancel</button>
@@ -522,6 +716,8 @@ export const ServiceDetails: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 };

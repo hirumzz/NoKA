@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Plus, 
   Trash2, 
   User, 
-  AlertCircle,
   Search
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { Pagination } from '../components/Pagination';
 
 interface Consumer {
   id: string;
@@ -39,9 +40,10 @@ const getTagStyle = (tag: string) => {
 
 export const Consumers: React.FC = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
   const [consumers, setConsumers] = useState<Consumer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
   // Form fields
@@ -53,18 +55,25 @@ export const Consumers: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTag]);
+
   useEffect(() => {
     fetchConsumers();
   }, [user?.node]);
 
   const fetchConsumers = async () => {
     setLoading(true);
-    setError('');
     try {
-      const response = await axios.get('/api/kong/consumers');
+      const response = await axios.get('/api/kong/consumers?size=1000');
       setConsumers(response.data?.data || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch consumers');
+      addToast('error', err.response?.data?.message || 'Failed to fetch consumers', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
@@ -74,10 +83,9 @@ export const Consumers: React.FC = () => {
   const handleAddConsumer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username && !customId) {
-      setError('Either Username or Custom ID must be specified');
+      addToast('error', 'Either Username or Custom ID must be specified', 'Validation Error');
       return;
     }
-    setError('');
 
     const parsedTags = tagsInput
       ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
@@ -94,20 +102,21 @@ export const Consumers: React.FC = () => {
       setCustomId('');
       setTagsInput('');
       setShowAddForm(false);
+      addToast('success', 'Consumer has been successfully created', 'Success');
       fetchConsumers();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create consumer');
+      addToast('error', err.response?.data?.message || 'Failed to create consumer', 'Error');
     }
   };
 
   const handleDeleteConsumer = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this consumer?')) return;
-    setError('');
     try {
       await axios.delete(`/api/kong/consumers/${id}`);
+      addToast('success', 'Consumer deleted successfully', 'Success');
       fetchConsumers();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete consumer');
+      addToast('error', err.response?.data?.message || 'Failed to delete consumer', 'Error');
     }
   };
 
@@ -124,17 +133,24 @@ export const Consumers: React.FC = () => {
 
   // Filtered consumers
   const filteredConsumers = React.useMemo(() => {
-    return consumers.filter(c => {
-      const usernameMatch = (c.username || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const customIdMatch = (c.custom_id || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const idMatch = (c.id || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSearch = usernameMatch || customIdMatch || idMatch;
-
-      const matchesTag = !selectedTag || (c.tags && c.tags.includes(selectedTag));
-
+    return consumers.filter(consumer => {
+      const matchesSearch = 
+        consumer.username?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        consumer.custom_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        consumer.id?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesTag = selectedTag ? consumer.tags?.includes(selectedTag) : true;
+      
       return matchesSearch && matchesTag;
     });
   }, [consumers, searchTerm, selectedTag]);
+
+  const paginatedConsumers = React.useMemo(() => {
+    return filteredConsumers.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredConsumers, currentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -151,13 +167,6 @@ export const Consumers: React.FC = () => {
           <Plus className="w-4 h-4 mr-2" /> ADD CONSUMER
         </button>
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
 
       {/* Add Form */}
       {showAddForm && (
@@ -273,8 +282,12 @@ export const Consumers: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {filteredConsumers.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/25 transition-colors">
+                {paginatedConsumers.map((c) => (
+                  <tr 
+                    key={c.id} 
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/consumers/${c.id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded bg-amber-50 text-amber-600">
@@ -312,7 +325,7 @@ export const Consumers: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleDeleteConsumer(c.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteConsumer(c.id); }}
                           className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
                           title="Delete Consumer"
                         >
@@ -324,6 +337,13 @@ export const Consumers: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredConsumers.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : consumers.length > 0 ? (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

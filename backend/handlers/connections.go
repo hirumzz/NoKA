@@ -14,6 +14,7 @@ import (
 type CreateConnectionRequest struct {
 	Name         string `json:"name" binding:"required"`
 	KongAdminURL string `json:"kong_admin_url" binding:"required"`
+	KongProxyURL string `json:"kong_proxy_url"`
 	Type         string `json:"type"` // key_auth, jwt, basic_auth, default
 	KongAPIKey   string `json:"kong_api_key"`
 	Username     string `json:"username"`
@@ -46,6 +47,7 @@ func CreateConnection(c *gin.Context) {
 	node := models.KongNode{
 		Name:               req.Name,
 		KongAdminURL:       req.KongAdminURL,
+		KongProxyURL:       req.KongProxyURL,
 		Type:               req.Type,
 		KongAPIKey:         req.KongAPIKey,
 		Username:           req.Username,
@@ -165,6 +167,7 @@ func ActivateConnection(c *gin.Context) {
 type UpdateConnectionRequest struct {
 	Name         string `json:"name"`
 	KongAdminURL string `json:"kong_admin_url"`
+	KongProxyURL string `json:"kong_proxy_url"`
 	Type         string `json:"type"`
 	KongAPIKey   string `json:"kong_api_key"`
 	Username     string `json:"username"`
@@ -207,6 +210,9 @@ func UpdateConnection(c *gin.Context) {
 	}
 	if req.KongAdminURL != "" {
 		updates["kong_admin_url"] = req.KongAdminURL
+	}
+	if req.KongProxyURL != "" {
+		updates["kong_proxy_url"] = req.KongProxyURL
 	}
 	if req.Type != "" {
 		updates["type"] = req.Type

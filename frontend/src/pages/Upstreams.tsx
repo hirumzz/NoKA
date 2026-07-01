@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Plus, 
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/Pagination';
 
 interface Upstream {
   id: string;
@@ -39,6 +40,7 @@ const getTagColor = (tag: string) => {
 
 export const Upstreams: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,11 +49,25 @@ export const Upstreams: React.FC = () => {
   // Form fields
   const [name, setName] = useState('');
   const [algorithm, setAlgorithm] = useState('round-robin');
+  const [slots, setSlots] = useState(10000);
+  const [hashOn, setHashOn] = useState('none');
+  const [hashFallback, setHashFallback] = useState('none');
+  const [hashOnHeader, setHashOnHeader] = useState('');
+  const [hashFallbackHeader, setHashFallbackHeader] = useState('');
+  const [hashOnCookie, setHashOnCookie] = useState('');
+  const [hashOnCookiePath, setHashOnCookiePath] = useState('/');
   const [tagsInput, setTagsInput] = useState('');
 
-  // Search & Filter fields
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTag]);
 
   useEffect(() => {
     fetchUpstreams();
@@ -61,7 +77,7 @@ export const Upstreams: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('/api/kong/upstreams');
+      const response = await axios.get('/api/kong/upstreams?size=1000');
       setUpstreams(response.data?.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch upstreams');
@@ -78,7 +94,14 @@ export const Upstreams: React.FC = () => {
 
     const payload: any = {
       name,
-      algorithm
+      algorithm,
+      slots: Number(slots),
+      hash_on: hashOn,
+      hash_fallback: hashFallback,
+      hash_on_header: hashOnHeader || undefined,
+      hash_fallback_header: hashFallbackHeader || undefined,
+      hash_on_cookie: hashOnCookie || undefined,
+      hash_on_cookie_path: hashOnCookiePath || undefined
     };
     const parsedTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
     if (parsedTags.length > 0) {
@@ -89,6 +112,13 @@ export const Upstreams: React.FC = () => {
       await axios.post('/api/kong/upstreams', payload);
       setName('');
       setAlgorithm('round-robin');
+      setSlots(10000);
+      setHashOn('none');
+      setHashFallback('none');
+      setHashOnHeader('');
+      setHashFallbackHeader('');
+      setHashOnCookie('');
+      setHashOnCookiePath('/');
       setTagsInput('');
       setShowAddForm(false);
       fetchUpstreams();
@@ -114,17 +144,22 @@ export const Upstreams: React.FC = () => {
     )
   ).sort();
 
-  const filteredUpstreams = upstreams.filter(up => {
+  const filteredUpstreams = upstreams.filter(upstream => {
     const matchesSearch = 
-      up.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      up.id.toLowerCase().includes(searchQuery.toLowerCase());
+      upstream.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      upstream.id?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesTag = 
-      !selectedTag || 
-      (up.tags && up.tags.includes(selectedTag));
+    const matchesTag = selectedTag ? upstream.tags?.includes(selectedTag) : true;
     
     return matchesSearch && matchesTag;
   });
+
+  const paginatedUpstreams = React.useMemo(() => {
+    return filteredUpstreams.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredUpstreams, currentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -178,6 +213,90 @@ export const Upstreams: React.FC = () => {
                   <option value="least-connections">Least Connections</option>
                   <option value="consistent-hashing">Consistent Hashing</option>
                 </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Slots</label>
+                <input
+                  type="number"
+                  value={slots}
+                  onChange={(e) => setSlots(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On</label>
+                <select
+                  value={hashOn}
+                  onChange={(e) => setHashOn(e.target.value)}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                >
+                  <option value="none">None</option>
+                  <option value="consumer">Consumer</option>
+                  <option value="ip">IP</option>
+                  <option value="header">Header</option>
+                  <option value="cookie">Cookie</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback</label>
+                <select
+                  value={hashFallback}
+                  onChange={(e) => setHashFallback(e.target.value)}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                >
+                  <option value="none">None</option>
+                  <option value="consumer">Consumer</option>
+                  <option value="ip">IP</option>
+                  <option value="header">Header</option>
+                  <option value="cookie">Cookie</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Header</label>
+                <input
+                  type="text"
+                  value={hashOnHeader}
+                  onChange={(e) => setHashOnHeader(e.target.value)}
+                  placeholder="e.g. x-custom-header"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback Header</label>
+                <input
+                  type="text"
+                  value={hashFallbackHeader}
+                  onChange={(e) => setHashFallbackHeader(e.target.value)}
+                  placeholder="e.g. x-custom-header"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie</label>
+                <input
+                  type="text"
+                  value={hashOnCookie}
+                  onChange={(e) => setHashOnCookie(e.target.value)}
+                  placeholder="e.g. session_id"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie Path</label>
+                <input
+                  type="text"
+                  value={hashOnCookiePath}
+                  onChange={(e) => setHashOnCookiePath(e.target.value)}
+                  placeholder="e.g. /"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
               </div>
 
               <div className="space-y-1 md:col-span-2">
@@ -261,21 +380,25 @@ export const Upstreams: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                  {filteredUpstreams.map((up) => (
-                    <tr key={up.id} className="hover:bg-slate-50/25 transition-colors">
+                  {paginatedUpstreams.map((upstream) => (
+                  <tr 
+                    key={upstream.id} 
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/upstreams/${upstream.id}`)}
+                  >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded bg-sky-50 text-sky-600">
                             <Share2 className="w-4 h-4" />
                           </div>
                           <div>
-                            <Link to={`/upstreams/${up.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
-                              {up.name}
+                            <Link to={`/upstreams/${upstream.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                              {upstream.name}
                             </Link>
-                            <span className="text-[10px] text-text-muted font-mono block select-all">{up.id}</span>
-                            {up.tags && up.tags.length > 0 && (
+                            <span className="text-[10px] text-text-muted font-mono block select-all">{upstream.id}</span>
+                            {upstream.tags && upstream.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
-                                {up.tags.map(t => {
+                                {upstream.tags.map(t => {
                                   const c = getTagColor(t);
                                   return (
                                     <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${c.bg} ${c.text} ${c.border}`}>
@@ -290,16 +413,16 @@ export const Upstreams: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-2.5 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/5 text-indigo-600 text-[10px] font-bold uppercase">
-                          {up.algorithm}
+                          {upstream.algorithm}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-text-secondary font-medium">
-                        {new Date(up.created_at * 1000).toLocaleDateString()}
+                        {new Date(upstream.created_at * 1000).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => handleDeleteUpstream(up.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteUpstream(upstream.id); }}
                             className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
                             title="Delete Upstream"
                           >
@@ -316,6 +439,13 @@ export const Upstreams: React.FC = () => {
                 No upstreams match your search and filter criteria.
               </div>
             )}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredUpstreams.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

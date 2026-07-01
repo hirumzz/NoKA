@@ -33,6 +33,13 @@ func ResolveKongNode() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+		} else {
+			// Fall back to the user's active node configuration if authenticated
+			if userVal, exists := c.Get("user"); exists {
+				if u, ok := userVal.(*models.User); ok && u.Node != nil {
+					nodeID = uint64(*u.Node)
+				}
+			}
 		}
 
 		var node models.KongNode

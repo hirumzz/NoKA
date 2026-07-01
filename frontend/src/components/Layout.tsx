@@ -22,7 +22,8 @@ import {
   X,
   Info,
   Settings,
-  Camera
+  Camera,
+  FileText
 } from 'lucide-react';
 
 interface ConnectionNode {
@@ -58,6 +59,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [lastReadTime, setLastReadTime] = useState<string>(
     localStorage.getItem('noka_last_read_time') || new Date(0).toISOString()
   );
+
+  const notificationsRef = React.useRef<HTMLDivElement>(null);
+  const profileRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetchConnections();
@@ -141,11 +158,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
+  const isAdmin = user?.admin || user?.role === 'admin' || user?.role === 'superadmin';
+
   const sidebarGroups = [
     {
       items: [
         { path: '/dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-        { path: '/info', label: 'INFO', icon: Info }
+        { path: '/info', label: 'INFO', icon: Info, adminOnly: true }
       ]
     },
     {
@@ -168,11 +187,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       items: [
         { path: '/users', label: 'USERS', icon: UsersIcon },
         { path: '/connections', label: 'CONNECTIONS', icon: Radio },
+        { path: '/audit-logs', label: 'AUDIT LOGS', icon: FileText, adminOnly: true },
         { path: '/settings', label: 'SETTINGS', icon: Settings },
         { path: '/help', label: 'HELP', icon: HelpCircle }
       ]
     }
-  ];
+  ].map(group => ({
+    ...group,
+    items: group.items.filter(item => !('adminOnly' in item && item.adminOnly) || isAdmin)
+  }));
 
   return (
     <div className="min-h-screen flex bg-bg-light text-text-primary font-sans">
@@ -224,7 +247,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v1.0.5</span>
+          <span className="text-brand-primary">NOKA v2.0.0</span>
         </div>
       </aside>
 
@@ -256,7 +279,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Profile & Notifications */}
           <div className="flex items-center gap-6">
-            <div className="relative">
+            <div className="relative" ref={notificationsRef}>
               <button 
                 onClick={handleToggleNotifications}
                 className="p-1.5 text-text-secondary hover:text-brand-primary hover:bg-slate-100 rounded-full transition-colors duration-150 relative outline-none cursor-pointer"
@@ -304,13 +327,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                                 {new Date(notif.createdAt).toLocaleTimeString()} — {new Date(notif.createdAt).toLocaleDateString()}
                               </span>
                             </div>
-                            <button
-                              onClick={(e) => handleDeleteNotification(e, notif.id)}
-                              className="p-1 rounded hover:bg-slate-100 text-text-secondary hover:text-red-500 opacity-60 hover:opacity-100 transition-all flex-shrink-0"
-                              title="Dismiss"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => handleDeleteNotification(e, notif.id)}
+                                className="p-1 rounded hover:bg-slate-100 text-text-secondary hover:text-red-500 opacity-60 hover:opacity-100 transition-all flex-shrink-0"
+                                title="Dismiss"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         );
                       })
@@ -320,7 +345,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button 
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2.5 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors duration-150 outline-none"

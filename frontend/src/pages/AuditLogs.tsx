@@ -237,13 +237,17 @@ export const AuditLogs: React.FC = () => {
                 <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Payload Data</p>
                 <div className="p-4 rounded bg-slate-900 border border-slate-800 overflow-x-auto font-mono text-[11px] text-emerald-400">
                   <pre>
-                    {JSON.stringify(
-                      typeof selectedLog.payload === 'string'
-                        ? JSON.parse(selectedLog.payload || '{}')
-                        : selectedLog.payload,
-                      null,
-                      2
-                    )}
+                    {(() => {
+                      if (typeof selectedLog.payload !== 'string') {
+                        return JSON.stringify(selectedLog.payload, null, 2);
+                      }
+                      try {
+                        const parsed = JSON.parse(selectedLog.payload || '{}');
+                        return JSON.stringify(parsed, null, 2);
+                      } catch (e) {
+                        return selectedLog.payload;
+                      }
+                    })()}
                   </pre>
                 </div>
               </div>

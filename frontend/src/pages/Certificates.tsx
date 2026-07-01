@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Plus, 
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/Pagination';
 
 interface Certificate {
   id: string;
@@ -40,6 +41,7 @@ const getTagColor = (tag: string) => {
 
 export const Certificates: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,9 +53,16 @@ export const Certificates: React.FC = () => {
   const [snis, setSnis] = useState('');
   const [tagsInput, setTagsInput] = useState('');
 
-  // Search & Filter fields
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTag]);
 
   useEffect(() => {
     fetchCertificates();
@@ -63,7 +72,7 @@ export const Certificates: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('/api/kong/certificates');
+      const response = await axios.get('/api/kong/certificates?size=1000');
       setCertificates(response.data?.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch certificates');
@@ -120,15 +129,22 @@ export const Certificates: React.FC = () => {
     )
   ).sort();
 
-  const filteredCertificates = certificates.filter(c => {
-    const matchesSearch = c.id.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredCertificates = certificates.filter(cert => {
+    const matchesSearch = 
+      cert.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (cert.snis && cert.snis.some(sni => sni.toLowerCase().includes(searchQuery.toLowerCase())));
     
-    const matchesTag = 
-      !selectedTag || 
-      (c.tags && c.tags.includes(selectedTag));
+    const matchesTag = selectedTag ? cert.tags?.includes(selectedTag) : true;
     
     return matchesSearch && matchesTag;
   });
+
+  const paginatedCertificates = React.useMemo(() => {
+    return filteredCertificates.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredCertificates, currentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -275,21 +291,25 @@ export const Certificates: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                  {filteredCertificates.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/25 transition-colors">
+                  {paginatedCertificates.map((cert) => (
+                    <tr 
+                      key={cert.id} 
+                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/certificates/${cert.id}`)}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded bg-purple-50 text-purple-600">
                             <Award className="w-4 h-4" />
                           </div>
                           <div>
-                            <Link to={`/certificates/${c.id}`} className="font-bold text-sm block font-mono text-blue-600 hover:underline select-all">
-                              {c.id.substring(0, 16)}...
+                            <Link to={`/certificates/${cert.id}`} className="font-bold text-sm block font-mono text-blue-600 hover:underline select-all">
+                              {cert.id.substring(0, 16)}...
                             </Link>
-                            <span className="text-[10px] text-text-muted font-mono block select-all">{c.id}</span>
-                            {c.tags && c.tags.length > 0 && (
+                            <span className="text-[10px] text-text-muted font-mono block select-all">{cert.id}</span>
+                            {cert.tags && cert.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
-                                {c.tags.map(t => {
+                                {cert.tags.map(t => {
                                   const cColor = getTagColor(t);
                                   return (
                                     <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${cColor.bg} ${cColor.text} ${cColor.border}`}>
@@ -303,9 +323,9 @@ export const Certificates: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 space-y-1 font-medium">
-                        {c.snis && c.snis.length > 0 ? (
+                        {cert.snis && cert.snis.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {c.snis.map((sni, idx) => (
+                            {cert.snis.map((sni, idx) => (
                               <span key={idx} className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-mono text-[10px] border border-blue-100">
                                 {sni}
                               </span>
@@ -316,12 +336,12 @@ export const Certificates: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-text-secondary font-medium">
-                        {new Date(c.created_at * 1000).toLocaleDateString()}
+                        {new Date(cert.created_at * 1000).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => handleDeleteCertificate(c.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteCertificate(cert.id); }}
                             className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
                             title="Delete Certificate"
                           >
@@ -338,6 +358,13 @@ export const Certificates: React.FC = () => {
                 No certificates match your search and filter criteria.
               </div>
             )}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredCertificates.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

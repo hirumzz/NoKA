@@ -24,9 +24,10 @@ interface Comment {
 interface CommentsSectionProps {
   referenceId: string;
   referenceType: 'service' | 'route' | 'consumer' | 'upstream' | 'certificate';
+  referenceName?: string;
 }
 
-export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, referenceType }) => {
+export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, referenceType, referenceName }) => {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -61,6 +62,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, r
       await axios.post('/api/comments', {
         referenceId,
         referenceType,
+        referenceName,
         content: newComment
       });
       setNewComment('');
@@ -80,7 +82,8 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, r
     setError('');
     try {
       await axios.put(`/api/comments/${id}`, {
-        content: editContent
+        content: editContent,
+        referenceName
       });
       setEditingCommentId(null);
       fetchComments();
@@ -93,7 +96,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, r
     if (!window.confirm('Are you sure you want to delete this comment?')) return;
     setError('');
     try {
-      await axios.delete(`/api/comments/${id}`);
+      await axios.delete(`/api/comments/${id}?referenceName=${encodeURIComponent(referenceName || '')}`);
       fetchComments();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete comment');

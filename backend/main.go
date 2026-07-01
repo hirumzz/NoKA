@@ -106,8 +106,13 @@ func main() {
 	// Rate limiter for login
 	loginRL := newRateLimiter()
 
+	services.StartConnectionHealthChecker()
+	services.StartReachabilityCron()
+	services.StartBlacklistedTokenCleanup()
+
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
 	r := gin.New()
+	r.SetTrustedProxies(nil)
 	r.Use(gin.Recovery())
 
 	// Security headers on all responses
@@ -127,7 +132,7 @@ func main() {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, connection-id")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, connection-id, X-CSRF-Token")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
 
 		if c.Request.Method == "OPTIONS" {
@@ -137,6 +142,9 @@ func main() {
 
 		c.Next()
 	})
+
+	// CSRF Protection
+	r.Use(middleware.CSRFProtection())
 
 	// Public routes
 	r.POST("/login", loginRateLimitMiddleware(loginRL), authHandler.Login)
@@ -158,16 +166,19 @@ func main() {
 
 		// Admin-only: create new users
 		api.POST("/auth/signup", middleware.AdminRequired(), authHandler.Signup)
+		
+		// Logout clears cookie and blacklists token
+		api.POST("/auth/logout", authHandler.Logout)
 
 		// Audit Logs list endpoint
-		api.GET("/auditlogs", auditHandler.GetAuditLogs)
+		api.GET("/auditlogs", middleware.AdminRequired(), auditHandler.GetAuditLogs)
 
 		// Connections (Nodes) management
 		api.GET("/connections", handlers.GetConnections)
-		api.POST("/connections", handlers.CreateConnection)
-		api.PUT("/connections/:id", handlers.UpdateConnection)
-		api.DELETE("/connections/:id", handlers.DeleteConnection)
-		api.POST("/connections/:id/activate", handlers.ActivateConnection)
+		api.POST("/connections", middleware.AdminRequired(), handlers.CreateConnection)
+		api.PUT("/connections/:id", middleware.AdminRequired(), handlers.UpdateConnection)
+		api.DELETE("/connections/:id", middleware.AdminRequired(), handlers.DeleteConnection)
+		api.POST("/connections/:id/activate", middleware.AdminRequired(), handlers.ActivateConnection)
 
 		// Comments management
 		api.GET("/comments", handlers.GetComments)
@@ -177,8 +188,8 @@ func main() {
 
 		// Notifications management
 		api.GET("/notifications", handlers.GetNotifications)
-		api.POST("/notifications", handlers.CreateNotification)
-		api.DELETE("/notifications/:id", handlers.DeleteNotification)
+		api.POST("/notifications", middleware.AdminRequired(), handlers.CreateNotification)
+		api.DELETE("/notifications/:id", middleware.AdminRequired(), handlers.DeleteNotification)
 
 		// User Management — list requires auth, mutation requires admin
 		api.GET("/users", func(c *gin.Context) {
@@ -189,8 +200,17 @@ func main() {
 			}
 			c.JSON(http.StatusOK, users)
 		})
+		api.GET("/users/:id", middleware.AdminRequired(), handlers.GetUserByID)
 		api.DELETE("/users/:id", middleware.AdminRequired(), handlers.DeleteUser)
-		api.PATCH("/users/:id", middleware.AdminRequired(), handlers.UpdateUser)
+		api.PATCH("/users/:id", handlers.UpdateUser)
+
+		api.GET("/reachability", kongHandler.GetReachabilityStatuses)
+		api.POST("/reachability/refresh", kongHandler.TriggerReachabilityCheck)
+
+		// Snapshots
+		api.GET("/snapshots", handlers.GetSnapshots)
+		api.POST("/snapshots", middleware.AdminRequired(), handlers.CreateSnapshot)
+		api.DELETE("/snapshots/:id", middleware.AdminRequired(), handlers.DeleteSnapshot)
 	}
 
 	// Kong Proxy routes (authenticated, node-resolved, RBAC protected)
@@ -204,6 +224,7 @@ func main() {
 	// Serve static files from frontend build
 	r.StaticFile("/favicon.svg", "./public/favicon.svg")
 	r.Static("/assets", "./public/assets")
+	r.Static("/images", "./public/images")
 	r.NoRoute(func(c *gin.Context) {
 		c.File("./public/index.html")
 	})

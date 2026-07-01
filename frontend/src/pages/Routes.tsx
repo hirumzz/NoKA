@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Plus, 
   Trash2, 
   GitBranch, 
-  AlertCircle,
-  Search
+  Search,
+  Activity,
+  CheckCircle,
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
-
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { Pagination } from '../components/Pagination';
 
 interface RouteItem {
   id: string;
@@ -50,11 +54,14 @@ const getTagStyle = (tag: string) => {
 
 export const Routes: React.FC = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
+  const navigate = useNavigate();
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [reachabilityStatus, setReachabilityStatus] = useState<Record<string, { status: 'checking' | 'reachable' | 'unreachable', message: string, code?: number }>>({});
 
   // Form fields
   const [name, setName] = useState('');
@@ -63,35 +70,106 @@ export const Routes: React.FC = () => {
   const [methods, setMethods] = useState<string[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+  const [stripPath, setStripPath] = useState(true);
+  const [preserveHost, setPreserveHost] = useState(false);
+  const [headers, setHeaders] = useState('');
+  const [regexPriority, setRegexPriority] = useState<number>(0);
+  const [httpsRedirectStatusCode, setHttpsRedirectStatusCode] = useState<number>(426);
+  const [pathHandling, setPathHandling] = useState<'v0' | 'v1'>('v0');
+  const [snis, setSnis] = useState('');
+  const [sources, setSources] = useState('');
+  const [destinations, setDestinations] = useState('');
 
-  // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
   const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTag]);
+
   useEffect(() => {
     fetchRoutesAndServices();
   }, [user?.node]);
 
+
+
   const fetchRoutesAndServices = async () => {
     setLoading(true);
-    setError('');
     try {
-      const [routesResp, servicesResp] = await Promise.all([
-        axios.get('/api/kong/routes'),
-        axios.get('/api/kong/services')
+      const [routesResp, servicesResp, reachResp] = await Promise.all([
+        axios.get('/api/kong/routes?size=1000'),
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/reachability')
       ]);
       setRoutes(routesResp.data?.data || []);
       setServices(servicesResp.data?.data || []);
       if (servicesResp.data?.data?.length > 0) {
         setSelectedServiceId(servicesResp.data.data[0].id);
       }
+
+      // Map reachability statuses
+      const statuses: Record<string, any> = {};
+      const statusData = reachResp.data?.data || [];
+      statusData.forEach((r: any) => {
+        if (r.entity_type === 'route') {
+          statuses[r.entity_id] = {
+            status: r.status,
+            message: r.message,
+            code: r.status_code
+          };
+        }
+      });
+      setReachabilityStatus(statuses);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch routes and services');
+      addToast('error', err.response?.data?.message || 'Failed to fetch routes and services', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setRefreshingAll(true);
+    try {
+      await axios.post('/api/reachability/refresh');
+      addToast('success', 'Reachability checks triggered successfully', 'Status Refresh');
+      setTimeout(() => {
+        fetchRoutesAndServices();
+        setRefreshingAll(false);
+      }, 3000);
+    } catch (err: any) {
+      addToast('error', err.response?.data?.message || 'Failed to refresh statuses', 'Refresh Error');
+      setRefreshingAll(false);
+    }
+  };
+
+  const handleCheckReachability = async (id: string) => {
+    setReachabilityStatus(prev => ({ ...prev, [id]: { status: 'checking', message: 'Checking...' } }));
+    try {
+      const proxyUrl = localStorage.getItem('noka_proxy_url') || '';
+      const response = await axios.get(`/api/kong/routes/${id}/check-reachability`, {
+        params: { proxyUrl }
+      });
+      const { reachable, statusCode, message } = response.data;
+      setReachabilityStatus(prev => ({
+        ...prev,
+        [id]: {
+          status: reachable ? 'reachable' : 'unreachable',
+          message: message || '',
+          code: statusCode
+        }
+      }));
+    } catch (err: any) {
+      setReachabilityStatus(prev => ({
+        ...prev,
+        [id]: { status: 'unreachable', message: err.response?.data?.message || 'Check failed' }
+      }));
     }
   };
 
@@ -106,7 +184,6 @@ export const Routes: React.FC = () => {
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServiceId || !paths) return;
-    setError('');
 
     // Parse comma-separated paths & hosts
     const parsedPaths = paths.split(',').map(p => p.trim()).filter(p => p !== '');
@@ -114,6 +191,20 @@ export const Routes: React.FC = () => {
     const parsedTags = tagsInput
       ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
+
+    let parsedHeaders = undefined;
+    if (headers.trim()) {
+      try { parsedHeaders = JSON.parse(headers); } catch(e) {}
+    }
+    let parsedSources = undefined;
+    if (sources.trim()) {
+      try { parsedSources = JSON.parse(sources); } catch(e) {}
+    }
+    let parsedDestinations = undefined;
+    if (destinations.trim()) {
+      try { parsedDestinations = JSON.parse(destinations); } catch(e) {}
+    }
+    const parsedSnis = snis ? snis.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
     const payload: any = {
       paths: parsedPaths,
@@ -123,6 +214,15 @@ export const Routes: React.FC = () => {
     if (parsedHosts && parsedHosts.length > 0) payload.hosts = parsedHosts;
     if (methods.length > 0) payload.methods = methods;
     if (parsedTags.length > 0) payload.tags = parsedTags;
+    if (parsedHeaders) payload.headers = parsedHeaders;
+    payload.regex_priority = regexPriority;
+    payload.https_redirect_status_code = httpsRedirectStatusCode;
+    payload.path_handling = pathHandling;
+    payload.strip_path = stripPath;
+    payload.preserve_host = preserveHost;
+    if (parsedSnis && parsedSnis.length > 0) payload.snis = parsedSnis;
+    if (parsedSources && Array.isArray(parsedSources)) payload.sources = parsedSources;
+    if (parsedDestinations && Array.isArray(parsedDestinations)) payload.destinations = parsedDestinations;
 
     try {
       await axios.post('/api/kong/routes', payload);
@@ -131,21 +231,32 @@ export const Routes: React.FC = () => {
       setHosts('');
       setMethods([]);
       setTagsInput('');
+      setStripPath(true);
+      setPreserveHost(false);
+      setHeaders('');
+      setRegexPriority(0);
+      setHttpsRedirectStatusCode(426);
+      setPathHandling('v0');
+      setSnis('');
+      setSources('');
+      setDestinations('');
+      setHttpsRedirectStatusCode(426);
       setShowAddForm(false);
+      addToast('success', 'Route has been successfully created', 'Success');
       fetchRoutesAndServices();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create route');
+      addToast('error', err.response?.data?.message || 'Failed to create route', 'Error');
     }
   };
 
   const handleDeleteRoute = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this route?')) return;
-    setError('');
     try {
       await axios.delete(`/api/kong/routes/${id}`);
+      addToast('success', 'Route deleted successfully', 'Success');
       fetchRoutesAndServices();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete route');
+      addToast('error', err.response?.data?.message || 'Failed to delete route', 'Error');
     }
   };
 
@@ -176,6 +287,13 @@ export const Routes: React.FC = () => {
     });
   }, [routes, searchTerm, selectedTag]);
 
+  const paginatedRoutes = React.useMemo(() => {
+    return filteredRoutes.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredRoutes, currentPage, pageSize]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -192,13 +310,6 @@ export const Routes: React.FC = () => {
           <Plus className="w-4 h-4 mr-2" /> ADD NEW ROUTE
         </button>
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">
-          <AlertCircle className="w-4 h-4" />
-          {error}
-        </div>
-      )}
 
       {services.length === 0 && !loading && (
         <div className="p-4 rounded border border-yellow-200 bg-yellow-50 text-yellow-800 text-xs font-semibold">
@@ -270,6 +381,108 @@ export const Routes: React.FC = () => {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Regex Priority</label>
+                <input
+                  type="number"
+                  value={regexPriority}
+                  onChange={(e) => setRegexPriority(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">HTTPS Redirect Status</label>
+                <select
+                  value={httpsRedirectStatusCode}
+                  onChange={(e) => setHttpsRedirectStatusCode(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                >
+                  <option value={426}>426</option>
+                  <option value={301}>301</option>
+                  <option value={302}>302</option>
+                  <option value={307}>307</option>
+                  <option value={308}>308</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Path Handling</label>
+                <select
+                  value={pathHandling}
+                  onChange={(e) => setPathHandling(e.target.value as 'v0' | 'v1')}
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                >
+                  <option value="v0">v0</option>
+                  <option value="v1">v1</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Headers (JSON)</label>
+                <input
+                  type="text"
+                  value={headers}
+                  onChange={(e) => setHeaders(e.target.value)}
+                  placeholder='{"x-version":["v1"]}'
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">SNIs (comma separated)</label>
+                <input
+                  type="text"
+                  value={snis}
+                  onChange={(e) => setSnis(e.target.value)}
+                  placeholder="e.g. ssl.domain.com"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Sources (JSON Array)</label>
+                <input
+                  type="text"
+                  value={sources}
+                  onChange={(e) => setSources(e.target.value)}
+                  placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Destinations (JSON Array)</label>
+                <input
+                  type="text"
+                  value={destinations}
+                  onChange={(e) => setDestinations(e.target.value)}
+                  placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-6 pt-2 md:col-span-2 text-xs font-semibold text-text-primary">
+                  <label className="flex items-center gap-2 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={stripPath}
+                      onChange={(e) => setStripPath(e.target.checked)}
+                      className="rounded text-brand-primary border-border-light"
+                    />
+                    <span>Strip Path</span>
+                  </label>
+                  <label className="flex items-center gap-2 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={preserveHost}
+                      onChange={(e) => setPreserveHost(e.target.checked)}
+                      className="rounded text-brand-primary border-border-light"
+                    />
+                    <span>Preserve Host</span>
+                  </label>
+              </div>
+
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (optional)</label>
                 <div className="flex flex-wrap gap-2">
@@ -336,7 +549,16 @@ export const Routes: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <button
+              onClick={handleRefreshAll}
+              disabled={refreshingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border-light hover:border-brand-primary text-text-secondary hover:text-brand-primary rounded shadow-sm text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshingAll ? 'animate-spin' : ''}`} />
+              {refreshingAll ? 'Refreshing...' : 'Refresh All Status'}
+            </button>
+            <div className="h-5 w-px bg-border-light mx-1"></div>
             <span className="text-[10px] font-bold text-text-secondary uppercase whitespace-nowrap">Filter by Tag:</span>
             <select
               value={selectedTag}
@@ -364,24 +586,29 @@ export const Routes: React.FC = () => {
                   <th className="px-6 py-3.5">Route</th>
                   <th className="px-6 py-3.5">Linked Service</th>
                   <th className="px-6 py-3.5">Matching Rules</th>
+                  <th className="px-6 py-3.5">Status</th>
                   <th className="px-6 py-3.5">Created At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {filteredRoutes.map((route) => {
+                {paginatedRoutes.map((route) => {
                   const linkedSvc = services.find(s => s.id === route.service.id);
                   return (
-                    <tr key={route.id} className="hover:bg-slate-50/25 transition-colors">
+                    <tr 
+                    key={route.id} 
+                    className="hover:bg-slate-50/25 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/routes/${route.id}`)}
+                  >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded bg-indigo-50 text-indigo-600">
                             <GitBranch className="w-4 h-4" />
                           </div>
                           <div>
-                            <Link to={`/routes/${route.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                            <div className="font-bold text-sm block text-blue-600 hover:underline cursor-pointer">
                               {route.name || 'Unnamed Route'}
-                            </Link>
+                            </div>
                             <span className="text-[10px] text-text-muted font-mono block select-all">{route.id}</span>
                             {route.tags && route.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
@@ -399,9 +626,9 @@ export const Routes: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Link to={`/services/${route.service.id}`} className="font-bold text-text-primary hover:text-brand-primary hover:underline">
+                        <div onClick={(e) => { e.stopPropagation(); navigate(`/services/${route.service.id}`); }} className="font-bold text-text-primary hover:text-brand-primary hover:underline cursor-pointer">
                           {linkedSvc?.name || 'Service ID: ' + route.service.id.substring(0, 8) + '...'}
-                        </Link>
+                        </div>
                         <span className="text-[10px] text-text-muted font-mono block select-all">{route.service.id}</span>
                       </td>
                       <td className="px-6 py-4 space-y-1 font-medium">
@@ -434,13 +661,43 @@ export const Routes: React.FC = () => {
                           </div>
                         )}
                       </td>
+                      <td className="px-6 py-4">
+                        {reachabilityStatus[route.id] ? (
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                            {reachabilityStatus[route.id].status === 'checking' && (
+                              <span className="flex items-center gap-1 text-slate-500">
+                                <span className="w-3 h-3 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                                Checking...
+                              </span>
+                            )}
+                            {reachabilityStatus[route.id].status === 'reachable' && (
+                              <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title={reachabilityStatus[route.id].message}>
+                                <CheckCircle className="w-3 h-3" /> Online
+                              </span>
+                            )}
+                            {reachabilityStatus[route.id].status === 'unreachable' && (
+                              <span className="flex items-center gap-1 text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200" title={reachabilityStatus[route.id].message}>
+                                <XCircle className="w-3 h-3" /> Unreachable
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleCheckReachability(route.id); }}
+                            className="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            title="Check Route Reachability"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-text-secondary font-medium">
                         {new Date(route.created_at * 1000).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button
-                            onClick={() => handleDeleteRoute(route.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteRoute(route.id); }}
                             className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
                             title="Delete Route"
                           >
@@ -453,6 +710,13 @@ export const Routes: React.FC = () => {
                 })}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredRoutes.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : routes.length > 0 ? (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

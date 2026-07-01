@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { Pagination } from '../components/Pagination';
 
 interface KeySet {
   id: string;
@@ -48,6 +49,14 @@ export const KeySets: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedTag]);
+
   useEffect(() => {
     fetchKeySets();
   }, [user?.node]);
@@ -56,7 +65,7 @@ export const KeySets: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('/api/kong/key-sets');
+      const response = await axios.get('/api/kong/key-sets?size=1000');
       setKeySets(response.data?.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch key sets');
@@ -97,6 +106,22 @@ export const KeySets: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to delete key set');
     }
   };
+
+  const filteredKeySets = keySets.filter(ks => {
+    const searchMatch = !searchTerm || [
+      ks.name,
+      ks.id
+    ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
+    const tagMatch = !selectedTag || (ks.tags && ks.tags.includes(selectedTag));
+    return searchMatch && tagMatch;
+  });
+
+  const paginatedKeySets = React.useMemo(() => {
+    return filteredKeySets.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filteredKeySets, currentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -206,14 +231,7 @@ export const KeySets: React.FC = () => {
             <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
             Loading key sets...
           </div>
-        ) : keySets.filter(ks => {
-          const searchMatch = !searchTerm || [
-            ks.name,
-            ks.id
-          ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
-          const tagMatch = !selectedTag || (ks.tags && ks.tags.includes(selectedTag));
-          return searchMatch && tagMatch;
-        }).length > 0 ? (
+        ) : filteredKeySets.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -225,16 +243,7 @@ export const KeySets: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {keySets
-                  .filter(ks => {
-                    const searchMatch = !searchTerm || [
-                      ks.name,
-                      ks.id
-                    ].some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
-                    const tagMatch = !selectedTag || (ks.tags && ks.tags.includes(selectedTag));
-                    return searchMatch && tagMatch;
-                  })
-                  .map((ks) => (
+                {paginatedKeySets.map((ks) => (
                     <tr key={ks.id} className="hover:bg-slate-50/25 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -282,6 +291,13 @@ export const KeySets: React.FC = () => {
                   ))}
               </tbody>
             </table>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredKeySets.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
           </div>
         ) : (
           <div className="p-12 text-center text-text-muted text-xs font-medium">

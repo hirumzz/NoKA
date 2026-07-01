@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   Server, 
@@ -112,10 +113,10 @@ export const Dashboard: React.FC = () => {
         axios.get('/api/kong/'),
         axios.get('/api/kong/status').catch(() => ({ data: null })),
         axios.get('/api/kong/prometheus-metrics').catch(() => ({ data: { success: false } })),
-        axios.get('/api/kong/services').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/routes').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/consumers').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/plugins').catch(() => ({ data: { data: [] } }))
+        axios.get('/api/kong/services?size=1000').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/routes?size=1000').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/consumers?size=1000').catch(() => ({ data: { data: [] } })),
+        axios.get('/api/kong/plugins?size=1000').catch(() => ({ data: { data: [] } }))
       ]);
 
       setNodeInfo(infoResp.data);
@@ -162,10 +163,10 @@ export const Dashboard: React.FC = () => {
   };
 
   const stats = [
-    { label: 'Active Services', value: counts.services, icon: Layers, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-    { label: 'Configured Routes', value: counts.routes, icon: GitBranch, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
-    { label: 'Registered Consumers', value: counts.consumers, icon: Users, color: 'text-amber-600 bg-amber-50 border-amber-100' },
-    { label: 'Active Plugins', value: counts.plugins, icon: Plug, color: 'text-teal-600 bg-teal-50 border-teal-100' },
+    { label: 'Active Services', value: counts.services, icon: Layers, color: 'text-blue-600 bg-blue-50 border-blue-100', path: '/services' },
+    { label: 'Configured Routes', value: counts.routes, icon: GitBranch, color: 'text-indigo-600 bg-indigo-50 border-indigo-100', path: '/routes' },
+    { label: 'Registered Consumers', value: counts.consumers, icon: Users, color: 'text-amber-600 bg-amber-50 border-amber-100', path: '/consumers' },
+    { label: 'Active Plugins', value: counts.plugins, icon: Plug, color: 'text-teal-600 bg-teal-50 border-teal-100', path: '/plugins' },
   ];
 
   return (
@@ -245,9 +246,10 @@ export const Dashboard: React.FC = () => {
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div 
+            <Link 
               key={idx} 
-              className={`p-6 bg-white rounded-lg border border-border-light shadow-sm transition-all duration-150 hover:shadow-md flex items-center justify-between`}
+              to={stat.path}
+              className={`p-6 bg-white rounded-lg border border-border-light shadow-sm transition-all duration-150 hover:shadow-md flex items-center justify-between cursor-pointer`}
             >
               <div>
                 <span className="text-xs font-bold text-text-secondary uppercase tracking-wider block">{stat.label}</span>
@@ -258,7 +260,7 @@ export const Dashboard: React.FC = () => {
               <div className={`p-3.5 rounded ${stat.color}`}>
                 <Icon className="w-5 h-5" />
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -701,15 +703,15 @@ export const Dashboard: React.FC = () => {
           </h3>
           <div className="flex items-end h-48 gap-4 justify-around mt-4">
             {[
-              { label: 'Services', value: counts.services, color: '#6366f1' },
-              { label: 'Routes', value: counts.routes, color: '#8b5cf6' },
-              { label: 'Consumers', value: counts.consumers, color: '#ec4899' },
-              { label: 'Plugins', value: counts.plugins, color: '#14b8a6' }
+              { label: 'Services', value: counts.services, color: '#6366f1', path: '/services' },
+              { label: 'Routes', value: counts.routes, color: '#8b5cf6', path: '/routes' },
+              { label: 'Consumers', value: counts.consumers, color: '#ec4899', path: '/consumers' },
+              { label: 'Plugins', value: counts.plugins, color: '#14b8a6', path: '/plugins' }
             ].map((item, idx) => {
               const maxVal = Math.max(1, counts.services, counts.routes, counts.consumers, counts.plugins);
               const heightPct = (item.value / maxVal) * 100;
               return (
-                <div key={idx} className="flex flex-col items-center flex-1">
+                <Link key={idx} to={item.path} className="flex flex-col items-center flex-1 cursor-pointer hover:opacity-80 transition-opacity">
                   <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
                   <div className="w-full flex justify-center h-32 relative">
                     <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -724,7 +726,7 @@ export const Dashboard: React.FC = () => {
                     </svg>
                   </div>
                   <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
-                </div>
+                </Link>
               );
             })}
           </div>

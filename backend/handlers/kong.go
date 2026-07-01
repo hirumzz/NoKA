@@ -3,14 +3,19 @@ package handlers
 import (
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"konga-backend/db"
 	"konga-backend/models"
 	"konga-backend/services"
+	"konga-backend/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +45,18 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 		h.GetErrorDetails(c)
 		return
 	}
+	
+	// e.g. /api/kong/services/:id/check-reachability
+	if strings.HasSuffix(proxyPath, "/check-reachability") && strings.HasPrefix(strings.TrimPrefix(proxyPath, "/"), "services/") {
+		h.CheckServiceReachability(c)
+		return
+	}
+	
+	if strings.HasSuffix(proxyPath, "/check-reachability") && strings.HasPrefix(strings.TrimPrefix(proxyPath, "/"), "routes/") {
+		h.CheckRouteReachability(c)
+		return
+	}
+	
 	method := c.Request.Method
 	rawQuery := c.Request.URL.RawQuery
 
@@ -63,8 +80,9 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 	}
 
 	clientIP := c.ClientIP()
+	customFields := c.GetHeader("X-Noka-Changed-Fields")
 
-	statusCode, header, respBytes, err := h.kongService.ForwardRequest(node, method, proxyPath, rawQuery, bodyBytes, clientIP, user)
+	statusCode, header, respBytes, err := h.kongService.ForwardRequest(node, method, proxyPath, rawQuery, bodyBytes, clientIP, user, customFields)
 	if err != nil {
 		if strings.Contains(err.Error(), "Failed to reach") {
 			c.JSON(http.StatusBadGateway, gin.H{"message": err.Error()})
@@ -357,7 +375,7 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 
 	clientIP := c.ClientIP()
 
-	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user)
+	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user, "")
 	if err != nil || statusCode != http.StatusOK {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
@@ -408,7 +426,7 @@ func (h *KongHandler) GetErrorDetails(c *gin.Context) {
 	clientIP := c.ClientIP()
 
 	// 1. Fetch metrics
-	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user)
+	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user, "")
 	if err != nil || statusCode != http.StatusOK {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Prometheus plugin is not enabled or not reachable on this node"})
 		return
@@ -463,7 +481,7 @@ func (h *KongHandler) GetErrorDetails(c *gin.Context) {
 	}
 	routePathMap := make(map[string][]string)
 	
-	rStatusCode, _, rRespBytes, rErr := h.kongService.ForwardRequest(node, "GET", "/routes?size=1000", "", nil, clientIP, user)
+	rStatusCode, _, rRespBytes, rErr := h.kongService.ForwardRequest(node, "GET", "/routes?size=1000", "", nil, clientIP, user, "")
 	if rErr == nil && rStatusCode == http.StatusOK {
 		if jsonErr := json.Unmarshal(rRespBytes, &routesResp); jsonErr == nil {
 			for _, r := range routesResp.Data {
@@ -503,5 +521,229 @@ func (h *KongHandler) GetErrorDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"details": details,
+	})
+}
+
+// CheckServiceReachability checks if a service's upstream domain is reachable
+func (h *KongHandler) CheckServiceReachability(c *gin.Context) {
+	nodeVal, exists := c.Get("kongNode")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "No active Kong connection found"})
+		return
+	}
+	node := nodeVal.(*models.KongNode)
+	
+	var user *models.User
+	userVal, userExists := c.Get("user")
+	if userExists {
+		if u, ok := userVal.(*models.User); ok {
+			user = u
+		}
+	}
+	clientIP := c.ClientIP()
+
+	proxyPath := c.Param("proxyPath")
+	// e.g. /services/b5608d82-xxxx-xxxx-xxxx/check-reachability
+	parts := strings.Split(strings.TrimPrefix(proxyPath, "/"), "/")
+	if len(parts) < 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid service check path"})
+		return
+	}
+	serviceID := parts[1]
+
+	// Fetch service details from Kong Admin API
+	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/services/"+serviceID, "", nil, clientIP, user, "")
+	if err != nil || statusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{"message": "Failed to fetch service details from Kong Admin API"})
+		return
+	}
+
+	var service struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Protocol string `json:"protocol"`
+		Path     string `json:"path"`
+	}
+	if err := json.Unmarshal(respBytes, &service); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to parse service details"})
+		return
+	}
+
+	// SSRF Mitigation (M6): Check if the upstream host resolves to a private IP
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		ips, err := net.LookupIP(service.Host)
+		if err == nil {
+			for _, ip := range ips {
+				if utils.IsPrivateIP(ip) {
+					c.JSON(http.StatusForbidden, gin.H{
+						"success":   true,
+						"reachable": false,
+						"message":   "Service is unreachable: access to internal IP addresses is blocked by security policy",
+					})
+					return
+				}
+			}
+		}
+	}
+
+	targetURL := service.Protocol + "://" + service.Host
+	if service.Port > 0 && !(service.Protocol == "http" && service.Port == 80) && !(service.Protocol == "https" && service.Port == 443) {
+		targetURL += ":" + strconv.Itoa(service.Port)
+	}
+	if service.Path != "" {
+		if !strings.HasPrefix(service.Path, "/") {
+			targetURL += "/"
+		}
+		targetURL += service.Path
+	}
+
+	// Make a quick HEAD request with a short timeout
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	resp, err := client.Head(targetURL)
+	if err != nil {
+		// If HEAD is not supported or rejected, try GET
+		resp, err = client.Get(targetURL)
+	}
+	
+	if err != nil {
+		services.UpsertReachabilityStatus(serviceID, "service", "unreachable", "Service is unreachable: "+err.Error(), 0)
+		c.JSON(http.StatusOK, gin.H{
+			"success":   true,
+			"reachable": false,
+			"message":   "Service is unreachable: " + err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Any HTTP response (even 4xx/5xx) means the server is online and reachable!
+	services.UpsertReachabilityStatus(serviceID, "service", "reachable", "Service is reachable", resp.StatusCode)
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"reachable":  true,
+		"statusCode": resp.StatusCode,
+		"message":    "Service is reachable",
+	})
+}
+
+// CheckRouteReachability checks if a route is reachable via kong proxy url
+func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
+	nodeVal, exists := c.Get("kongNode")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "No active Kong connection found"})
+		return
+	}
+	node := nodeVal.(*models.KongNode)
+	
+	var user *models.User
+	userVal, userExists := c.Get("user")
+	if userExists {
+		if u, ok := userVal.(*models.User); ok {
+			user = u
+		}
+	}
+	clientIP := c.ClientIP()
+
+	proxyUrl := c.Query("proxyUrl")
+	// SSRF Protection: Only admins can supply an arbitrary proxy URL for pinging
+	if proxyUrl != "" && (user == nil || user.Role != "admin") {
+		proxyUrl = node.KongProxyURL // Fallback to safe node setting
+	} else if proxyUrl == "" {
+		proxyUrl = node.KongProxyURL
+	}
+
+	if proxyUrl == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Kong Proxy URL is not configured in settings or connection"})
+		return
+	}
+
+	proxyPath := c.Param("proxyPath")
+	// e.g. /routes/b5608d82-xxxx-xxxx-xxxx/check-reachability
+	parts := strings.Split(strings.TrimPrefix(proxyPath, "/"), "/")
+	if len(parts) < 3 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid route check path"})
+		return
+	}
+	routeID := parts[1]
+
+	// Fetch route details from Kong Admin API
+	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/routes/"+routeID, "", nil, clientIP, user, "")
+	if err != nil || statusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{"message": "Failed to fetch route details from Kong Admin API"})
+		return
+	}
+
+	var route struct {
+		Paths []string `json:"paths"`
+	}
+	if err := json.Unmarshal(respBytes, &route); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to parse route details"})
+		return
+	}
+
+	if len(route.Paths) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Route has no paths configured"})
+		return
+	}
+
+	targetURL := strings.TrimRight(proxyUrl, "/")
+	path := route.Paths[0]
+	if !strings.HasPrefix(path, "/") {
+		targetURL += "/"
+	}
+	targetURL += path
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	resp, err := client.Head(targetURL)
+	if err != nil {
+		resp, err = client.Get(targetURL)
+	}
+	
+	if err != nil {
+		services.UpsertReachabilityStatus(routeID, "route", "unreachable", "Route is unreachable via proxy: "+err.Error(), 0)
+		c.JSON(http.StatusOK, gin.H{
+			"success":   true,
+			"reachable": false,
+			"message":   "Route is unreachable via proxy: " + err.Error(),
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	services.UpsertReachabilityStatus(routeID, "route", "reachable", "Route is reachable", resp.StatusCode)
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"reachable":  true,
+		"statusCode": resp.StatusCode,
+		"message":    "Route is reachable",
+	})
+}
+
+// GetReachabilityStatuses returns all reachability status records from the DB
+func (h *KongHandler) GetReachabilityStatuses(c *gin.Context) {
+	var statuses []models.ReachabilityStatus
+	if err := db.DB.Find(&statuses).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to query reachability statuses"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": statuses,
+	})
+}
+
+// TriggerReachabilityCheck triggers a concurrent reachability check for all entities
+func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
+	services.RunReachabilityCheck()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Reachability statuses refreshed successfully",
 	})
 }

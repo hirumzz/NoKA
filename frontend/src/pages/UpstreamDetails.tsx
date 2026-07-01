@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -7,10 +7,11 @@ import {
   Plus, 
   Trash2, 
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Server
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { useAuth } from '../context/AuthContext';
+
 
 interface KongUpstream {
   id: string;
@@ -19,6 +20,11 @@ interface KongUpstream {
   slots: number;
   hash_on: string;
   hash_fallback: string;
+  hash_on_header?: string;
+  hash_fallback_header?: string;
+  hash_on_cookie?: string;
+  hash_on_cookie_path?: string;
+  tags?: string[];
 }
 
 interface KongTarget {
@@ -30,17 +36,13 @@ interface KongTarget {
 
 export const UpstreamDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [upstream, setUpstream] = useState<KongUpstream | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'targets'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    navigate('/upstreams');
-  }, [user?.node]);
+
 
   // Upstream fields
   const [name, setName] = useState('');
@@ -48,6 +50,11 @@ export const UpstreamDetails: React.FC = () => {
   const [slots, setSlots] = useState(10000);
   const [hashOn, setHashOn] = useState('none');
   const [hashFallback, setHashFallback] = useState('none');
+  const [hashOnHeader, setHashOnHeader] = useState('');
+  const [hashFallbackHeader, setHashFallbackHeader] = useState('');
+  const [hashOnCookie, setHashOnCookie] = useState('');
+  const [hashOnCookiePath, setHashOnCookiePath] = useState('/');
+  const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
   const [targets, setTargets] = useState<KongTarget[]>([]);
@@ -74,6 +81,11 @@ export const UpstreamDetails: React.FC = () => {
       setSlots(data.slots || 10000);
       setHashOn(data.hash_on || 'none');
       setHashFallback(data.hash_fallback || 'none');
+      setHashOnHeader(data.hash_on_header || '');
+      setHashFallbackHeader(data.hash_fallback_header || '');
+      setHashOnCookie(data.hash_on_cookie || '');
+      setHashOnCookiePath(data.hash_on_cookie_path || '/');
+      setTagsInput(data.tags ? data.tags.join(', ') : '');
 
       // Fetch targets
       fetchSubResources();
@@ -101,12 +113,32 @@ export const UpstreamDetails: React.FC = () => {
     setSuccess('');
 
     try {
-      await axios.patch(`/api/kong/upstreams/${id}`, {
-        name,
-        algorithm,
-        slots: Number(slots),
-        hash_on: hashOn,
-        hash_fallback: hashFallback
+      const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const payload: any = {};
+      const changedFields: string[] = [];
+
+      if ((name || '') !== (upstream?.name || '')) { payload.name = name || null; changedFields.push('name'); }
+      if (algorithm !== (upstream?.algorithm || 'round-robin')) { payload.algorithm = algorithm; changedFields.push('algorithm'); }
+      if (Number(slots) !== (upstream?.slots || 10000)) { payload.slots = Number(slots); changedFields.push('slots'); }
+      if (hashOn !== (upstream?.hash_on || 'none')) { payload.hash_on = hashOn; changedFields.push('hash_on'); }
+      if (hashFallback !== (upstream?.hash_fallback || 'none')) { payload.hash_fallback = hashFallback; changedFields.push('hash_fallback'); }
+      if ((hashOnHeader || '') !== (upstream?.hash_on_header || '')) { payload.hash_on_header = hashOnHeader || null; changedFields.push('hash_on_header'); }
+      if ((hashFallbackHeader || '') !== (upstream?.hash_fallback_header || '')) { payload.hash_fallback_header = hashFallbackHeader || null; changedFields.push('hash_fallback_header'); }
+      if ((hashOnCookie || '') !== (upstream?.hash_on_cookie || '')) { payload.hash_on_cookie = hashOnCookie || null; changedFields.push('hash_on_cookie'); }
+      if ((hashOnCookiePath || '') !== (upstream?.hash_on_cookie_path || '/')) { payload.hash_on_cookie_path = hashOnCookiePath || null; changedFields.push('hash_on_cookie_path'); }
+
+      const originalTags = upstream?.tags || [];
+      if (JSON.stringify([...parsedTags].sort()) !== JSON.stringify([...originalTags].sort())) {
+        payload.tags = parsedTags; changedFields.push('tags');
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setSuccess('No changes detected.');
+        return;
+      }
+
+      await axios.patch(`/api/kong/upstreams/${id}`, payload, {
+        headers: { 'X-Noka-Changed-Fields': changedFields.join(', ') }
       });
       setSuccess('Upstream load balancing parameters updated successfully!');
       fetchUpstreamDetails();
@@ -193,25 +225,30 @@ export const UpstreamDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-border-light gap-6 text-xs font-bold uppercase tracking-wider text-text-secondary">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'details' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Details & Notes
-        </button>
-        <button
-          onClick={() => setActiveTab('targets')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'targets' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Targets ({targets.length})
-        </button>
-      </div>
+      {/* Content Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Tabs */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'details' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" /> Upstream Details
+          </button>
+          <button
+            onClick={() => setActiveTab('targets')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'targets' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Server className="w-4 h-4" /> Targets
+          </button>
+        </div>
+
+        {/* Tab Contents */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
@@ -260,11 +297,76 @@ export const UpstreamDetails: React.FC = () => {
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold"
                   >
                     <option value="none">None</option>
-                    <option value="vars">Header Variable</option>
+                    <option value="consumer">Consumer</option>
+                    <option value="ip">IP</option>
+                    <option value="header">Header</option>
                     <option value="cookie">Cookie</option>
-                    <option value="consumer">Consumer ID</option>
-                    <option value="ip">Source IP</option>
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback</label>
+                  <select
+                    value={hashFallback}
+                    onChange={(e) => setHashFallback(e.target.value)}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold"
+                  >
+                    <option value="none">None</option>
+                    <option value="consumer">Consumer</option>
+                    <option value="ip">IP</option>
+                    <option value="header">Header</option>
+                    <option value="cookie">Cookie</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Header</label>
+                  <input
+                    type="text"
+                    value={hashOnHeader}
+                    onChange={(e) => setHashOnHeader(e.target.value)}
+                    placeholder="e.g. x-custom-header"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback Header</label>
+                  <input
+                    type="text"
+                    value={hashFallbackHeader}
+                    onChange={(e) => setHashFallbackHeader(e.target.value)}
+                    placeholder="e.g. x-custom-header"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie</label>
+                  <input
+                    type="text"
+                    value={hashOnCookie}
+                    onChange={(e) => setHashOnCookie(e.target.value)}
+                    placeholder="e.g. session_id"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie Path</label>
+                  <input
+                    type="text"
+                    value={hashOnCookiePath}
+                    onChange={(e) => setHashOnCookiePath(e.target.value)}
+                    placeholder="/"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. production, api (comma-separated)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                  />
                 </div>
               </div>
               <button
@@ -277,7 +379,7 @@ export const UpstreamDetails: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-            <CommentsSection referenceId={upstream.id} referenceType="upstream" />
+            <CommentsSection referenceId={upstream.id} referenceType="upstream" referenceName={upstream.name || upstream.id} />
           </div>
         </div>
       )}
@@ -383,6 +485,8 @@ export const UpstreamDetails: React.FC = () => {
           </table>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -16,12 +16,16 @@ func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := ""
 
-		// Check Authorization Header (only accepted mechanism)
-		authHeader := c.GetHeader("Authorization")
-		if authHeader != "" {
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
-				tokenStr = parts[1]
+		// Check Cookie first
+		tokenStr, err := c.Cookie("konga_token")
+		if err != nil || tokenStr == "" {
+			// Fallback to Authorization Header
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+					tokenStr = parts[1]
+				}
 			}
 		}
 
@@ -32,11 +36,22 @@ func AuthRequired() gin.HandlerFunc {
 		}
 
 		// Verify token
-		userID, err := utils.VerifyToken(tokenStr)
+		userID, jti, err := utils.VerifyToken(tokenStr)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid token", "error": err.Error()})
 			c.Abort()
 			return
+		}
+
+		// Check if token is blacklisted
+		if jti != "" {
+			var bt models.BlacklistedToken
+			if err := db.DB.Where("jti = ?", jti).First(&bt).Error; err == nil {
+				// Token found in blacklist
+				c.JSON(http.StatusUnauthorized, gin.H{"message": "Session has been logged out"})
+				c.Abort()
+				return
+			}
 		}
 
 		// Load user

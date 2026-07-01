@@ -84,6 +84,16 @@ func DeleteNotification(c *gin.Context) {
 		return
 	}
 
+	userVal, exists := c.Get("user")
+	if exists {
+		currentUser := userVal.(*models.User)
+		isAdmin := currentUser.Admin || currentUser.Role == "admin"
+		if !isAdmin && notification.UserID != nil && *notification.UserID != currentUser.ID {
+			c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
+			return
+		}
+	}
+
 	if err := db.DB.Delete(&notification).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete notification"})
 		return

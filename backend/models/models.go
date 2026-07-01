@@ -2,6 +2,9 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
+	"konga-backend/utils"
 )
 
 // User represents the konga_users table
@@ -52,6 +55,7 @@ type KongNode struct {
 	Name               string    `gorm:"column:name" json:"name"`
 	Type               string    `gorm:"column:type;default:default" json:"type"` // default, key_auth, jwt, basic_auth
 	KongAdminURL       string    `gorm:"column:kong_admin_url" json:"kong_admin_url"`
+	KongProxyURL       string    `gorm:"column:kong_proxy_url" json:"kong_proxy_url"`
 	NetdataURL         string    `gorm:"column:netdata_url" json:"netdata_url"`
 	KongAPIKey         string    `gorm:"column:kong_api_key" json:"kong_api_key"`
 	JWTAlgorithm       string    `gorm:"column:jwt_algorithm;default:HS256" json:"jwt_algorithm"`
@@ -71,6 +75,75 @@ type KongNode struct {
 
 func (KongNode) TableName() string {
 	return "konga_kong_nodes"
+}
+
+func (n *KongNode) BeforeSave(tx *gorm.DB) (err error) {
+	if n.KongAPIKey != "" {
+		enc, err := utils.Encrypt(n.KongAPIKey)
+		if err != nil {
+			return err
+		}
+		n.KongAPIKey = enc
+	}
+	if n.Password != "" {
+		enc, err := utils.Encrypt(n.Password)
+		if err != nil {
+			return err
+		}
+		n.Password = enc
+	}
+	if n.JWTSecret != "" {
+		enc, err := utils.Encrypt(n.JWTSecret)
+		if err != nil {
+			return err
+		}
+		n.JWTSecret = enc
+	}
+	return nil
+}
+
+func (n *KongNode) AfterSave(tx *gorm.DB) (err error) {
+	if n.KongAPIKey != "" {
+		dec, err := utils.Decrypt(n.KongAPIKey)
+		if err == nil {
+			n.KongAPIKey = dec
+		}
+	}
+	if n.Password != "" {
+		dec, err := utils.Decrypt(n.Password)
+		if err == nil {
+			n.Password = dec
+		}
+	}
+	if n.JWTSecret != "" {
+		dec, err := utils.Decrypt(n.JWTSecret)
+		if err == nil {
+			n.JWTSecret = dec
+		}
+	}
+	return nil
+}
+
+func (n *KongNode) AfterFind(tx *gorm.DB) (err error) {
+	if n.KongAPIKey != "" {
+		dec, err := utils.Decrypt(n.KongAPIKey)
+		if err == nil {
+			n.KongAPIKey = dec
+		}
+	}
+	if n.Password != "" {
+		dec, err := utils.Decrypt(n.Password)
+		if err == nil {
+			n.Password = dec
+		}
+	}
+	if n.JWTSecret != "" {
+		dec, err := utils.Decrypt(n.JWTSecret)
+		if err == nil {
+			n.JWTSecret = dec
+		}
+	}
+	return nil
 }
 
 // AuditLog represents the konga_audit_logs table
@@ -123,4 +196,44 @@ type KongaNotification struct {
 
 func (KongaNotification) TableName() string {
 	return "konga_notifications"
+}
+
+// BlacklistedToken represents the konga_blacklisted_tokens table
+type BlacklistedToken struct {
+	ID        uint      `gorm:"primaryKey;column:id" json:"id"`
+	Jti       string    `gorm:"uniqueIndex;column:jti;not null" json:"jti"`
+	ExpiresAt time.Time `gorm:"column:expires_at;not null;index" json:"expires_at"`
+	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
+}
+
+func (BlacklistedToken) TableName() string {
+	return "konga_blacklisted_tokens"
+}
+
+// ReachabilityStatus represents the konga_reachability_status table
+type ReachabilityStatus struct {
+	ID         uint      `gorm:"primaryKey;column:id" json:"id"`
+	EntityID   string    `gorm:"uniqueIndex:idx_entity;column:entity_id" json:"entity_id"`
+	EntityType string    `gorm:"uniqueIndex:idx_entity;column:entity_type" json:"entity_type"` // "service" or "route"
+	Status     string    `gorm:"column:status" json:"status"`                                  // "reachable" or "unreachable"
+	Message    string    `gorm:"column:message" json:"message"`
+	StatusCode int       `gorm:"column:status_code" json:"status_code"`
+	UpdatedAt  time.Time `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (ReachabilityStatus) TableName() string {
+	return "konga_reachability_status"
+}
+
+// Snapshot represents the konga_snapshots table
+type Snapshot struct {
+	ID        uint      `gorm:"primaryKey;column:id" json:"id"`
+	Name      string    `gorm:"column:name;not null" json:"name"`
+	Data      string    `gorm:"column:data;type:json;not null" json:"data"`
+	NodeName  string    `gorm:"column:node_name" json:"node_name"`
+	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
+}
+
+func (Snapshot) TableName() string {
+	return "konga_snapshots"
 }

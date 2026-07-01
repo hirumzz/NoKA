@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ import (
 )
 
 type KongProxyService interface {
-	ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User) (int, http.Header, []byte, error)
+	ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User, customFields string) (int, http.Header, []byte, error)
 }
 
 type kongProxyService struct {
@@ -29,7 +30,7 @@ func NewKongProxyService(auditRepo repositories.AuditRepository) KongProxyServic
 	return &kongProxyService{auditRepo: auditRepo}
 }
 
-func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User) (int, http.Header, []byte, error) {
+func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User, customFields string) (int, http.Header, []byte, error) {
 	adminURL := strings.TrimSuffix(node.KongAdminURL, "/")
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -69,6 +70,26 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	
+	var entityNameFromDelete string
+	if method == "DELETE" {
+		getReq, _ := http.NewRequest("GET", targetURL, nil)
+		getReq.Header = req.Header.Clone()
+		if getResp, err := client.Do(getReq); err == nil {
+			if getBody, err := io.ReadAll(getResp.Body); err == nil {
+				var data map[string]interface{}
+				if json.Unmarshal(getBody, &data) == nil {
+					if n, ok := data["name"].(string); ok && n != "" {
+						entityNameFromDelete = n
+					} else if u, ok := data["username"].(string); ok && u != "" {
+						entityNameFromDelete = u
+					}
+				}
+			}
+			getResp.Body.Close()
+		}
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, nil, nil, errors.New("Failed to reach Kong Admin API: " + err.Error())
@@ -104,14 +125,65 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			payloadStr = "null"
 		}
 
+		entityName := ""
+		if method == "DELETE" {
+			entityName = entityNameFromDelete
+		}
+		
+		var changedFields []string
+		if customFields != "" {
+			for _, f := range strings.Split(customFields, ",") {
+				changedFields = append(changedFields, strings.TrimSpace(f))
+			}
+		}
+		
+		if method == "POST" || method == "PATCH" || method == "PUT" {
+			var dataReq map[string]interface{}
+			if err := json.Unmarshal(bodyBytes, &dataReq); err == nil {
+				if customFields == "" {
+					for k := range dataReq {
+						changedFields = append(changedFields, k)
+					}
+				}
+				if n, ok := dataReq["name"].(string); ok && n != "" {
+					entityName = n
+				} else if u, ok := dataReq["username"].(string); ok && u != "" {
+					entityName = u
+				}
+			}
+
+			if entityName == "" {
+				var data map[string]interface{}
+				if err := json.Unmarshal(respBytes, &data); err == nil {
+					if n, ok := data["name"].(string); ok && n != "" {
+						entityName = n
+					} else if u, ok := data["username"].(string); ok && u != "" {
+						entityName = u
+					}
+				}
+			}
+		}
+
+		auditPath := path
+		entityDisplayName := entity
+		if entityName != "" {
+			auditPath = fmt.Sprintf("%s (%s)", path, entityName)
+			entityDisplayName = fmt.Sprintf("%s (%s)", entity, entityName)
+		}
+
+		actionStr := method
+		if len(changedFields) > 0 && method == "PATCH" {
+			actionStr = fmt.Sprintf("PATCH [%s]", strings.Join(changedFields, ", "))
+		}
+
 		now := time.Now()
 		auditLog := &models.AuditLog{
 			IPAddress:    clientIP,
 			UserID:       userID,
 			Username:     username,
-			Action:       method,
+			Action:       actionStr,
 			Entity:       entity,
-			URL:          path,
+			URL:          auditPath,
 			Payload:      payloadStr,
 			KongNodeName: node.Name,
 			CreatedAt:    now,
@@ -123,21 +195,55 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 		// Import db and create a system notification for the change
 		icon := "mdi-message-outline"
 		state := ""
+
+		// Build entity ID from path segments (e.g. /services/{id} → services/{id})
+		entityID := ""
+		if len(segments) > 1 && segments[1] != "" {
+			entityID = segments[1]
+		}
+
 		if entity == "services" {
 			icon = "mdi-cloud"
-			state = "services"
+			if entityID != "" {
+				state = "services/" + entityID
+			} else {
+				state = "services"
+			}
 		} else if entity == "routes" {
 			icon = "mdi-git"
-			state = "routes"
+			if entityID != "" {
+				state = "routes/" + entityID
+			} else {
+				state = "routes"
+			}
 		} else if entity == "consumers" {
 			icon = "mdi-account"
-			state = "consumers"
+			if entityID != "" {
+				state = "consumers/" + entityID
+			} else {
+				state = "consumers"
+			}
 		} else if entity == "plugins" {
 			icon = "mdi-power"
 			state = "plugins"
+		} else if entity == "upstreams" {
+			icon = "mdi-cloud-upload"
+			if entityID != "" {
+				state = "upstreams/" + entityID
+			} else {
+				state = "upstreams"
+			}
+		} else if entity == "certificates" {
+			icon = "mdi-certificate"
+			if entityID != "" {
+				state = "certificates/" + entityID
+			} else {
+				state = "certificates"
+			}
 		}
 
-		notificationMessage := fmt.Sprintf("%s %s %s on connection '%s'", username, method, entity, node.Name)
+
+		notificationMessage := fmt.Sprintf("%s %s %s on connection '%s'", username, actionStr, entityDisplayName, node.Name)
 		notif := &models.KongaNotification{
 			Message:     notificationMessage,
 			Icon:        icon,

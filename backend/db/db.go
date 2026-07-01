@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"konga-backend/models"
 )
 
 var DB *gorm.DB
@@ -66,5 +67,23 @@ func InitDB() *gorm.DB {
 	}
 
 	log.Println("Database connection established successfully")
+
+	err = DB.AutoMigrate(&models.KongNode{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate KongNode: %v", err)
+	}
+	err = DB.AutoMigrate(&models.BlacklistedToken{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate BlacklistedToken: %v", err)
+	}
+	err = DB.AutoMigrate(&models.ReachabilityStatus{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate ReachabilityStatus: %v", err)
+	}
+	err = DB.AutoMigrate(&models.Snapshot{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate Snapshot: %v", err)
+	}
+
 	return DB
 }

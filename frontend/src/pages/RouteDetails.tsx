@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -9,10 +9,13 @@ import {
   Trash2, 
   AlertCircle,
   CheckCircle,
-  Layers
+  Layers,
+  XCircle,
+  Activity
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { useAuth } from '../context/AuthContext';
+import { PluginDynamicForm } from '../components/PluginDynamicForm';
+
 
 interface KongRoute {
   id: string;
@@ -23,6 +26,14 @@ interface KongRoute {
   protocols: string[];
   strip_path: boolean;
   preserve_host: boolean;
+  headers?: Record<string, string[]>;
+  regex_priority?: number;
+  https_redirect_status_code?: number;
+  path_handling?: string;
+  snis?: string[];
+  sources?: any[];
+  destinations?: any[];
+  tags?: string[];
   service?: { id: string };
 }
 
@@ -35,17 +46,13 @@ interface KongPlugin {
 
 export const RouteDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [route, setRoute] = useState<KongRoute | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'plugins'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    navigate('/routes');
-  }, [user?.node]);
+  const [reachabilityStatus, setReachabilityStatus] = useState<{ status: 'idle' | 'checking' | 'reachable' | 'unreachable', message: string, code?: number }>({ status: 'idle', message: '' });
 
   // Route fields
   const [name, setName] = useState('');
@@ -55,6 +62,14 @@ export const RouteDetails: React.FC = () => {
   const [protocols, setProtocols] = useState<string[]>(['http', 'https']);
   const [stripPath, setStripPath] = useState(true);
   const [preserveHost, setPreserveHost] = useState(false);
+  const [headers, setHeaders] = useState('');
+  const [regexPriority, setRegexPriority] = useState<number>(0);
+  const [httpsRedirectStatusCode, setHttpsRedirectStatusCode] = useState<number>(426);
+  const [pathHandling, setPathHandling] = useState<'v0' | 'v1'>('v0');
+  const [snis, setSnis] = useState('');
+  const [sources, setSources] = useState('');
+  const [destinations, setDestinations] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
   const [plugins, setPlugins] = useState<KongPlugin[]>([]);
@@ -62,7 +77,7 @@ export const RouteDetails: React.FC = () => {
   // Add Plugin Modal states
   const [showAddPlugin, setShowAddPlugin] = useState(false);
   const [pluginName, setPluginName] = useState('key-auth');
-  const [pluginConfig, setPluginConfig] = useState('{}');
+  const [pluginConfig, setPluginConfig] = useState<any>({});
 
   useEffect(() => {
     fetchRouteDetails();
@@ -83,9 +98,18 @@ export const RouteDetails: React.FC = () => {
       setProtocols(data.protocols || ['http', 'https']);
       setStripPath(data.strip_path ?? true);
       setPreserveHost(data.preserve_host ?? false);
+      setHeaders(data.headers ? JSON.stringify(data.headers) : '');
+      setRegexPriority(data.regex_priority ?? 0);
+      setHttpsRedirectStatusCode(data.https_redirect_status_code ?? 426);
+      setPathHandling(data.path_handling ?? 'v0');
+      setSnis(data.snis ? data.snis.join(', ') : '');
+      setSources(data.sources ? JSON.stringify(data.sources) : '');
+      setDestinations(data.destinations ? JSON.stringify(data.destinations) : '');
+      setTagsInput(data.tags ? data.tags.join(', ') : '');
 
       // Fetch plugins
       fetchSubResources();
+      handleCheckReachability();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch route details');
       console.error(err);
@@ -103,6 +127,27 @@ export const RouteDetails: React.FC = () => {
     }
   };
 
+  const handleCheckReachability = async () => {
+    setReachabilityStatus({ status: 'checking', message: 'Checking...' });
+    try {
+      const proxyUrl = localStorage.getItem('noka_proxy_url') || '';
+      const response = await axios.get(`/api/kong/routes/${id}/check-reachability`, {
+        params: { proxyUrl }
+      });
+      const { reachable, statusCode, message } = response.data;
+      setReachabilityStatus({
+        status: reachable ? 'reachable' : 'unreachable',
+        message: message || '',
+        code: statusCode
+      });
+    } catch (err: any) {
+      setReachabilityStatus({ 
+        status: 'unreachable', 
+        message: err.response?.data?.message || 'Check failed' 
+      });
+    }
+  };
+
   const handleUpdateDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -111,15 +156,80 @@ export const RouteDetails: React.FC = () => {
     const parsedPaths = pathsInput ? pathsInput.split(',').map(p => p.trim()).filter(p => p !== '') : [];
     const parsedHosts = hostsInput ? hostsInput.split(',').map(h => h.trim()).filter(h => h !== '') : [];
 
+    let parsedHeaders = undefined;
+    if (headers.trim()) {
+      try { parsedHeaders = JSON.parse(headers); } catch(e) { setError('Invalid Headers JSON format'); return; }
+    }
+    let parsedSources = undefined;
+    if (sources.trim()) {
+      try { parsedSources = JSON.parse(sources); } catch(e) { setError('Invalid Sources JSON format'); return; }
+    }
+    const parsedDestinations = destinations.trim() ? JSON.parse(destinations) : undefined;
+    const parsedSnis = snis ? snis.split(',').map(s => s.trim()).filter(Boolean) : null;
+    const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+
     try {
-      await axios.patch(`/api/kong/routes/${id}`, {
-        name: name || null,
-        paths: parsedPaths.length > 0 ? parsedPaths : null,
-        hosts: parsedHosts.length > 0 ? parsedHosts : null,
-        methods: methods.length > 0 ? methods : null,
-        protocols,
-        strip_path: stripPath,
-        preserve_host: preserveHost
+      const payload: any = {};
+      const changedFields: string[] = [];
+
+      if ((name || '') !== (route?.name || '')) { payload.name = name || null; changedFields.push('name'); }
+      
+      const originalPaths = route?.paths || [];
+      if (JSON.stringify([...parsedPaths].sort()) !== JSON.stringify([...originalPaths].sort())) {
+        payload.paths = parsedPaths.length > 0 ? parsedPaths : null; changedFields.push('paths');
+      }
+
+      const originalHosts = route?.hosts || [];
+      if (JSON.stringify([...parsedHosts].sort()) !== JSON.stringify([...originalHosts].sort())) {
+        payload.hosts = parsedHosts.length > 0 ? parsedHosts : null; changedFields.push('hosts');
+      }
+
+      const originalMethods = route?.methods || [];
+      if (JSON.stringify([...methods].sort()) !== JSON.stringify([...originalMethods].sort())) {
+        payload.methods = methods.length > 0 ? methods : null; changedFields.push('methods');
+      }
+
+      const originalProtocols = route?.protocols || [];
+      if (JSON.stringify([...protocols].sort()) !== JSON.stringify([...originalProtocols].sort())) {
+        payload.protocols = protocols; changedFields.push('protocols');
+      }
+
+      if (stripPath !== (route?.strip_path ?? true)) { payload.strip_path = stripPath; changedFields.push('strip_path'); }
+      if (preserveHost !== (route?.preserve_host ?? false)) { payload.preserve_host = preserveHost; changedFields.push('preserve_host'); }
+      
+      if (JSON.stringify(parsedHeaders || null) !== JSON.stringify(route?.headers || null)) {
+        payload.headers = parsedHeaders || null; changedFields.push('headers');
+      }
+
+      if (regexPriority !== (route?.regex_priority ?? 0)) { payload.regex_priority = regexPriority; changedFields.push('regex_priority'); }
+      if (httpsRedirectStatusCode !== (route?.https_redirect_status_code ?? 426)) { payload.https_redirect_status_code = httpsRedirectStatusCode; changedFields.push('https_redirect_status_code'); }
+      if (pathHandling !== (route?.path_handling ?? 'v0')) { payload.path_handling = pathHandling; changedFields.push('path_handling'); }
+
+      const originalSnis = route?.snis || [];
+      if (JSON.stringify([...(parsedSnis || [])].sort()) !== JSON.stringify([...originalSnis].sort())) {
+        payload.snis = parsedSnis; changedFields.push('snis');
+      }
+
+      if (JSON.stringify(parsedSources || null) !== JSON.stringify(route?.sources || null)) {
+        payload.sources = parsedSources || null; changedFields.push('sources');
+      }
+
+      if (JSON.stringify(parsedDestinations || null) !== JSON.stringify(route?.destinations || null)) {
+        payload.destinations = parsedDestinations || null; changedFields.push('destinations');
+      }
+
+      const originalTags = route?.tags || [];
+      if (JSON.stringify([...parsedTags].sort()) !== JSON.stringify([...originalTags].sort())) {
+        payload.tags = parsedTags; changedFields.push('tags');
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setSuccess('No changes detected.');
+        return;
+      }
+
+      await axios.patch(`/api/kong/routes/${id}`, payload, {
+        headers: { 'X-Noka-Changed-Fields': changedFields.join(', ') }
       });
       setSuccess('Route configurations updated successfully!');
       fetchRouteDetails();
@@ -150,22 +260,12 @@ export const RouteDetails: React.FC = () => {
     e.preventDefault();
     setError('');
     try {
-      let parsedConfig = {};
-      try {
-        if (pluginConfig.trim()) {
-          parsedConfig = JSON.parse(pluginConfig);
-        }
-      } catch (jsonErr) {
-        setError('Invalid Plugin Config JSON format');
-        return;
-      }
-
       await axios.post(`/api/kong/routes/${id}/plugins`, {
         name: pluginName,
-        config: parsedConfig
+        config: pluginConfig
       });
       setShowAddPlugin(false);
-      setPluginConfig('{}');
+      setPluginConfig({});
       fetchSubResources();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to enable plugin');
@@ -238,31 +338,68 @@ export const RouteDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-border-light gap-6 text-xs font-bold uppercase tracking-wider text-text-secondary">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'details' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Details & Notes
-        </button>
-        <button
-          onClick={() => setActiveTab('plugins')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'plugins' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Plugins ({plugins.length})
-        </button>
-      </div>
+      {/* Content Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Tabs */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'details' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" /> Route Details
+          </button>
+          <button
+            onClick={() => setActiveTab('plugins')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'plugins' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Plug className="w-4 h-4" /> Plugins
+          </button>
+        </div>
+
+        {/* Tab Contents */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Route Rules</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Route Rules</h3>
+              <div className="flex items-center gap-2">
+                {reachabilityStatus.status !== 'idle' && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold mr-2">
+                    {reachabilityStatus.status === 'checking' && (
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
+                        Checking...
+                      </span>
+                    )}
+                    {reachabilityStatus.status === 'reachable' && (
+                      <span className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-200" title={reachabilityStatus.message}>
+                        <CheckCircle className="w-4 h-4" /> Reachable {reachabilityStatus.code ? `(${reachabilityStatus.code})` : ''}
+                      </span>
+                    )}
+                    {reachabilityStatus.status === 'unreachable' && (
+                      <span className="flex items-center gap-1 text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200" title={reachabilityStatus.message}>
+                        <XCircle className="w-4 h-4" /> Unreachable
+                      </span>
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCheckReachability}
+                  disabled={reachabilityStatus.status === 'checking'}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-[10px] font-bold rounded flex items-center gap-1.5 transition-colors uppercase disabled:opacity-50"
+                >
+                  <Activity className="w-3.5 h-3.5" /> Refresh Status
+                </button>
+              </div>
+            </div>
             <form onSubmit={handleUpdateDetails} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -293,6 +430,91 @@ export const RouteDetails: React.FC = () => {
                     onChange={(e) => setHostsInput(e.target.value)}
                     placeholder="e.g. api.domain.com"
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Regex Priority</label>
+                  <input
+                    type="number"
+                    value={regexPriority}
+                    onChange={(e) => setRegexPriority(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">HTTPS Redirect Status</label>
+                  <select
+                    value={httpsRedirectStatusCode}
+                    onChange={(e) => setHttpsRedirectStatusCode(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  >
+                    <option value={426}>426</option>
+                    <option value={301}>301</option>
+                    <option value={302}>302</option>
+                    <option value={307}>307</option>
+                    <option value={308}>308</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Path Handling</label>
+                  <select
+                    value={pathHandling}
+                    onChange={(e) => setPathHandling(e.target.value as 'v0' | 'v1')}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  >
+                    <option value="v0">v0</option>
+                    <option value="v1">v1</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Headers (JSON)</label>
+                  <input
+                    type="text"
+                    value={headers}
+                    onChange={(e) => setHeaders(e.target.value)}
+                    placeholder='{"x-version":["v1"]}'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">SNIs (comma separated)</label>
+                  <input
+                    type="text"
+                    value={snis}
+                    onChange={(e) => setSnis(e.target.value)}
+                    placeholder="e.g. ssl.domain.com"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Sources (JSON Array)</label>
+                  <input
+                    type="text"
+                    value={sources}
+                    onChange={(e) => setSources(e.target.value)}
+                    placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Destinations (JSON array)</label>
+                  <input
+                    type="text"
+                    value={destinations}
+                    onChange={(e) => setDestinations(e.target.value)}
+                    placeholder='[{"ip":"10.1.0.0/16","port":8080}]'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                  />
+                </div>
+                
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. production, api (comma-separated)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
                   />
                 </div>
 
@@ -365,7 +587,7 @@ export const RouteDetails: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-            <CommentsSection referenceId={route.id} referenceType="route" />
+            <CommentsSection referenceId={route.id} referenceType="route" referenceName={route.name || route.id} />
           </div>
         </div>
       )}
@@ -406,14 +628,13 @@ export const RouteDetails: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Configuration JSON</label>
-                  <textarea
-                    rows={4}
-                    value={pluginConfig}
-                    onChange={(e) => setPluginConfig(e.target.value)}
-                    className="w-full p-2.5 rounded border border-border-light bg-white text-xs outline-none font-mono"
-                  />
-                  <p className="text-[9px] text-text-muted">Enter configuration parameters as raw JSON (e.g. {"{}"})</p>
+                  <div className="bg-white border border-border-light rounded p-4">
+                    <PluginDynamicForm
+                      pluginName={pluginName}
+                      initialConfig={pluginConfig}
+                      onChange={setPluginConfig}
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button type="button" onClick={() => setShowAddPlugin(false)} className="px-3 py-1.5 border rounded bg-white text-xs font-semibold">Cancel</button>
@@ -456,6 +677,8 @@ export const RouteDetails: React.FC = () => {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };

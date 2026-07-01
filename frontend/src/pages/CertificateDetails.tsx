@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ArrowLeft, 
@@ -11,7 +11,7 @@ import {
   Globe
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { useAuth } from '../context/AuthContext';
+
 
 interface KongCertificate {
   id: string;
@@ -29,21 +29,18 @@ interface KongSNI {
 
 export const CertificateDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [cert, setCert] = useState<KongCertificate | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'snis'>('details');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => {
-    navigate('/certificates');
-  }, [user?.node]);
+
 
   // Certificate fields
   const [certContent, setCertContent] = useState('');
   const [keyContent, setKeyContent] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
   const [snis, setSnis] = useState<KongSNI[]>([]);
@@ -66,6 +63,7 @@ export const CertificateDetails: React.FC = () => {
       setCert(data);
       setCertContent(data.cert || '');
       setKeyContent(data.key || '');
+      setTagsInput(data.tags ? data.tags.join(', ') : '');
 
       // Fetch SNIs
       fetchSubResources();
@@ -93,9 +91,25 @@ export const CertificateDetails: React.FC = () => {
     setSuccess('');
 
     try {
-      await axios.patch(`/api/kong/certificates/${id}`, {
-        cert: certContent,
-        key: keyContent
+      const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const payload: any = {};
+      const changedFields: string[] = [];
+
+      if (certContent !== cert?.cert) { payload.cert = certContent; changedFields.push('cert'); }
+      if (keyContent !== cert?.key) { payload.key = keyContent; changedFields.push('key'); }
+
+      const originalTags = cert?.tags || [];
+      if (JSON.stringify([...parsedTags].sort()) !== JSON.stringify([...originalTags].sort())) {
+        payload.tags = parsedTags; changedFields.push('tags');
+      }
+
+      if (Object.keys(payload).length === 0) {
+        setSuccess('No changes detected.');
+        return;
+      }
+
+      await axios.patch(`/api/kong/certificates/${id}`, payload, {
+        headers: { 'X-Noka-Changed-Fields': changedFields.join(', ') }
       });
       setSuccess('Certificate payload updated successfully!');
       fetchCertificateDetails();
@@ -179,25 +193,30 @@ export const CertificateDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-border-light gap-6 text-xs font-bold uppercase tracking-wider text-text-secondary">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'details' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          Details & Notes
-        </button>
-        <button
-          onClick={() => setActiveTab('snis')}
-          className={`pb-2.5 outline-none border-b-2 transition-colors ${
-            activeTab === 'snis' ? 'border-brand-primary text-text-primary' : 'border-transparent hover:text-text-primary'
-          }`}
-        >
-          SNI Mappings ({snis.length})
-        </button>
-      </div>
+      {/* Content Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left Sidebar Tabs */}
+        <div className="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'details' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <AlertCircle className="w-4 h-4" /> Certificate Details
+          </button>
+          <button
+            onClick={() => setActiveTab('snis')}
+            className={`flex items-center gap-3 px-4 py-3 rounded text-xs font-bold transition-colors ${
+              activeTab === 'snis' ? 'bg-brand-primary text-white' : 'bg-transparent text-text-secondary hover:bg-slate-50 hover:text-text-primary'
+            }`}
+          >
+            <Globe className="w-4 h-4" /> SNI Mappings
+          </button>
+        </div>
+
+        {/* Tab Contents */}
+        <div className="flex-1 min-w-0">
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
@@ -219,14 +238,25 @@ export const CertificateDetails: React.FC = () => {
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-text-secondary uppercase">Private Key (PEM block)</label>
                 <textarea
-                  rows={8}
                   required
                   value={keyContent}
                   onChange={(e) => setKeyContent(e.target.value)}
-                  placeholder="-----BEGIN PRIVATE KEY-----"
-                  className="w-full p-2.5 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-mono leading-normal"
+                  placeholder="-----BEGIN RSA PRIVATE KEY-----..."
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-mono h-40 resize-y"
                 />
               </div>
+              
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="e.g. production, api (comma-separated)"
+                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                />
+              </div>
+              
               <button
                 type="submit"
                 className="px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs uppercase hover:bg-brand-primary-hover shadow-sm"
@@ -237,7 +267,7 @@ export const CertificateDetails: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-            <CommentsSection referenceId={cert.id} referenceType="certificate" />
+            <CommentsSection referenceId={cert.id} referenceType="certificate" referenceName={cert.id} />
           </div>
         </div>
       )}
@@ -329,6 +359,8 @@ export const CertificateDetails: React.FC = () => {
           </table>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };
