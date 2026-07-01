@@ -8,6 +8,8 @@ import (
 
 	"konga-backend/db"
 	"konga-backend/models"
+	
+	"gorm.io/datatypes"
 
 	"github.com/gin-gonic/gin"
 )
@@ -68,7 +70,7 @@ func CreateSnapshot(c *gin.Context) {
 		Action:       "POST",
 		Entity:       "snapshots",
 		URL:          "/api/snapshots",
-		Payload:      fmt.Sprintf(`{"name": "%s"}`, req.Name),
+		Payload:      datatypes.JSON(fmt.Sprintf(`{"name": "%s"}`, req.Name)),
 		KongNodeName: req.NodeName,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -108,7 +110,7 @@ func DeleteSnapshot(c *gin.Context) {
 				Action:       "DELETE",
 				Entity:       "snapshots",
 				URL:          "/api/snapshots/" + id,
-				Payload:      fmt.Sprintf(`{"id": "%s", "name": "%s"}`, id, snapshot.Name),
+				Payload:      datatypes.JSON(fmt.Sprintf(`{"id": "%s", "name": "%s"}`, id, snapshot.Name)),
 				KongNodeName: snapshot.NodeName,
 				CreatedAt:    time.Now(),
 				UpdatedAt:    time.Now(),

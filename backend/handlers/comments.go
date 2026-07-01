@@ -9,6 +9,7 @@ import (
 	"konga-backend/db"
 	"konga-backend/models"
 
+	"gorm.io/datatypes"
 	"github.com/gin-gonic/gin"
 )
 
@@ -124,7 +125,7 @@ func CreateComment(c *gin.Context) {
 		Action:       "POST",
 		Entity:       "comments",
 		URL:          auditPath,
-		Payload:      fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, req.ReferenceType, req.ReferenceID, req.ReferenceName),
+		Payload:      datatypes.JSON(fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, req.ReferenceType, req.ReferenceID, req.ReferenceName)),
 		KongNodeName: "system",
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -219,7 +220,7 @@ func UpdateComment(c *gin.Context) {
 		Action:       "PATCH",
 		Entity:       "comments",
 		URL:          auditUrl,
-		Payload:      auditPayload,
+		Payload:      datatypes.JSON(auditPayload),
 		KongNodeName: "system",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -307,7 +308,7 @@ func DeleteComment(c *gin.Context) {
 		Action:       "DELETE",
 		Entity:       "comments",
 		URL:          auditUrl,
-		Payload:      auditPayload,
+		Payload:      datatypes.JSON(auditPayload),
 		KongNodeName: "system",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
