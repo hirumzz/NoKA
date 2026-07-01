@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"konga-backend/utils"
 )
@@ -148,17 +149,17 @@ func (n *KongNode) AfterFind(tx *gorm.DB) (err error) {
 
 // AuditLog represents the konga_audit_logs table
 type AuditLog struct {
-	ID           uint      `gorm:"primaryKey;column:id" json:"id"`
-	IPAddress    string    `gorm:"column:ip_address" json:"ip_address"`
-	UserID       *uint     `gorm:"column:user_id" json:"user_id"`
-	Username     string    `gorm:"column:username;default:anonymous" json:"username"`
-	Action       string    `gorm:"column:action" json:"action"` // POST, PATCH, PUT, DELETE
-	Entity       string    `gorm:"column:entity" json:"entity"` // plugins, services, routes, consumers, etc.
-	URL          string    `gorm:"column:url" json:"url"`
-	Payload      string    `gorm:"column:payload;type:json" json:"payload"`
-	KongNodeName string    `gorm:"column:kong_node_name" json:"kong_node_name"`
-	CreatedAt    time.Time `gorm:"column:createdAt" json:"createdAt"`
-	UpdatedAt    time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+	ID           uint           `gorm:"primaryKey;column:id" json:"id"`
+	IPAddress    string         `gorm:"column:ip_address" json:"ip_address"`
+	UserID       *uint          `gorm:"column:user_id" json:"user_id"`
+	Username     string         `gorm:"column:username;default:anonymous" json:"username"`
+	Action       string         `gorm:"column:action" json:"action"` // POST, PATCH, PUT, DELETE
+	Entity       string         `gorm:"column:entity" json:"entity"` // plugins, services, routes, consumers, etc.
+	URL          string         `gorm:"column:url" json:"url"`
+	Payload      datatypes.JSON `gorm:"column:payload;type:json" json:"payload"`
+	KongNodeName string         `gorm:"column:kong_node_name" json:"kong_node_name"`
+	CreatedAt    time.Time      `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt    time.Time      `gorm:"column:updatedAt" json:"updatedAt"`
 }
 
 func (AuditLog) TableName() string {

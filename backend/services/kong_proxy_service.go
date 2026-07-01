@@ -16,6 +16,7 @@ import (
 	"konga-backend/models"
 	"konga-backend/repositories"
 	"konga-backend/utils"
+	"gorm.io/datatypes"
 )
 
 type KongProxyService interface {
@@ -184,7 +185,7 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			Action:       actionStr,
 			Entity:       entity,
 			URL:          auditPath,
-			Payload:      payloadStr,
+			Payload:      datatypes.JSON(payloadStr),
 			KongNodeName: node.Name,
 			CreatedAt:    now,
 			UpdatedAt:    now,
