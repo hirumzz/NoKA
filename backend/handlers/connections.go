@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -73,6 +74,8 @@ func CreateConnection(c *gin.Context) {
 		return
 	}
 
+	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections", node.Name, "Connection created: "+node.Name, "mdi-lan-connect", req)
+
 	c.JSON(http.StatusCreated, node)
 }
 
@@ -105,6 +108,8 @@ func DeleteConnection(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit node deletion"})
 		return
 	}
+
+	recordConnectionAuditAndNotify(c, "DELETE", "connections", "/api/connections/"+idStr, "unknown", "Connection deleted: ID "+idStr, "mdi-delete-outline", map[string]string{"id": idStr})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Connection deleted successfully"})
 }
@@ -158,9 +163,11 @@ func ActivateConnection(c *gin.Context) {
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit connection activation", "error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit activation", "error": err.Error()})
 		return
 	}
+
+	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections/"+idStr+"/activate", node.Name, "Connection activated: "+node.Name, "mdi-check-circle-outline", map[string]bool{"active": true})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Connection activated successfully", "node": node})
 }
@@ -244,5 +251,41 @@ func UpdateConnection(c *gin.Context) {
 
 	db.DB.First(&node, uint(id))
 
+	recordConnectionAuditAndNotify(c, "PATCH", "connections", "/api/connections/"+idStr, node.Name, "Connection updated: "+node.Name, "mdi-pencil-outline", updates)
+
 	c.JSON(http.StatusOK, node)
+}
+
+func recordConnectionAuditAndNotify(c *gin.Context, action, entity, url, nodeName, message, icon string, payload interface{}) {
+	var userID *uint
+	var username string = "anonymous"
+	if userVal, exists := c.Get("user"); exists {
+		if u, ok := userVal.(*models.User); ok {
+			userID = &u.ID
+			username = u.Username
+		}
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	
+	audit := models.AuditLog{
+		IPAddress:    c.ClientIP(),
+		UserID:       userID,
+		Username:     username,
+		Action:       action,
+		Entity:       entity,
+		URL:          url,
+		Payload:      datatypes.JSON(payloadBytes),
+		KongNodeName: nodeName,
+	}
+	db.DB.Create(&audit)
+
+	notif := models.KongaNotification{
+		Message:     message,
+		Icon:        icon,
+		State:       "connections",
+		StateParams: datatypes.JSON("{}"),
+		UserID:      userID,
+	}
+	db.DB.Create(&notif)
 }

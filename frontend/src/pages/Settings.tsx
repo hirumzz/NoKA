@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
   Save,
   Clock,
@@ -278,7 +279,7 @@ export const Settings: React.FC = () => {
 
   // ─── Save to localStorage ────────────────────────────────────────────────────
 
-  const handleSave = () => {
+  const handleSave = async () => {
     localStorage.setItem('noka_refresh_interval', refreshInterval);
     localStorage.setItem('noka_base_url', baseUrl);
     localStorage.setItem('noka_proxy_url', proxyUrl);
@@ -290,6 +291,26 @@ export const Settings: React.FC = () => {
     localStorage.setItem('noka_notify_node_down', String(notifyNodeDown));
     localStorage.setItem('noka_notify_api_down', String(notifyApiDown));
     localStorage.setItem('noka_permissions', JSON.stringify(permissions));
+
+    try {
+      await axios.post('/api/settings', {
+        settings: {
+          refreshInterval,
+          baseUrl,
+          proxyUrl,
+          allowSignup,
+          sendActivationEmail,
+          emailSenderName,
+          emailSenderAddress,
+          emailTransport,
+          notifyNodeDown,
+          notifyApiDown,
+          permissions
+        }
+      }, { withCredentials: true });
+    } catch (err) {
+      console.error("Failed to save settings to backend", err);
+    }
 
     setToastVisible(true);
     setTimeout(() => setToastVisible(false), 3500);

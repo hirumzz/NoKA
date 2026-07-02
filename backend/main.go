@@ -180,6 +180,9 @@ func main() {
 		api.DELETE("/connections/:id", middleware.AdminRequired(), handlers.DeleteConnection)
 		api.POST("/connections/:id/activate", middleware.AdminRequired(), handlers.ActivateConnection)
 
+		// System Settings
+		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)
+
 		// Comments management
 		api.GET("/comments", handlers.GetComments)
 		api.POST("/comments", handlers.CreateComment)
