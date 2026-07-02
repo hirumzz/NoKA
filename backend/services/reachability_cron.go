@@ -34,9 +34,12 @@ func StartReachabilityCron() {
 }
 func RunReachabilityCheck() {
 	var nodes []models.KongNode
-	if err := db.DB.Where("active = ?", true).Find(&nodes).Error; err != nil {
-		log.Printf("ReachabilityCron: failed to query nodes: %v", err)
-		return
+	if err := db.DB.Where("active = ?", true).Find(&nodes).Error; err != nil || len(nodes) == 0 {
+		// Fallback to the first connection if none is explicitly active (same as UI middleware)
+		var firstNode models.KongNode
+		if err := db.DB.First(&firstNode).Error; err == nil {
+			nodes = append(nodes, firstNode)
+		}
 	}
 
 	for _, node := range nodes {
@@ -220,8 +223,12 @@ func UpsertReachabilityStatus(entityID, entityType, status, message string, stat
 		UpdatedAt:  time.Now(),
 	}
 
-	db.DB.Clauses(clause.OnConflict{
+	err := db.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "entity_id"}, {Name: "entity_type"}},
 		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "status_code", "updated_at"}),
-	}).Create(&rs)
+	}).Create(&rs).Error
+
+	if err != nil {
+		log.Printf("UpsertReachabilityStatus failed for %s %s: %v", entityType, entityID, err)
+	}
 }
