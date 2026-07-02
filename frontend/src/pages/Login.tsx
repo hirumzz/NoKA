@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Lock, Mail, AlertTriangle, X } from 'lucide-react';
+import { Lock, Mail, AlertTriangle } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
