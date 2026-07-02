@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { 
-  LayoutDashboard, 
+import {
+  LayoutDashboard,
   Cloud,
-  GitBranch, 
-  Users, 
+  GitBranch,
+  Users,
   Plug,
   Share2,
   Award,
@@ -27,11 +27,11 @@ import {
 } from 'lucide-react';
 
 interface ConnectionNode {
-	id: number;
-	name: string;
-	kong_admin_url: string;
-	active: boolean;
-	kong_version: string;
+  id: number;
+  name: string;
+  kong_admin_url: string;
+  active: boolean;
+  kong_version: string;
 }
 
 interface NotificationItem {
@@ -230,11 +230,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`flex items-center px-3 py-2 rounded transition-colors duration-150 text-xs font-semibold ${
-                      isActive
+                    className={`flex items-center px-3 py-2 rounded transition-colors duration-150 text-xs font-semibold ${isActive
                         ? 'bg-brand-royal-light text-white border-l-2 border-brand-primary'
                         : 'text-brand-mint hover:text-white hover:bg-white/5'
-                    }`}
+                      }`}
                   >
                     <Icon className={`w-4 h-4 mr-3 ${isActive ? 'text-brand-primary' : 'text-brand-mint/65'}`} />
                     {item.label}
@@ -247,7 +246,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.0.0</span>
+          <span className="text-brand-primary">NOKA v2.0.1</span>
         </div>
       </aside>
 
@@ -280,7 +279,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Profile & Notifications */}
           <div className="flex items-center gap-6">
             <div className="relative" ref={notificationsRef}>
-              <button 
+              <button
                 onClick={handleToggleNotifications}
                 className="p-1.5 text-text-secondary hover:text-brand-primary hover:bg-slate-100 rounded-full transition-colors duration-150 relative outline-none cursor-pointer"
               >
@@ -296,7 +295,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="absolute right-0 mt-2 w-80 bg-white border border-border-light rounded-lg shadow-xl py-2 z-30 card-shadow">
                   <div className="px-4 py-2 border-b border-border-light flex justify-between items-center bg-slate-50/75">
                     <span className="text-xs font-bold text-text-primary uppercase tracking-wide">Notifications</span>
-                    <button 
+                    <button
                       onClick={() => setShowNotifications(false)}
                       className="p-1 rounded hover:bg-slate-100 text-text-secondary hover:text-text-primary"
                     >
@@ -312,12 +311,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       notifications.map((notif) => {
                         const isNew = new Date(notif.createdAt).getTime() > new Date(lastReadTime).getTime();
                         return (
-                          <div 
+                          <div
                             key={notif.id}
                             onClick={() => handleNotificationClick(notif)}
-                            className={`p-3 text-left hover:bg-slate-50/75 transition-colors flex items-start gap-2.5 cursor-pointer relative ${
-                              isNew ? 'bg-brand-primary/[0.03]' : ''
-                            }`}
+                            className={`p-3 text-left hover:bg-slate-50/75 transition-colors flex items-start gap-2.5 cursor-pointer relative ${isNew ? 'bg-brand-primary/[0.03]' : ''
+                              }`}
                           >
                             <div className="flex-1 min-w-0">
                               <p className="text-[11px] font-semibold text-text-primary leading-normal break-words">
@@ -346,7 +344,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
 
             <div className="relative" ref={profileRef}>
-              <button 
+              <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-2.5 text-sm font-semibold text-text-secondary hover:text-text-primary transition-colors duration-150 outline-none"
               >
