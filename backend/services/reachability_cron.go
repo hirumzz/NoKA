@@ -48,7 +48,7 @@ func RunReachabilityCheck() {
 		client := &http.Client{Timeout: 10 * time.Second}
 		
 		// 1. Fetch all services
-		services, err := fetchKongEntities(client, node, "/services")
+		services, err := fetchKongEntities(client, node, "/services?size=1000")
 		if err == nil {
 			var wg sync.WaitGroup
 			sem := make(chan struct{}, 10) // Concurrency limit of 10 workers
@@ -68,7 +68,7 @@ func RunReachabilityCheck() {
 		}
 
 		// 2. Fetch all routes
-		routes, err := fetchKongEntities(client, node, "/routes")
+		routes, err := fetchKongEntities(client, node, "/routes?size=1000")
 		if err == nil {
 			var wg sync.WaitGroup
 			sem := make(chan struct{}, 10)
