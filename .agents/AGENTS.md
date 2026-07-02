@@ -13,4 +13,10 @@
   2. When executing the plan, you MUST actively divide the work and spawn parallel subagents (e.g., frontend, backend, infrastructure agents) to work concurrently whenever possible.
   3. Do NOT write code or make system changes until the user explicitly approves the plan.
 - **Docker-First Execution**: Do NOT run raw `go build` or `go run` commands. This project runs in Docker. Always use Docker and `docker-compose` commands to build, start, and verify the backend and frontend services.
-- **Versioning Rule**: Whenever a feature, fix, or task is successfully completed, you MUST ask the user for validation first. Once the user confirms the feature works as expected, you MUST ask them what version number it should be bumped to. After receiving their approval and the target version number, you must bump the version in `frontend/package.json`, `frontend/src/components/Layout.tsx`, and anywhere else the version is defined.
+- **Versioning Rule (SemVer)**: Whenever a feature, fix, or task is successfully completed and validated:
+  - **Bug Fix / Patch / Optimization**: Bump the **Patch** digit (e.g. `2.0.1` -> `2.0.2`).
+  - **New Feature / New Module / New API**: Bump the **Minor** digit (e.g. `2.0.2` -> `2.1.0`).
+  - **Breaking Change / Major Redesign**: Bump the **Major** digit (e.g. `2.0.0` -> `3.0.0`).
+  - Always update the version string in `frontend/package.json` and `frontend/src/components/Layout.tsx`.
+- **Audit Logs & Notifications Mandatory Coverage**: Every mutating action (Create, Update, Delete, Activate, Settings Save) across ALL entities (Services, Routes, Plugins, Consumers, Upstreams, Certificates, Comments, Connections, and System Settings) MUST generate an **Audit Log** (`konga_audit_logs`) AND a **System Notification** (`konga_notifications`).
+- **Dual Repo Syncing**: All changes committed and pushed to GitHub must be fetched and hard-resetted to the local Bitbucket repository (`C:\Users\User\Desktop\erajaya-bitbucket\noka`) to ensure the user can push directly from their local Bitbucket folder.
