@@ -12,7 +12,6 @@ import (
 	"konga-backend/handlers"
 	"konga-backend/middleware"
 	"konga-backend/models"
-	"konga-backend/repositories"
 	"konga-backend/services"
 
 	"github.com/gin-gonic/gin"
@@ -87,21 +86,13 @@ func main() {
 	}
 	defer sqlDB.Close()
 
-	// Initialize Repositories
-	userRepo := repositories.NewUserRepository(database)
-	nodeRepo := repositories.NewNodeRepository(database)
-	auditRepo := repositories.NewAuditRepository(database)
-	_ = nodeRepo
-
-	// Initialize Services
-	authService := services.NewAuthService(userRepo)
-	kongProxyService := services.NewKongProxyService(auditRepo)
-	auditService := services.NewAuditService(auditRepo)
+	// Initialize Services (ponytail: eliminated repository dependencies)
+	authService := services.NewAuthService()
+	kongProxyService := services.NewKongProxyService()
 
 	// Initialize Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	kongHandler := handlers.NewKongHandler(kongProxyService)
-	auditHandler := handlers.NewAuditHandler(auditService)
 
 	// Rate limiter for login
 	loginRL := newRateLimiter()
@@ -171,7 +162,7 @@ func main() {
 		api.POST("/auth/logout", authHandler.Logout)
 
 		// Audit Logs list endpoint
-		api.GET("/auditlogs", middleware.AdminRequired(), auditHandler.GetAuditLogs)
+		api.GET("/auditlogs", middleware.AdminRequired(), handlers.GetAuditLogs)
 
 		// Connections (Nodes) management
 		api.GET("/connections", handlers.GetConnections)

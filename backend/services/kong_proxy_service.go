@@ -15,7 +15,6 @@ import (
 
 	"konga-backend/db"
 	"konga-backend/models"
-	"konga-backend/repositories"
 	"konga-backend/utils"
 )
 
@@ -23,12 +22,10 @@ type KongProxyService interface {
 	ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User, customFields string) (int, http.Header, []byte, error)
 }
 
-type kongProxyService struct {
-	auditRepo repositories.AuditRepository
-}
+type kongProxyService struct {}
 
-func NewKongProxyService(auditRepo repositories.AuditRepository) KongProxyService {
-	return &kongProxyService{auditRepo: auditRepo}
+func NewKongProxyService() KongProxyService {
+	return &kongProxyService{}
 }
 
 func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, rawQuery string, bodyBytes []byte, clientIP string, user *models.User, customFields string) (int, http.Header, []byte, error) {
@@ -259,7 +256,8 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			log.Printf("Failed to write notification: %v", err)
 		}
 
-		if err := s.auditRepo.CreateLog(auditLog); err != nil {
+		// ponytail: Use db.DB directly instead of repository
+		if err := db.DB.Create(auditLog).Error; err != nil {
 			log.Printf("Failed to write audit log: %v", err)
 		} else {
 			log.Printf("Audit log written: %s %s by %s from %s", method, entity, username, clientIP)

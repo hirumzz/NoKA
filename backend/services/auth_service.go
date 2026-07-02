@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"konga-backend/db"
 	"konga-backend/models"
-	"konga-backend/repositories"
 	"konga-backend/utils"
 )
 
@@ -17,22 +17,21 @@ type AuthService interface {
 }
 
 type authService struct {
-	userRepo   repositories.UserRepository
 	registerMu sync.Mutex
 }
 
-func NewAuthService(userRepo repositories.UserRepository) AuthService {
-	return &authService{userRepo: userRepo}
+func NewAuthService() AuthService {
+	return &authService{}
 }
 
 func (s *authService) Login(identifier, password string) (*models.User, string, error) {
-	user, err := s.userRepo.GetByIdentifier(identifier)
-	if err != nil {
+	var user models.User
+	if err := db.DB.Where("username = ? OR email = ?", identifier, identifier).First(&user).Error; err != nil {
 		return nil, "", errors.New("Invalid username or password")
 	}
 
-	passport, err := s.userRepo.GetPassportByUserID(user.ID, "local")
-	if err != nil {
+	var passport models.Passport
+	if err := db.DB.Where("protocol = ? AND \"user\" = ?", "local", user.ID).First(&passport).Error; err != nil {
 		return nil, "", errors.New("No local authentication found for this user")
 	}
 
@@ -50,16 +49,16 @@ func (s *authService) Login(identifier, password string) (*models.User, string, 
 		return nil, "", errors.New("Failed to issue authentication token")
 	}
 
-	return user, token, nil
+	return &user, token, nil
 }
 
 func (s *authService) RegisterFirstAdmin(username, email, password, firstName, lastName string) (*models.User, string, error) {
 	s.registerMu.Lock()
 	defer s.registerMu.Unlock()
 
-	count, err := s.userRepo.CountUsers()
-	if err != nil {
-		return nil, "", errors.New("Failed to check user count")
+	var count int64
+	if err := db.DB.Model(&models.User{}).Count(&count).Error; err != nil {
+		return nil, "", errors.New("Failed to verify user count")
 	}
 	if count > 0 {
 		return nil, "", errors.New("An admin user is already registered!")
@@ -91,8 +90,18 @@ func (s *authService) RegisterFirstAdmin(username, email, password, firstName, l
 		UpdatedAt:  now,
 	}
 
-	if err := s.userRepo.CreateUserAndPassport(user, passport); err != nil {
-		return nil, "", errors.New("Failed to create admin user")
+	tx := db.DB.Begin()
+	if err := tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		return nil, "", err
+	}
+	passport.UserID = user.ID
+	if err := tx.Create(passport).Error; err != nil {
+		tx.Rollback()
+		return nil, "", err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, "", err
 	}
 
 	token, err := utils.IssueToken(user.ID)
@@ -104,8 +113,8 @@ func (s *authService) RegisterFirstAdmin(username, email, password, firstName, l
 }
 
 func (s *authService) Signup(username, email, password, firstName, lastName string) (*models.User, error) {
-	_, err := s.userRepo.GetByIdentifier(username)
-	if err == nil {
+	var existingUser models.User
+	if err := db.DB.Where("username = ? OR email = ?", username, email).First(&existingUser).Error; err == nil {
 		return nil, errors.New("Username or email already exists")
 	}
 
@@ -135,8 +144,18 @@ func (s *authService) Signup(username, email, password, firstName, lastName stri
 		UpdatedAt:  now,
 	}
 
-	if err := s.userRepo.CreateUserAndPassport(user, passport); err != nil {
-		return nil, errors.New("Failed to create user")
+	tx := db.DB.Begin()
+	if err := tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	passport.UserID = user.ID
+	if err := tx.Create(passport).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
 	}
 
 	return user, nil
