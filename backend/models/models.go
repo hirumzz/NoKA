@@ -40,7 +40,7 @@ type Passport struct {
 	Password   string    `gorm:"column:password" json:"-"`        // hashed password
 	Provider   string    `gorm:"column:provider" json:"provider"`
 	Identifier string    `gorm:"column:identifier" json:"identifier"`
-	Tokens     string    `gorm:"column:tokens;type:json" json:"tokens"` // json configuration string
+	Tokens     datatypes.JSON `gorm:"column:tokens;type:json" json:"tokens"` // json configuration string
 	UserID     uint      `gorm:"column:user" json:"user_id"`
 	CreatedAt  time.Time `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt  time.Time `gorm:"column:updatedAt" json:"updatedAt"`
@@ -66,7 +66,7 @@ type KongNode struct {
 	Password           string    `gorm:"column:password" json:"password"`
 	KongVersion        string    `gorm:"column:kong_version;default:0-10-x" json:"kong_version"`
 	HealthChecks       bool      `gorm:"column:health_checks;default:false" json:"health_checks"`
-	HealthCheckDetails string    `gorm:"column:health_check_details;type:json" json:"health_check_details"`
+	HealthCheckDetails datatypes.JSON `gorm:"column:health_check_details;type:json" json:"health_check_details"`
 	Active             bool      `gorm:"column:active;default:false" json:"active"`
 	CreatedAt          time.Time `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt          time.Time `gorm:"column:updatedAt" json:"updatedAt"`
@@ -149,17 +149,17 @@ func (n *KongNode) AfterFind(tx *gorm.DB) (err error) {
 
 // AuditLog represents the konga_audit_logs table
 type AuditLog struct {
-	ID           uint           `gorm:"primaryKey;column:id" json:"id"`
-	IPAddress    string         `gorm:"column:ip_address" json:"ip_address"`
-	UserID       *uint          `gorm:"column:user_id" json:"user_id"`
-	Username     string         `gorm:"column:username;default:anonymous" json:"username"`
-	Action       string         `gorm:"column:action" json:"action"` // POST, PATCH, PUT, DELETE
-	Entity       string         `gorm:"column:entity" json:"entity"` // plugins, services, routes, consumers, etc.
-	URL          string         `gorm:"column:url" json:"url"`
+	ID           uint      `gorm:"primaryKey;column:id" json:"id"`
+	IPAddress    string    `gorm:"column:ip_address" json:"ip_address"`
+	UserID       *uint     `gorm:"column:user_id" json:"user_id"`
+	Username     string    `gorm:"column:username;default:anonymous" json:"username"`
+	Action       string    `gorm:"column:action" json:"action"` // POST, PATCH, PUT, DELETE
+	Entity       string    `gorm:"column:entity" json:"entity"` // plugins, services, routes, consumers, etc.
+	URL          string    `gorm:"column:url" json:"url"`
 	Payload      datatypes.JSON `gorm:"column:payload;type:json" json:"payload"`
-	KongNodeName string         `gorm:"column:kong_node_name" json:"kong_node_name"`
-	CreatedAt    time.Time      `gorm:"column:createdAt" json:"createdAt"`
-	UpdatedAt    time.Time      `gorm:"column:updatedAt" json:"updatedAt"`
+	KongNodeName string    `gorm:"column:kong_node_name" json:"kong_node_name"`
+	CreatedAt    time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt    time.Time `gorm:"column:updatedAt" json:"updatedAt"`
 }
 
 func (AuditLog) TableName() string {
@@ -188,7 +188,7 @@ type KongaNotification struct {
 	Message     string    `gorm:"column:message;not null" json:"message"`
 	Icon        string    `gorm:"column:icon;default:mdi-message-outline" json:"icon"`
 	State       string    `gorm:"column:state" json:"state"`
-	StateParams string    `gorm:"column:stateParams;type:json" json:"stateParams"`
+	StateParams datatypes.JSON `gorm:"column:stateParams;type:json" json:"stateParams"`
 	UserID      *uint     `gorm:"column:user" json:"userId"`
 	User        *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	CreatedAt   time.Time `gorm:"column:createdAt" json:"createdAt"`
@@ -230,7 +230,7 @@ func (ReachabilityStatus) TableName() string {
 type Snapshot struct {
 	ID        uint      `gorm:"primaryKey;column:id" json:"id"`
 	Name      string    `gorm:"column:name;not null" json:"name"`
-	Data      string    `gorm:"column:data;type:json;not null" json:"data"`
+	Data      datatypes.JSON `gorm:"column:data;type:json;not null" json:"data"`
 	NodeName  string    `gorm:"column:node_name" json:"node_name"`
 	CreatedAt time.Time `gorm:"column:createdAt" json:"createdAt"`
 }

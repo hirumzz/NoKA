@@ -9,8 +9,8 @@ import (
 	"konga-backend/db"
 	"konga-backend/models"
 
-	"gorm.io/datatypes"
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type CreateCommentRequest struct {
@@ -106,7 +106,7 @@ func CreateComment(c *gin.Context) {
 		Message:     notificationMessage,
 		Icon:        icon,
 		State:       req.ReferenceType + "s",
-		StateParams: "{}",
+		StateParams: datatypes.JSON("{}"),
 		UserID:      &user.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -199,7 +199,7 @@ func UpdateComment(c *gin.Context) {
 		Message:     notificationMessage,
 		Icon:        icon,
 		State:       comment.ReferenceType + "s",
-		StateParams: "{}",
+		StateParams: datatypes.JSON("{}"),
 		UserID:      &user.ID,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -287,7 +287,7 @@ func DeleteComment(c *gin.Context) {
 		Message:     notificationMessage,
 		Icon:        icon,
 		State:       comment.ReferenceType + "s",
-		StateParams: "{}",
+		StateParams: datatypes.JSON("{}"),
 		UserID:      &user.ID,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"gorm.io/datatypes"
+
 	"konga-backend/db"
 	"konga-backend/models"
 	"konga-backend/utils"
@@ -32,8 +34,8 @@ func StartConnectionHealthChecker() {
 					}
 
 					var details HealthCheckDetails
-					if node.HealthCheckDetails != "" {
-						_ = json.Unmarshal([]byte(node.HealthCheckDetails), &details)
+					if len(node.HealthCheckDetails) > 0 {
+						_ = json.Unmarshal(node.HealthCheckDetails, &details)
 					}
 
 					healthy := false
@@ -75,7 +77,7 @@ func StartConnectionHealthChecker() {
 					details.LastChecked = now
 
 					b, _ := json.Marshal(details)
-					db.DB.Model(&node).Update("health_check_details", string(b))
+					db.DB.Model(&node).Update("health_check_details", datatypes.JSON(b))
 				}
 			}
 			time.Sleep(60 * time.Second)

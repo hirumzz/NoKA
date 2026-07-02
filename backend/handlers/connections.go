@@ -9,6 +9,7 @@ import (
 	"konga-backend/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type CreateConnectionRequest struct {
@@ -58,7 +59,7 @@ func CreateConnection(c *gin.Context) {
 		NetdataURL:         req.NetdataURL,
 		Active:             false,
 		KongVersion:        "3.9.2", // Default to newest
-		HealthCheckDetails: "{}",    // Must be a valid JSON string for Postgres JSON column
+		HealthCheckDetails: datatypes.JSON("{}"),    // Must be a valid JSON string for Postgres JSON column
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -230,8 +231,8 @@ func UpdateConnection(c *gin.Context) {
 		updates["health_checks"] = *req.HealthChecks
 		if *req.HealthChecks {
 			// Mock default details if empty
-			if node.HealthCheckDetails == "" {
-				updates["health_check_details"] = `{"isHealthy":true,"lastChecked":"` + time.Now().Format(time.RFC3339) + `","firstSucceeded":"` + time.Now().Format(time.RFC3339) + `"}`
+			if len(node.HealthCheckDetails) == 0 {
+				updates["health_check_details"] = datatypes.JSON(`{"isHealthy":true,"lastChecked":"` + time.Now().Format(time.RFC3339) + `","firstSucceeded":"` + time.Now().Format(time.RFC3339) + `"}`)
 			}
 		}
 	}

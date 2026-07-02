@@ -24,8 +24,8 @@ RUN apk upgrade --update \
     && rm -rf /var/cache/apk/* \
     && addgroup -S noka && adduser -S noka -G noka
 
-COPY --from=backend-builder /app/backend/konga-backend /app/konga-backend
-COPY --from=frontend-builder /app/frontend/dist /app/public
+COPY --chown=noka:noka --from=backend-builder /app/backend/konga-backend /app/konga-backend
+COPY --chown=noka:noka --from=frontend-builder /app/frontend/dist /app/public
 
 # Run as non-root user
 USER noka

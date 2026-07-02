@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"gorm.io/datatypes"
 
 	"konga-backend/db"
 	"konga-backend/models"
 	"konga-backend/repositories"
 	"konga-backend/utils"
-	"gorm.io/datatypes"
 )
 
 type KongProxyService interface {
@@ -249,7 +249,7 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			Message:     notificationMessage,
 			Icon:        icon,
 			State:       state,
-			StateParams: "{}",
+			StateParams: datatypes.JSON("{}"),
 			UserID:      userID,
 			CreatedAt:   now,
 			UpdatedAt:   now,

@@ -9,6 +9,7 @@ import (
 	"konga-backend/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type CreateNotificationRequest struct {
@@ -48,7 +49,7 @@ func CreateNotification(c *gin.Context) {
 		Message:     req.Message,
 		Icon:        req.Icon,
 		State:       req.State,
-		StateParams: req.StateParams,
+		StateParams: datatypes.JSON(req.StateParams),
 		UserID:      userID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -57,8 +58,8 @@ func CreateNotification(c *gin.Context) {
 	if notification.Icon == "" {
 		notification.Icon = "mdi-message-outline"
 	}
-	if notification.StateParams == "" {
-		notification.StateParams = "{}"
+	if len(notification.StateParams) == 0 {
+		notification.StateParams = datatypes.JSON("{}")
 	}
 
 	if err := db.DB.Create(&notification).Error; err != nil {

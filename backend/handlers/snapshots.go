@@ -8,10 +8,9 @@ import (
 
 	"konga-backend/db"
 	"konga-backend/models"
-	
-	"gorm.io/datatypes"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type CreateSnapshotRequest struct {
@@ -40,7 +39,7 @@ func CreateSnapshot(c *gin.Context) {
 
 	snapshot := models.Snapshot{
 		Name:     req.Name,
-		Data:     string(req.Data),
+		Data:     datatypes.JSON(req.Data),
 		NodeName: req.NodeName,
 	}
 
