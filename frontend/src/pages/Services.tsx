@@ -92,14 +92,22 @@ export const Services: React.FC = () => {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const [response, reachResp] = await Promise.all([
-        axios.get('/api/kong/services?size=1000'),
-        axios.get('/api/reachability')
-      ]);
-      // Kong returns services inside a "data" array
+      const response = await axios.get('/api/kong/services?size=1000');
       setServices(response.data?.data || []);
-      
-      // Map reachability statuses
+    } catch (err: any) {
+      addToast('error', err.response?.data?.message || 'Failed to fetch services', 'Fetch Error');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+
+    // Fetch reachability in background asynchronously without blocking UI render
+    fetchReachability();
+  };
+
+  const fetchReachability = async () => {
+    try {
+      const reachResp = await axios.get('/api/reachability');
       const statuses: Record<string, any> = {};
       const statusData = reachResp.data?.data || [];
       statusData.forEach((r: any) => {
@@ -112,11 +120,8 @@ export const Services: React.FC = () => {
         }
       });
       setReachabilityStatus(statuses);
-    } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to fetch services', 'Fetch Error');
-      console.error(err);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch reachability:', err);
     }
   };
 

@@ -104,19 +104,34 @@ export const Plugins: React.FC = () => {
     setLoading(true);
 
     try {
-      const [pluginsResp, servicesResp, routesResp] = await Promise.all([
-        axios.get('/api/kong/plugins?size=1000'),
-        axios.get('/api/kong/services?size=1000'),
-        axios.get('/api/kong/routes?size=1000')
-      ]);
+      const pluginsResp = await axios.get('/api/kong/plugins?size=1000');
       setPlugins(pluginsResp.data?.data || []);
-      setServices(servicesResp.data?.data || []);
-      setRoutes(routesResp.data?.data || []);
     } catch (err: any) {
       addToast('error', err.response?.data?.message || 'Failed to fetch plugins', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
+    }
+
+    // Fetch services and routes in background asynchronously
+    fetchRelatedServicesAndRoutes();
+  };
+
+  const fetchRelatedServicesAndRoutes = async () => {
+    try {
+      const [servicesResp, routesResp] = await Promise.allSettled([
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/kong/routes?size=1000')
+      ]);
+
+      if (servicesResp.status === 'fulfilled') {
+        setServices(servicesResp.value.data?.data || []);
+      }
+      if (routesResp.status === 'fulfilled') {
+        setRoutes(routesResp.value.data?.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching plugin related resources:', err);
     }
   };
 

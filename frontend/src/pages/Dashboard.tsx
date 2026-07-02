@@ -109,31 +109,39 @@ export const Dashboard: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const [infoResp, statusResp, prometheusResp, servicesResp, routesResp, consumersResp, pluginsResp] = await Promise.all([
-        axios.get('/api/kong/'),
-        axios.get('/api/kong/status').catch(() => ({ data: null })),
-        axios.get('/api/kong/prometheus-metrics').catch(() => ({ data: { success: false } })),
-        axios.get('/api/kong/services?size=1000').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/routes?size=1000').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/consumers?size=1000').catch(() => ({ data: { data: [] } })),
-        axios.get('/api/kong/plugins?size=1000').catch(() => ({ data: { data: [] } }))
-      ]);
-
+      const infoResp = await axios.get('/api/kong/');
       setNodeInfo(infoResp.data);
-      setStatus(statusResp.data);
-      setPrometheusMetrics(prometheusResp.data);
-      setCounts({
-        services: servicesResp.data?.data?.length || 0,
-        routes: routesResp.data?.data?.length || 0,
-        consumers: consumersResp.data?.data?.length || 0,
-        plugins: pluginsResp.data?.data?.length || 0
-      });
     } catch (err: any) {
       console.error(err);
       setError('Failed to fetch gateway statistics. Please verify that a connection is active.');
     } finally {
       setLoading(false);
     }
+
+    // Load remaining stats and counts asynchronously without blocking initial page load
+    fetchDashboardMetricsAndCounts();
+  };
+
+  const fetchDashboardMetricsAndCounts = async () => {
+    // Independent background fetches
+    axios.get('/api/kong/status').then(res => setStatus(res.data)).catch(() => {});
+    axios.get('/api/kong/prometheus-metrics').then(res => setPrometheusMetrics(res.data)).catch(() => {});
+    
+    axios.get('/api/kong/services?size=1000')
+      .then(res => setCounts(prev => ({ ...prev, services: res.data?.data?.length || 0 })))
+      .catch(() => {});
+
+    axios.get('/api/kong/routes?size=1000')
+      .then(res => setCounts(prev => ({ ...prev, routes: res.data?.data?.length || 0 })))
+      .catch(() => {});
+
+    axios.get('/api/kong/consumers?size=1000')
+      .then(res => setCounts(prev => ({ ...prev, consumers: res.data?.data?.length || 0 })))
+      .catch(() => {});
+
+    axios.get('/api/kong/plugins?size=1000')
+      .then(res => setCounts(prev => ({ ...prev, plugins: res.data?.data?.length || 0 })))
+      .catch(() => {});
   };
 
   const openErrorModal = async (service: string, category: '4xx' | '5xx', totalCount: number) => {

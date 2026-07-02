@@ -102,35 +102,50 @@ export const Routes: React.FC = () => {
   const fetchRoutesAndServices = async () => {
     setLoading(true);
     try {
-      const [routesResp, servicesResp, reachResp] = await Promise.all([
-        axios.get('/api/kong/routes?size=1000'),
-        axios.get('/api/kong/services?size=1000'),
-        axios.get('/api/reachability')
-      ]);
+      const routesResp = await axios.get('/api/kong/routes?size=1000');
       setRoutes(routesResp.data?.data || []);
-      setServices(servicesResp.data?.data || []);
-      if (servicesResp.data?.data?.length > 0) {
-        setSelectedServiceId(servicesResp.data.data[0].id);
-      }
-
-      // Map reachability statuses
-      const statuses: Record<string, any> = {};
-      const statusData = reachResp.data?.data || [];
-      statusData.forEach((r: any) => {
-        if (r.entity_type === 'route') {
-          statuses[r.entity_id] = {
-            status: r.status,
-            message: r.message,
-            code: r.status_code
-          };
-        }
-      });
-      setReachabilityStatus(statuses);
     } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to fetch routes and services', 'Fetch Error');
+      addToast('error', err.response?.data?.message || 'Failed to fetch routes', 'Fetch Error');
       console.error(err);
     } finally {
       setLoading(false);
+    }
+
+    // Fetch services and reachability in background without blocking UI
+    fetchAuxiliaryData();
+  };
+
+  const fetchAuxiliaryData = async () => {
+    try {
+      const [servicesResp, reachResp] = await Promise.allSettled([
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/reachability')
+      ]);
+
+      if (servicesResp.status === 'fulfilled') {
+        const servList = servicesResp.value.data?.data || [];
+        setServices(servList);
+        if (servList.length > 0) {
+          setSelectedServiceId(servList[0].id);
+        }
+      }
+
+      if (reachResp.status === 'fulfilled') {
+        const statuses: Record<string, any> = {};
+        const statusData = reachResp.value.data?.data || [];
+        statusData.forEach((r: any) => {
+          if (r.entity_type === 'route') {
+            statuses[r.entity_id] = {
+              status: r.status,
+              message: r.message,
+              code: r.status_code
+            };
+          }
+        });
+        setReachabilityStatus(statuses);
+      }
+    } catch (err) {
+      console.error('Error fetching auxiliary route data:', err);
     }
   };
 
