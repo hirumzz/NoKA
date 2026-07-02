@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -9,18 +10,19 @@ import (
 	"konga-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 )
 
 type UpdateUserRequest struct {
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Avatar    string `json:"avatar"`
-	Role      string `json:"role"`
-	Active    *bool  `json:"active"`
-	Node      *uint  `json:"node"`
-	Password  string `json:"password"`
+	Username  string  `json:"username"`
+	Email     string  `json:"email"`
+	FirstName *string `json:"firstName"`
+	LastName  *string `json:"lastName"`
+	Avatar    *string `json:"avatar"`
+	Role      string  `json:"role"`
+	Active    *bool   `json:"active"`
+	Node      *uint   `json:"node"`
+	Password  string  `json:"password"`
 }
 
 // GetUserByID fetches a user by ID
@@ -64,6 +66,8 @@ func DeleteUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user"})
 		return
 	}
+
+	recordUserAuditAndNotify(c, "DELETE", "users", "/api/users/"+idStr, "User deleted: ID "+idStr, "mdi-account-minus", map[string]string{"id": idStr})
 
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
@@ -127,13 +131,15 @@ func UpdateUser(c *gin.Context) {
 	if req.Email != "" {
 		updates["email"] = req.Email
 	}
-	if req.Avatar != "" {
-		updates["avatar"] = req.Avatar
+	if req.FirstName != nil {
+		updates["firstName"] = *req.FirstName
 	}
-	// Always allow updating names, even to empty strings
-	updates["firstName"] = req.FirstName
-	updates["lastName"] = req.LastName
-	updates["avatar"] = req.Avatar
+	if req.LastName != nil {
+		updates["lastName"] = *req.LastName
+	}
+	if req.Avatar != nil {
+		updates["avatar"] = *req.Avatar
+	}
 
 	if req.Node != nil {
 		updates["node"] = *req.Node
@@ -171,5 +177,43 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	db.DB.First(&user, uint(id))
+
+	recordUserAuditAndNotify(c, "PATCH", "users", "/api/users/"+idStr, "User updated: "+user.Username, "mdi-account-edit", updates)
+
 	c.JSON(http.StatusOK, user)
+}
+
+func recordUserAuditAndNotify(c *gin.Context, action, entity, url, message, icon string, payload interface{}) {
+	var userID *uint
+	var username string = "anonymous"
+	if userVal, exists := c.Get("user"); exists {
+		if u, ok := userVal.(*models.User); ok {
+			userID = &u.ID
+			username = u.Username
+		}
+	}
+
+	payloadBytes, _ := json.Marshal(payload)
+	
+	audit := models.AuditLog{
+		IPAddress:    c.ClientIP(),
+		UserID:       userID,
+		Username:     username,
+		Action:       action,
+		Entity:       entity,
+		URL:          url,
+		Payload:      datatypes.JSON(payloadBytes),
+		KongNodeName: "system",
+	}
+	db.DB.Create(&audit)
+
+	notif := models.KongaNotification{
+		Message:     message,
+		Icon:        icon,
+		State:       "users",
+		StateParams: datatypes.JSON("{}"),
+		UserID:      userID,
+	}
+	db.DB.Create(&notif)
 }

@@ -66,6 +66,16 @@ export const Users: React.FC = () => {
     }
   };
 
+  const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    setError('');
+    try {
+      await axios.patch(`/api/users/${id}`, { active: !currentStatus });
+      fetchUsers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update user status');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -99,6 +109,7 @@ export const Users: React.FC = () => {
                   <th className="px-6 py-3.5">Username</th>
                   <th className="px-6 py-3.5">Email</th>
                   <th className="px-6 py-3.5">Role</th>
+                  <th className="px-6 py-3.5 text-center">Status</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -144,6 +155,26 @@ export const Users: React.FC = () => {
                           <option value="developer">Developer</option>
                         </select>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        type="button"
+                        disabled={currentUser?.id === u.id}
+                        onClick={() => handleToggleActive(u.id, u.active)}
+                        className={`relative inline-flex h-5 w-12 items-center rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          u.active ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`}
+                        title={u.active ? 'Disable user' : 'Enable user'}
+                      >
+                        <span className={`absolute ${u.active ? 'left-1 text-white' : 'right-1 text-slate-500'} text-[9px] font-bold select-none pointer-events-none uppercase`}>
+                          {u.active ? 'YES' : 'NO'}
+                        </span>
+                        <span
+                          className={`inline-block h-4 w-4 transform bg-white transition-transform ${
+                            u.active ? 'translate-x-7' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">

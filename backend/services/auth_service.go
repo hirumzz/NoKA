@@ -31,10 +31,6 @@ func (s *authService) Login(identifier, password string) (*models.User, string, 
 		return nil, "", errors.New("Invalid username or password")
 	}
 
-	if !user.Active {
-		return nil, "", errors.New("Account is not activated.")
-	}
-
 	passport, err := s.userRepo.GetPassportByUserID(user.ID, "local")
 	if err != nil {
 		return nil, "", errors.New("No local authentication found for this user")
@@ -42,6 +38,11 @@ func (s *authService) Login(identifier, password string) (*models.User, string, 
 
 	if !utils.CheckPasswordHash(password, passport.Password) {
 		return nil, "", errors.New("Invalid username or password")
+	}
+
+	// Verify if account is active ONLY AFTER password is correct
+	if !user.Active {
+		return nil, "", errors.New("ACCOUNT_DISABLED")
 	}
 
 	token, err := utils.IssueToken(user.ID)

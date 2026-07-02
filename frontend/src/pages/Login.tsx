@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Lock, Mail } from 'lucide-react';
+import { Lock, Mail, AlertTriangle, X } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -14,6 +14,7 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [signupEnabled, setSignupEnabled] = useState(false);
+  const [disabledModalOpen, setDisabledModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -36,9 +37,16 @@ export const Login: React.FC = () => {
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);
-      setShake(true);
-      setTimeout(() => setShake(false), 500); // reset shake animation
-      addToast('error', err.response?.data?.message || 'Invalid username or password', 'Login Failed');
+      
+      const errMsg = err.response?.data?.message || err.message;
+      
+      if (errMsg === 'ACCOUNT_DISABLED') {
+        setDisabledModalOpen(true);
+      } else {
+        setShake(true);
+        setTimeout(() => setShake(false), 500); // reset shake animation
+        addToast('error', errMsg || 'Invalid username or password', 'Login Failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +127,32 @@ export const Login: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Disabled Account Modal */}
+      {disabledModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-lg shadow-xl border border-border-light w-full max-w-sm overflow-hidden animate-slideUp">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 text-red-500 mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-center text-lg font-bold text-text-primary mb-2">Account Disabled</h3>
+              <p className="text-center text-xs text-text-secondary leading-relaxed">
+                Your account has been deactivated by an administrator. You cannot log in or access the NOKA console at this time.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setDisabledModalOpen(false)}
+                  className="px-6 py-2.5 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold transition-colors shadow-sm"
+                >
+                  Understood
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
