@@ -35,7 +35,8 @@ interface Connection {
 }
 
 export const Connections: React.FC = () => {
-  const { setUser } = useAuth();
+  const { user: currentUser, setUser } = useAuth();
+  const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -256,12 +257,14 @@ export const Connections: React.FC = () => {
           <h2 className="text-xl font-bold tracking-tight text-text-primary">Connections</h2>
           <p className="text-xs text-text-secondary mt-1">Manage and switch between different Kong Admin API gateways</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4 mr-2" /> ADD CONNECTION
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4 mr-2" /> ADD CONNECTION
+          </button>
+        )}
       </div>
 
       {error && (
@@ -552,14 +555,19 @@ export const Connections: React.FC = () => {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        {/* Click Name to Edit */}
-                        <h4 
-                          onClick={() => openEditModal(conn)}
-                          className="font-bold text-sm text-text-primary cursor-pointer hover:text-brand-primary hover:underline flex items-center gap-1.5"
-                        >
-                          {conn.name}
-                          <Settings className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />
-                        </h4>
+                        {isAdmin ? (
+                          <h4 
+                            onClick={() => openEditModal(conn)}
+                            className="font-bold text-sm text-text-primary cursor-pointer hover:text-brand-primary hover:underline flex items-center gap-1.5"
+                          >
+                            {conn.name}
+                            <Settings className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />
+                          </h4>
+                        ) : (
+                          <h4 className="font-bold text-sm text-text-primary flex items-center gap-1.5">
+                            {conn.name}
+                          </h4>
+                        )}
                         {conn.active && (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 text-[10px] font-bold">
                             <CheckCircle className="w-3.5 h-3.5" /> ACTIVE
@@ -592,13 +600,15 @@ export const Connections: React.FC = () => {
                         ACTIVATE
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(conn.id)}
-                      className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
-                      title="Delete Connection"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(conn.id)}
+                        className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
+                        title="Delete Connection"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
