@@ -210,8 +210,8 @@ func main() {
 		api.GET("/reachability", kongHandler.GetReachabilityStatuses)
 		api.POST("/reachability/refresh", kongHandler.TriggerReachabilityCheck)
 
-		// Snapshots
-		api.GET("/snapshots", handlers.GetSnapshots)
+		// Snapshots (Admin only)
+		api.GET("/snapshots", middleware.AdminRequired(), handlers.GetSnapshots)
 		api.POST("/snapshots", middleware.AdminRequired(), handlers.CreateSnapshot)
 		api.DELETE("/snapshots/:id", middleware.AdminRequired(), handlers.DeleteSnapshot)
 	}

@@ -47,6 +47,29 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <Layout>{children}</Layout>;
 };
 
+const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <span className="w-10 h-10 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isAdmin = user.admin || user.role === 'admin';
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Layout>{children}</Layout>;
+};
+
 function App() {
   return (
     <ToastProvider>
@@ -205,9 +228,9 @@ function App() {
           <Route
             path="/audit-logs"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <AuditLogs />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
           <Route
@@ -229,9 +252,9 @@ function App() {
           <Route
             path="/snapshots"
             element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <Snapshots />
-              </ProtectedRoute>
+              </AdminRoute>
             }
           />
           <Route

@@ -23,6 +23,7 @@ interface UserData {
 
 export const Users: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin');
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -144,48 +145,66 @@ export const Users: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <Shield className="w-3.5 h-3.5 text-text-muted" />
-                        <select
-                          disabled={currentUser?.id === u.id}
-                          value={u.role}
-                          onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          className="px-2 py-1 rounded border border-border-light bg-slate-50 text-xs font-bold text-text-primary outline-none focus:border-brand-primary disabled:opacity-65"
-                        >
-                          <option value="admin">Administrator</option>
-                          <option value="viewer">Viewer</option>
-                          <option value="developer">Developer</option>
-                        </select>
+                        {isAdmin ? (
+                          <select
+                            disabled={currentUser?.id === u.id}
+                            value={u.role}
+                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                            className="px-2 py-1 rounded border border-border-light bg-slate-50 text-xs font-bold text-text-primary outline-none focus:border-brand-primary disabled:opacity-65"
+                          >
+                            <option value="admin">Administrator</option>
+                            <option value="viewer">Viewer</option>
+                            <option value="developer">Developer</option>
+                          </select>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold capitalize">
+                            {u.role}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        type="button"
-                        disabled={currentUser?.id === u.id}
-                        onClick={() => handleToggleActive(u.id, u.active)}
-                        className={`relative inline-flex h-5 w-12 items-center rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          u.active ? 'bg-emerald-500' : 'bg-slate-300'
-                        }`}
-                        title={u.active ? 'Disable user' : 'Enable user'}
-                      >
-                        <span className={`absolute ${u.active ? 'left-1 text-white' : 'right-1 text-slate-500'} text-[9px] font-bold select-none pointer-events-none uppercase`}>
-                          {u.active ? 'YES' : 'NO'}
-                        </span>
-                        <span
-                          className={`inline-block h-4 w-4 transform bg-white transition-transform ${
-                            u.active ? 'translate-x-7' : 'translate-x-1'
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          disabled={currentUser?.id === u.id}
+                          onClick={() => handleToggleActive(u.id, u.active)}
+                          className={`relative inline-flex h-5 w-12 items-center rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            u.active ? 'bg-emerald-500' : 'bg-slate-300'
                           }`}
-                        />
-                      </button>
+                          title={u.active ? 'Disable user' : 'Enable user'}
+                        >
+                          <span className={`absolute ${u.active ? 'left-1 text-white' : 'right-1 text-slate-500'} text-[9px] font-bold select-none pointer-events-none uppercase`}>
+                            {u.active ? 'YES' : 'NO'}
+                          </span>
+                          <span
+                            className={`inline-block h-4 w-4 transform bg-white transition-transform ${
+                              u.active ? 'translate-x-7' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          u.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {u.active ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button
-                          disabled={currentUser?.id === u.id}
-                          onClick={() => handleDeleteUser(u.id)}
-                          className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary disabled:opacity-35 disabled:cursor-not-allowed"
-                          title="Delete User"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isAdmin ? (
+                          <button
+                            disabled={currentUser?.id === u.id}
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary disabled:opacity-35 disabled:cursor-not-allowed"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-text-muted font-medium italic">Read-only</span>
+                        )}
                       </div>
                     </td>
                   </tr>
