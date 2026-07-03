@@ -46,6 +46,24 @@ body {
   overflow-x: hidden;
 }
 
+/* Global Interactive Cursors */
+button,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"],
+a,
+[role="button"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
 /* Glassmorphism utility card for classic light mode panels */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
