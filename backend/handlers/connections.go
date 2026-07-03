@@ -225,14 +225,28 @@ func UpdateConnection(c *gin.Context) {
 	if req.Type != "" {
 		updates["type"] = req.Type
 	}
-	// These credential fields are always written, including empty strings to allow clearing
-	updates["kong_api_key"] = req.KongAPIKey
-	updates["username"] = req.Username
-	updates["password"] = req.Password
-	updates["jwt_algorithm"] = req.JWTAlgorithm
-	updates["jwt_key"] = req.JWTKey
-	updates["jwt_secret"] = req.JWTSecret
-	updates["netdata_url"] = req.NetdataURL
+	// Only update credential fields if explicitly provided or changing auth type
+	if req.KongAPIKey != "" || req.Type != "" {
+		updates["kong_api_key"] = req.KongAPIKey
+	}
+	if req.Username != "" || req.Type != "" {
+		updates["username"] = req.Username
+	}
+	if req.Password != "" || req.Type != "" {
+		updates["password"] = req.Password
+	}
+	if req.JWTAlgorithm != "" {
+		updates["jwt_algorithm"] = req.JWTAlgorithm
+	}
+	if req.JWTKey != "" || req.Type != "" {
+		updates["jwt_key"] = req.JWTKey
+	}
+	if req.JWTSecret != "" || req.Type != "" {
+		updates["jwt_secret"] = req.JWTSecret
+	}
+	if req.NetdataURL != "" {
+		updates["netdata_url"] = req.NetdataURL
+	}
 
 	if req.HealthChecks != nil {
 		updates["health_checks"] = *req.HealthChecks

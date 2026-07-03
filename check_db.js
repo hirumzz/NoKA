@@ -7,13 +7,9 @@ const client = new Client({
 async function main() {
   await client.connect();
   try {
-    const res = await client.query('SELECT id, username, email, admin, role FROM konga_users');
-    console.log("=== konga_users ===");
+    const res = await client.query('SELECT * FROM konga_kong_nodes');
+    console.log("=== konga_kong_nodes ===");
     console.log(JSON.stringify(res.rows, null, 2));
-
-    const commentsRes = await client.query('SELECT * FROM konga_kongacomment');
-    console.log("\n=== konga_comments ===");
-    console.log(JSON.stringify(commentsRes.rows, null, 2));
 
   } catch (err) {
     console.error("Error executing query:", err);

@@ -641,13 +641,12 @@ export const Connections: React.FC = () => {
                   <button
                     key={t}
                     type="button"
-                    disabled={!isAdmin}
-                    onClick={() => isAdmin && setEditType(t)}
-                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
+                    onClick={() => setEditType(t)}
+                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors cursor-pointer ${
                       active
                         ? 'border-brand-primary bg-brand-primary text-white'
                         : 'border-transparent text-text-secondary hover:text-brand-primary'
-                    } ${!isAdmin ? 'cursor-default' : ''}`}
+                    }`}
                   >
                     {labels[t]}
                   </button>
