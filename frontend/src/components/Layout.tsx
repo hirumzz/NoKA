@@ -179,7 +179,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         { path: '/vaults', label: 'VAULTS', icon: Lock },
         { path: '/keys', label: 'KEYS', icon: Key },
         { path: '/key-sets', label: 'KEY SETS', icon: Layers },
-        { path: '/snapshots', label: 'SNAPSHOTS', icon: Camera }
+        { path: '/snapshots', label: 'SNAPSHOTS', icon: Camera, adminOnly: true }
       ]
     },
     {
@@ -246,7 +246,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.1.0</span>
+          <span className="text-brand-primary">NOKA v2.2.4</span>
         </div>
       </aside>
 

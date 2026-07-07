@@ -35,7 +35,8 @@ interface Connection {
 }
 
 export const Connections: React.FC = () => {
-  const { setUser } = useAuth();
+  const { user: currentUser, setUser } = useAuth();
+  const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -256,12 +257,14 @@ export const Connections: React.FC = () => {
           <h2 className="text-xl font-bold tracking-tight text-text-primary">Connections</h2>
           <p className="text-xs text-text-secondary mt-1">Manage and switch between different Kong Admin API gateways</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4 mr-2" /> ADD CONNECTION
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4 mr-2" /> ADD CONNECTION
+          </button>
+        )}
       </div>
 
       {error && (
@@ -552,13 +555,12 @@ export const Connections: React.FC = () => {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        {/* Click Name to Edit */}
                         <h4 
                           onClick={() => openEditModal(conn)}
                           className="font-bold text-sm text-text-primary cursor-pointer hover:text-brand-primary hover:underline flex items-center gap-1.5"
                         >
                           {conn.name}
-                          <Settings className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />
+                          {isAdmin && <Settings className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />}
                         </h4>
                         {conn.active && (
                           <span className="flex items-center gap-1 px-2 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 text-[10px] font-bold">
@@ -592,13 +594,15 @@ export const Connections: React.FC = () => {
                         ACTIVATE
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDelete(conn.id)}
-                      className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
-                      title="Delete Connection"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(conn.id)}
+                        className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
+                        title="Delete Connection"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -617,7 +621,9 @@ export const Connections: React.FC = () => {
           <div className="bg-white w-full max-w-lg rounded-lg shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b-2 border-brand-primary">
-              <h3 className="text-base font-bold text-brand-primary uppercase tracking-wide">Update Connection</h3>
+              <h3 className="text-base font-bold text-brand-primary uppercase tracking-wide">
+                {isAdmin ? 'Update Connection' : 'Connection Details (Read-Only)'}
+              </h3>
               <button onClick={() => setEditingConnection(null)} className="text-text-muted hover:text-text-primary">
                 <X className="w-5 h-5" />
               </button>
@@ -636,7 +642,7 @@ export const Connections: React.FC = () => {
                     key={t}
                     type="button"
                     onClick={() => setEditType(t)}
-                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
+                    className={`px-4 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors cursor-pointer ${
                       active
                         ? 'border-brand-primary bg-brand-primary text-white'
                         : 'border-transparent text-text-secondary hover:text-brand-primary'
@@ -687,9 +693,10 @@ export const Connections: React.FC = () => {
                 <input
                   type="text"
                   required
+                  readOnly={!isAdmin}
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                  onChange={(e) => isAdmin && setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                 />
               </div>
 
@@ -701,9 +708,10 @@ export const Connections: React.FC = () => {
                 <input
                   type="text"
                   required
+                  readOnly={!isAdmin}
                   value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                  onChange={(e) => isAdmin && setEditUrl(e.target.value)}
+                  className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                 />
               </div>
 
@@ -717,9 +725,10 @@ export const Connections: React.FC = () => {
                     <input
                       type={showEditApiKey ? 'text' : 'password'}
                       required
+                      readOnly={!isAdmin}
                       value={editApiKey}
-                      onChange={(e) => setEditApiKey(e.target.value)}
-                      className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                      onChange={(e) => isAdmin && setEditApiKey(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                     />
                     <button
                       type="button"
@@ -738,9 +747,10 @@ export const Connections: React.FC = () => {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-text-primary">Algorithm</label>
                     <select
+                      disabled={!isAdmin}
                       value={editJwtAlgorithm}
-                      onChange={(e) => setEditJwtAlgorithm(e.target.value)}
-                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                      onChange={(e) => isAdmin && setEditJwtAlgorithm(e.target.value)}
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary disabled:bg-slate-50 disabled:text-text-secondary"
                     >
                       <option value="HS256">HS256</option>
                       <option value="RS256">RS256</option>
@@ -753,9 +763,10 @@ export const Connections: React.FC = () => {
                     <input
                       type="text"
                       required
+                      readOnly={!isAdmin}
                       value={editJwtKey}
-                      onChange={(e) => setEditJwtKey(e.target.value)}
-                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                      onChange={(e) => isAdmin && setEditJwtKey(e.target.value)}
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                     />
                   </div>
                   <div className="space-y-1">
@@ -766,9 +777,10 @@ export const Connections: React.FC = () => {
                       <input
                         type={showEditJwtSecret ? 'text' : 'password'}
                         required
+                        readOnly={!isAdmin}
                         value={editJwtSecret}
-                        onChange={(e) => setEditJwtSecret(e.target.value)}
-                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                        onChange={(e) => isAdmin && setEditJwtSecret(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                       />
                       <button
                         type="button"
@@ -792,9 +804,10 @@ export const Connections: React.FC = () => {
                     <input
                       type="text"
                       required
+                      readOnly={!isAdmin}
                       value={editUsername}
-                      onChange={(e) => setEditUsername(e.target.value)}
-                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                      onChange={(e) => isAdmin && setEditUsername(e.target.value)}
+                      className="w-full px-3 py-2 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                     />
                   </div>
                   <div className="space-y-1">
@@ -805,9 +818,10 @@ export const Connections: React.FC = () => {
                       <input
                         type={showEditPassword ? 'text' : 'password'}
                         required
+                        readOnly={!isAdmin}
                         value={editPassword}
-                        onChange={(e) => setEditPassword(e.target.value)}
-                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary"
+                        onChange={(e) => isAdmin && setEditPassword(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 border-b border-border-light bg-transparent text-sm outline-none focus:border-brand-primary read-only:bg-slate-50 read-only:text-text-secondary"
                       />
                       <button
                         type="button"
@@ -822,12 +836,22 @@ export const Connections: React.FC = () => {
               )}
 
               {/* Submit */}
-              <button
-                type="submit"
-                className="w-full py-3 mt-4 bg-brand-primary text-white font-bold text-sm uppercase tracking-wide rounded flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors"
-              >
-                <Check className="w-4 h-4" /> UPDATE CONNECTION
-              </button>
+              {isAdmin ? (
+                <button
+                  type="submit"
+                  className="w-full py-3 mt-4 bg-brand-primary text-white font-bold text-sm uppercase tracking-wide rounded flex items-center justify-center gap-2 hover:bg-brand-primary-hover transition-colors cursor-pointer"
+                >
+                  <Check className="w-4 h-4" /> UPDATE CONNECTION
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingConnection(null)}
+                  className="w-full py-3 mt-4 bg-slate-200 text-text-primary font-bold text-sm uppercase tracking-wide rounded flex items-center justify-center gap-2 hover:bg-slate-300 transition-colors cursor-pointer"
+                >
+                  CLOSE
+                </button>
+              )}
             </form>
           </div>
         </div>
