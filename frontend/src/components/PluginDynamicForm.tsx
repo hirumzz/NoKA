@@ -8,6 +8,64 @@ interface PluginDynamicFormProps {
   onChange: (config: any) => void;
 }
 
+const cleanPluginConfig = (config: any, schema: any) => {
+  if (!config || !schema) return config;
+  const cleaned = { ...config };
+  const configField = schema.fields?.find((f: any) => f.config);
+  const fields = configField?.config?.fields || [];
+  
+  fields.forEach((fieldObj: any) => {
+    const fieldName = Object.keys(fieldObj)[0];
+    const fieldMeta = fieldObj[fieldName];
+    
+    if (fieldMeta.type === 'record' && Array.isArray(fieldMeta.fields)) {
+      const recordVal = cleaned[fieldName];
+      if (recordVal && typeof recordVal === 'object') {
+        let allEmpty = true;
+        const subFields = fieldMeta.fields;
+        
+        subFields.forEach((subFieldObj: any) => {
+          const subFieldName = Object.keys(subFieldObj)[0];
+          const subFieldMeta = subFieldObj[subFieldName];
+          const val = recordVal[subFieldName];
+          
+          if (subFieldMeta.type === 'array' || subFieldMeta.type === 'set') {
+            if (Array.isArray(val) && val.length > 0) {
+              allEmpty = false;
+            }
+          } else if (val !== undefined && val !== null && val !== '') {
+            allEmpty = false;
+          }
+        });
+        
+        if (allEmpty) {
+          delete cleaned[fieldName];
+        } else {
+          const fullyPopulatedRecord = { ...recordVal };
+          subFields.forEach((subFieldObj: any) => {
+            const subFieldName = Object.keys(subFieldObj)[0];
+            const subFieldMeta = subFieldObj[subFieldName];
+            if (fullyPopulatedRecord[subFieldName] === undefined || fullyPopulatedRecord[subFieldName] === null) {
+              if (subFieldMeta.type === 'array' || subFieldMeta.type === 'set') {
+                fullyPopulatedRecord[subFieldName] = [];
+              } else if (subFieldMeta.type === 'boolean') {
+                fullyPopulatedRecord[subFieldName] = false;
+              } else {
+                fullyPopulatedRecord[subFieldName] = '';
+              }
+            }
+          });
+          cleaned[fieldName] = fullyPopulatedRecord;
+        }
+      } else {
+        delete cleaned[fieldName];
+      }
+    }
+  });
+  
+  return cleaned;
+};
+
 export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
   pluginName,
   initialConfig = {},
@@ -64,7 +122,8 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
   const handleFieldChange = (field: string, value: any) => {
     const newConfig = { ...configData, [field]: value };
     setConfigData(newConfig);
-    onChange(newConfig);
+    const cleaned = cleanPluginConfig(newConfig, schema);
+    onChange(cleaned);
   };
 
   if (loading) {
@@ -120,7 +179,7 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
                   </div>
                 )}
               </div>
-              {fieldMeta.required && (
+              {fieldMeta.required && fieldMeta.type !== 'record' && (
                 <span className="text-[9px] text-red-500 font-bold mt-0.5">* required</span>
               )}
             </div>
@@ -222,6 +281,45 @@ const renderInput = (fieldName: string, fieldMeta: any, value: any, onChange: (f
   }
 
   if (type === 'record') {
+    if (Array.isArray(fieldMeta.fields)) {
+      const recordValue = typeof value === 'object' && value !== null ? value : {};
+      return (
+        <div className="space-y-4 p-4 bg-slate-50/50 rounded border border-border-light">
+          {fieldMeta.fields.map((subFieldObj: any, idx: number) => {
+            const subFieldName = Object.keys(subFieldObj)[0];
+            const subFieldMeta = subFieldObj[subFieldName];
+            const subValue = recordValue[subFieldName] ?? subFieldMeta.default;
+
+            return (
+              <div key={idx} className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">
+                    {subFieldName.replace(/_/g, ' ')}
+                  </label>
+                  {subFieldMeta.description && (
+                    <div className="group relative">
+                      <HelpCircle className="w-3 h-3 text-text-muted hover:text-brand-primary cursor-help" />
+                      <div className="absolute left-0 bottom-full mb-1.5 hidden group-hover:block w-48 p-1.5 bg-slate-800 text-white text-[9px] rounded shadow-lg z-10 font-normal leading-relaxed">
+                        {subFieldMeta.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {renderInput(
+                  subFieldName,
+                  subFieldMeta,
+                  subValue,
+                  (f, v) => {
+                    onChange(fieldName, { ...recordValue, [f]: v });
+                  }
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     const textValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
     const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       try {
