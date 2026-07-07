@@ -8,10 +8,12 @@ import {
   Trash2, 
   X,
   Settings,
-  Search
+  Search,
+  Eye
 } from 'lucide-react';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { PluginGallery } from '../components/PluginGallery';
+import { RawViewModal } from '../components/RawViewModal';
 import { Pagination } from '../components/Pagination';
 
 interface PluginItem {
@@ -80,6 +82,9 @@ export const Plugins: React.FC = () => {
   const [editingPlugin, setEditingPlugin] = useState<PluginItem | null>(null);
   const [editEnabled, setEditEnabled] = useState(true);
   const [editConfig, setEditConfig] = useState<any>({});
+  
+  // Raw View Modal states
+  const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
 
   useEffect(() => {
     fetchPluginsAndResources();
@@ -393,6 +398,13 @@ export const Plugins: React.FC = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
+                              onClick={() => setViewingRawPlugin(plugin)}
+                              className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                              title="View Raw JSON Config"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => handleDeletePlugin(plugin.id)}
                               className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
                               title="Disable Plugin"
@@ -489,6 +501,15 @@ export const Plugins: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Raw View Modal */}
+      <RawViewModal
+        isOpen={!!viewingRawPlugin}
+        onClose={() => setViewingRawPlugin(null)}
+        title={`Raw View: ${viewingRawPlugin?.name}`}
+        subtitle={`ID: ${viewingRawPlugin?.id}`}
+        data={viewingRawPlugin}
+      />
     </div>
   );
 };
