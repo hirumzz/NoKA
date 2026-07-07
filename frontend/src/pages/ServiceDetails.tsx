@@ -12,10 +12,15 @@ import {
   Activity,
   XCircle,
   GitBranch,
-  Users
+  Users,
+  Settings,
+  X,
+  Eye
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
+import { PluginDynamicForm } from '../components/PluginDynamicForm';
+import { RawViewModal } from '../components/RawViewModal';
 
 
 interface KongService {
@@ -81,6 +86,14 @@ export const ServiceDetails: React.FC = () => {
 
   // Add Plugin Modal states
   const [showAddPlugin, setShowAddPlugin] = useState(false);
+
+  // Edit Plugin Modal states
+  const [editingPlugin, setEditingPlugin] = useState<KongPlugin | null>(null);
+  const [editEnabled, setEditEnabled] = useState(true);
+  const [editConfig, setEditConfig] = useState<any>({});
+
+  // Raw View Modal states
+  const [viewingRawPlugin, setViewingRawPlugin] = useState<any>(null);
 
   useEffect(() => {
     fetchServiceDetails();
@@ -270,6 +283,29 @@ export const ServiceDetails: React.FC = () => {
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to enable plugin');
     }
+  };
+
+  const handleUpdatePlugin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPlugin) return;
+
+    try {
+      await axios.patch(`/api/kong/plugins/${editingPlugin.id}`, {
+        enabled: editEnabled,
+        config: editConfig
+      });
+
+      setEditingPlugin(null);
+      fetchSubResources();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update plugin');
+    }
+  };
+
+  const openEditModal = (plugin: KongPlugin) => {
+    setEditingPlugin(plugin);
+    setEditEnabled(plugin.enabled !== false);
+    setEditConfig(plugin.config || {});
   };
 
   const handleDeletePlugin = async (pluginId: string) => {
@@ -655,35 +691,83 @@ export const ServiceDetails: React.FC = () => {
               />
             )}
 
-            <div className="divide-y divide-border-light">
+            <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden mt-4">
               {plugins.length > 0 ? (
-                plugins.map(plugin => (
-                  <div key={plugin.id} className="py-4 flex justify-between items-center gap-4 hover:bg-slate-50/20 px-2 rounded">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-text-primary capitalize">{plugin.name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          plugin.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {plugin.enabled ? 'ENABLED' : 'DISABLED'}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-text-muted font-mono block mt-1">ID: {plugin.id}</span>
-                      <pre className="text-[10px] font-mono bg-slate-50 p-2 border rounded mt-2 max-h-24 overflow-y-auto select-all leading-normal font-medium text-text-secondary">
-                        {JSON.stringify(plugin.config, null, 2)}
-                      </pre>
-                    </div>
-                    <button 
-                      onClick={() => handleDeletePlugin(plugin.id)} 
-                      className="p-2 rounded border border-border-light text-text-secondary hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
-                      title="Disable Plugin"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+                        <th className="px-6 py-3.5">Name</th>
+                        <th className="px-6 py-3.5">Status</th>
+                        <th className="px-6 py-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
+                      {plugins.map(plugin => (
+                        <tr key={plugin.id} className="hover:bg-slate-50/25 transition-colors group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center bg-white border border-border-light shadow-sm">
+                                <img 
+                                  src={`/images/kong/plugins/${plugin.name}.png`} 
+                                  alt={plugin.name}
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/images/kong/plugins/kong.svg';
+                                  }}
+                                  className="max-w-full max-h-full object-contain p-1"
+                                />
+                              </div>
+                              <div>
+                                <span 
+                                  onClick={() => openEditModal(plugin)}
+                                  className="font-bold text-sm text-blue-600 block cursor-pointer hover:underline flex items-center gap-1.5 capitalize"
+                                >
+                                  {plugin.name}
+                                  <Settings className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100" />
+                                </span>
+                                <span className="text-[10px] text-text-muted font-mono block select-all mt-0.5">{plugin.id}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              plugin.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {plugin.enabled ? 'ENABLED' : 'DISABLED'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setViewingRawPlugin(plugin)}
+                              className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                              title="View Raw JSON Config"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingPlugin(plugin)}
+                              className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                              title="Configure Plugin"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlugin(plugin.id)}
+                              className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
+                              title="Disable Plugin"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
-                <div className="text-text-muted text-xs italic py-4">No plugins configured specifically for this service.</div>
+                <div className="text-center text-text-muted text-xs italic py-8">No plugins configured specifically for this service.</div>
               )}
             </div>
           </div>
@@ -691,6 +775,78 @@ export const ServiceDetails: React.FC = () => {
       )}
       </div>
       </div>
+
+      {/* Edit Plugin Modal */}
+      {editingPlugin && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-lg border border-border-light shadow-xl flex flex-col max-h-[85vh] animate-scaleUp overflow-hidden">
+            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">
+                Configure Plugin: {editingPlugin.name}
+              </h3>
+              <button onClick={() => setEditingPlugin(null)} className="p-1 rounded hover:bg-slate-100 text-text-muted">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdatePlugin} className="p-6 space-y-4 overflow-y-auto">
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded border border-border-light">
+                <span className="text-xs font-bold text-text-primary uppercase">Status Active</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-text-secondary uppercase">
+                    {editEnabled ? "ENABLED" : "DISABLED"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditEnabled(!editEnabled)}
+                    className={`w-8 h-4 rounded-full relative transition-colors ${
+                      editEnabled ? 'bg-brand-primary' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 bg-white rounded-full absolute top-0.25 transition-all shadow-sm ${
+                      editEnabled ? 'right-0.5' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1 mt-4">
+                <div className="bg-white border border-border-light rounded-lg p-6">
+                  <PluginDynamicForm
+                    pluginName={editingPlugin.name}
+                    initialConfig={editConfig}
+                    onChange={(cfg) => setEditConfig(cfg)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-border-light mt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingPlugin(null)}
+                  className="px-4 py-2 rounded border border-border-light text-xs font-semibold hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs uppercase"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Raw View Modal */}
+      <RawViewModal
+        isOpen={!!viewingRawPlugin}
+        onClose={() => setViewingRawPlugin(null)}
+        title={`Raw View: ${viewingRawPlugin?.name}`}
+        subtitle={`ID: ${viewingRawPlugin?.id}`}
+        data={viewingRawPlugin}
+      />
     </div>
   );
 };
