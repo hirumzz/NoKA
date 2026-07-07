@@ -15,7 +15,7 @@ import {
   Users
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
-import { PluginDynamicForm } from '../components/PluginDynamicForm';
+import { PluginGallery } from '../components/PluginGallery';
 
 
 interface KongService {
@@ -81,8 +81,6 @@ export const ServiceDetails: React.FC = () => {
 
   // Add Plugin Modal states
   const [showAddPlugin, setShowAddPlugin] = useState(false);
-  const [pluginName, setPluginName] = useState('key-auth');
-  const [pluginConfig, setPluginConfig] = useState<any>({});
 
   useEffect(() => {
     fetchServiceDetails();
@@ -256,16 +254,18 @@ export const ServiceDetails: React.FC = () => {
     }
   };
 
-  const handleAddPlugin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddPluginFromGallery = async (pluginName: string, config: any, tags: string[]) => {
     setError('');
     try {
-      await axios.post(`/api/kong/services/${id}/plugins`, {
+      const payload: any = {
         name: pluginName,
-        config: pluginConfig
-      });
+        config: config
+      };
+      if (tags && tags.length > 0) {
+        payload.tags = tags;
+      }
+      await axios.post(`/api/kong/services/${id}/plugins`, payload);
       setShowAddPlugin(false);
-      setPluginConfig({});
       fetchSubResources();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to enable plugin');
@@ -648,38 +648,11 @@ export const ServiceDetails: React.FC = () => {
             </div>
 
             {showAddPlugin && (
-              <form onSubmit={handleAddPlugin} className="p-4 bg-slate-50 rounded border border-border-light space-y-4 animate-slideDown max-w-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Plugin Type</label>
-                    <select
-                      value={pluginName}
-                      onChange={(e) => setPluginName(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-border-light bg-white text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                    >
-                      <option value="key-auth">Key Authentication</option>
-                      <option value="rate-limiting">Rate Limiting</option>
-                      <option value="cors">CORS</option>
-                      <option value="prometheus">Prometheus</option>
-                      <option value="jwt">JWT Authentication</option>
-                      <option value="acl">Access Control List (ACL)</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="bg-white border border-border-light rounded p-4">
-                    <PluginDynamicForm
-                      pluginName={pluginName}
-                      initialConfig={pluginConfig}
-                      onChange={setPluginConfig}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <button type="button" onClick={() => setShowAddPlugin(false)} className="px-3 py-1.5 border rounded bg-white text-xs font-semibold">Cancel</button>
-                  <button type="submit" className="px-3 py-1.5 bg-brand-primary text-white rounded text-xs font-bold uppercase">Enable Plugin</button>
-                </div>
-              </form>
+              <PluginGallery 
+                onAdd={handleAddPluginFromGallery} 
+                onCancel={() => setShowAddPlugin(false)} 
+                scopeContext="specifically for this service" 
+              />
             )}
 
             <div className="divide-y divide-border-light">
