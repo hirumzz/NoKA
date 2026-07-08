@@ -650,7 +650,7 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 
 	proxyUrl := c.Query("proxyUrl")
 	// SSRF Protection: Only admins can supply an arbitrary proxy URL for pinging
-	if proxyUrl != "" && (user == nil || user.Role != "admin") {
+	if proxyUrl != "" && (user == nil || (user.Role != "admin" && user.Role != "superadmin")) {
 		proxyUrl = node.KongProxyURL // Fallback to safe node setting
 	} else if proxyUrl == "" {
 		proxyUrl = node.KongProxyURL

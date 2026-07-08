@@ -87,7 +87,7 @@ func AdminRequired() gin.HandlerFunc {
 		}
 
 		user := userVal.(*models.User)
-		if !user.Admin && user.Role != "admin" {
+		if !user.Admin && user.Role != "admin" && user.Role != "superadmin" {
 			c.JSON(http.StatusForbidden, gin.H{"message": "Admin privileges required"})
 			c.Abort()
 			return

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { HelpCircle, AlertCircle, Plus, Trash2, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface PluginDynamicFormProps {
   pluginName: string;
   initialConfig?: any;
   onChange: (config: any) => void;
+  onValidationError?: (hasError: boolean) => void;
 }
 
 const cleanPluginConfig = (config: any, schema: any) => {
@@ -28,11 +30,10 @@ const cleanPluginConfig = (config: any, schema: any) => {
           allEmpty = false;
         }
         
-        if (subVal === undefined || subVal === null) {
+        if (subVal === undefined || subVal === null || subVal === '') {
           if (subMeta.type === 'array' || subMeta.type === 'set') fullyPopulated[k] = [];
           else if (subMeta.type === 'boolean') fullyPopulated[k] = false;
-          else if (subMeta.type === 'map') delete fullyPopulated[k];
-          else fullyPopulated[k] = '';
+          else fullyPopulated[k] = null;
         } else {
           fullyPopulated[k] = subVal;
         }
@@ -64,8 +65,14 @@ const cleanPluginConfig = (config: any, schema: any) => {
     
     if (val !== undefined) {
       const cleanedVal = cleanValue(val, fieldMeta);
-      if (cleanedVal === undefined) {
-        delete cleaned[fieldName];
+      if (cleanedVal === undefined || cleanedVal === '') {
+        // Jika bertipe 'record', hapus field sepenuhnya agar Kong mengabaikannya
+        // Jika bertipe biasa (seperti string http_method), set ke null agar Kong menghapus nilainya
+        if (fieldMeta.type === 'record') {
+          delete cleaned[fieldName];
+        } else {
+          cleaned[fieldName] = null;
+        }
       } else {
         cleaned[fieldName] = cleanedVal;
       }
@@ -198,11 +205,15 @@ const RecordArrayInput = ({ value, fieldMeta, onChange, renderInputFn }: { value
 export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
   pluginName,
   initialConfig = {},
-  onChange
+  onChange,
+  onValidationError
 }) => {
   const [schema, setSchema] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const { user } = useAuth();
+  const isAdmin = !!(user?.admin || user?.role === 'admin' || user?.role === 'superadmin');
   const [configData, setConfigData] = useState<any>(initialConfig || {});
 
   // Raw JSON Mode states
@@ -269,14 +280,17 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
     try {
       if (!text.trim()) {
         setJsonError('');
+        onValidationError?.(false);
         onChange({});
         return;
       }
       const parsed = JSON.parse(text);
       setJsonError('');
+      onValidationError?.(false);
       onChange(parsed);
     } catch (err: any) {
       setJsonError('Invalid JSON format: ' + err.message);
+      onValidationError?.(true);
     }
   };
 
@@ -416,7 +430,7 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
 
     if (type === 'record') {
       if (Array.isArray(fieldMeta.fields)) {
-        const recordValue = typeof value === 'object' && value !== null ? value : {};
+        const recordValue = typeof value === 'object' && value !== null && !Array.isArray(value) ? value : {};
         return (
           <div className="space-y-4 p-4 bg-slate-50/50 rounded border border-border-light">
             {fieldMeta.fields.map((subFieldObj: any, idx: number) => {
@@ -522,52 +536,40 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Mode Selector Toggle */}
-      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-border-light shadow-sm">
-        <div className="flex flex-col">
-          <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Configuration Mode</span>
-          <span className="text-[10px] text-text-muted mt-0.5 font-semibold">Switch between dynamic form builder and raw JSON</span>
-        </div>
-        <div className="relative flex p-1 bg-slate-200/60 rounded-lg border border-slate-300/50 text-[10px] font-bold uppercase w-64 shadow-inner">
-          <div
-            className="absolute top-1 bottom-1 left-1 rounded-md bg-white shadow-sm transition-all duration-300 ease-out border border-slate-200"
-            style={{
-              width: 'calc(50% - 4px)',
-              transform: isRawMode ? 'translateX(100%)' : 'translateX(0)'
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (isRawMode) {
-                try {
-                  const parsed = rawJsonText.trim() ? JSON.parse(rawJsonText) : {};
-                  setConfigData(parsed);
-                  setIsRawMode(false);
-                } catch (err) {
-                  alert('Cannot switch mode: JSON is invalid. Please fix the errors first.');
+      {isAdmin && (
+        <div className="flex justify-end items-center bg-transparent">
+          <label className="flex items-center gap-2 cursor-pointer group select-none">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary group-hover:text-brand-primary transition-colors">
+              Advanced Mode (Raw JSON)
+            </span>
+            <div className={`relative w-8 h-4 rounded-full transition-colors ${isRawMode ? 'bg-brand-primary' : 'bg-slate-300'}`}>
+              <div 
+                className={`absolute top-[2px] w-3 h-3 rounded-full bg-white transition-transform shadow-sm ${isRawMode ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} 
+              />
+            </div>
+            <input 
+              type="checkbox" 
+              className="hidden" 
+              checked={isRawMode}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setRawJsonText(JSON.stringify(configData || {}, null, 2));
+                  setJsonError('');
+                  setIsRawMode(true);
+                } else {
+                  try {
+                    const parsed = rawJsonText.trim() ? JSON.parse(rawJsonText) : {};
+                    setConfigData(parsed);
+                    setIsRawMode(false);
+                  } catch (err) {
+                    alert('Cannot disable Advanced Mode: JSON is invalid. Please fix the errors first.');
+                  }
                 }
-              }
-            }}
-            className={`relative z-10 flex-1 py-1.5 text-center transition-colors duration-200 ${!isRawMode ? 'text-slate-800 font-extrabold' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Dynamic Form
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!isRawMode) {
-                setRawJsonText(JSON.stringify(configData, null, 2));
-                setJsonError('');
-                setIsRawMode(true);
-              }
-            }}
-            className={`relative z-10 flex-1 py-1.5 text-center transition-colors duration-200 ${isRawMode ? 'text-slate-800 font-extrabold' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Raw JSON
-          </button>
+              }}
+            />
+          </label>
         </div>
-      </div>
+      )}
 
       {isRawMode ? (
         <div className="space-y-3">

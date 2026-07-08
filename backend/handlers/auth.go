@@ -32,6 +32,7 @@ type RegisterRequest struct {
 	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
 	FirstName            string `json:"firstName"`
 	LastName             string `json:"lastName"`
+	Role                 string `json:"role"`
 }
 
 func setTokenCookie(c *gin.Context, token string) {
@@ -135,7 +136,7 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.Signup(req.Username, req.Email, req.Password, req.FirstName, req.LastName)
+	user, err := h.authService.Signup(req.Username, req.Email, req.Password, req.FirstName, req.LastName, req.Role)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
