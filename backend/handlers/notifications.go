@@ -88,7 +88,7 @@ func DeleteNotification(c *gin.Context) {
 	userVal, exists := c.Get("user")
 	if exists {
 		currentUser := userVal.(*models.User)
-		isAdmin := currentUser.Admin || currentUser.Role == "admin"
+		isAdmin := currentUser.Admin || currentUser.Role == "admin" || currentUser.Role == "superadmin"
 		if !isAdmin && notification.UserID != nil && *notification.UserID != currentUser.ID {
 			c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden"})
 			return

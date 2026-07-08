@@ -96,6 +96,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
   
   const [pluginConfig, setPluginConfig] = useState<any>({});
   const [tagsInput, setTagsInput] = useState('');
+  const [isFormInvalid, setIsFormInvalid] = useState(false);
 
   const activeGroup = PLUGIN_GROUPS.find(g => g.name === activeTab);
 
@@ -129,6 +130,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
             pluginName={selectedPlugin}
             initialConfig={{}}
             onChange={(cfg) => setPluginConfig(cfg)}
+            onValidationError={setIsFormInvalid}
           />
         </div>
 
@@ -154,10 +156,14 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
           <button
             type="button"
             onClick={() => {
+              if (isFormInvalid) return;
               const parsedTags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
               onAdd(selectedPlugin, pluginConfig, parsedTags);
             }}
-            className="px-4 py-2 rounded bg-[#87b926] hover:bg-[#729c1e] text-white font-bold text-xs uppercase transition-colors"
+            disabled={isFormInvalid}
+            className={`px-4 py-2 rounded text-white font-bold text-xs uppercase transition-colors ${
+              isFormInvalid ? 'bg-slate-300 cursor-not-allowed' : 'bg-[#87b926] hover:bg-[#729c1e]'
+            }`}
           >
             Add Plugin
           </button>

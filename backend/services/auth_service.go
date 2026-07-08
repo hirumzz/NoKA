@@ -13,7 +13,7 @@ import (
 type AuthService interface {
 	Login(identifier, password string) (*models.User, string, error)
 	RegisterFirstAdmin(username, email, password, firstName, lastName string) (*models.User, string, error)
-	Signup(username, email, password, firstName, lastName string) (*models.User, error)
+	Signup(username, email, password, firstName, lastName, role string) (*models.User, error)
 }
 
 type authService struct {
@@ -103,7 +103,7 @@ func (s *authService) RegisterFirstAdmin(username, email, password, firstName, l
 	return user, token, nil
 }
 
-func (s *authService) Signup(username, email, password, firstName, lastName string) (*models.User, error) {
+func (s *authService) Signup(username, email, password, firstName, lastName, role string) (*models.User, error) {
 	_, err := s.userRepo.GetByIdentifier(username)
 	if err == nil {
 		return nil, errors.New("Username or email already exists")
@@ -115,13 +115,17 @@ func (s *authService) Signup(username, email, password, firstName, lastName stri
 	}
 
 	now := time.Now()
+	if role == "" {
+		role = "viewer"
+	}
+
 	user := &models.User{
 		Username:  username,
 		Email:     email,
-		Role:      "viewer",
+		Role:      role,
 		FirstName: firstName,
 		LastName:  lastName,
-		Admin:     false,
+		Admin:     role == "admin" || role == "superadmin",
 		Active:    true,
 		CreatedAt: now,
 		UpdatedAt: now,

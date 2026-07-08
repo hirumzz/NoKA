@@ -254,7 +254,7 @@ func DeleteComment(c *gin.Context) {
 
 	// Owner or Admin role can delete
 	isOwner := comment.UserID == user.ID
-	isAdmin := user.Admin || user.Role == "admin"
+	isAdmin := user.Admin || user.Role == "admin" || user.Role == "superadmin"
 
 	if !isOwner && !isAdmin {
 		c.JSON(http.StatusForbidden, gin.H{"message": "Only the comment owner or an administrator can delete comments"})

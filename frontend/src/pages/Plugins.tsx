@@ -85,6 +85,7 @@ export const Plugins: React.FC = () => {
   
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
+  const [isFormInvalid, setIsFormInvalid] = useState(false);
 
   useEffect(() => {
     fetchPluginsAndResources();
@@ -441,8 +442,18 @@ export const Plugins: React.FC = () => {
 
       {/* Edit Plugin Modal */}
       {editingPlugin && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-lg border border-border-light shadow-xl flex flex-col max-h-[85vh] animate-scaleUp overflow-hidden">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+          onMouseDown={() => {
+            setEditingPlugin(null);
+            setShowAddForm(false);
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-lg rounded-lg border border-border-light shadow-xl flex flex-col animate-scaleUp overflow-hidden"
+            style={{ maxHeight: '70vh' }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
               <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">
                 Configure Plugin: {editingPlugin.name}
@@ -478,6 +489,7 @@ export const Plugins: React.FC = () => {
                     pluginName={editingPlugin.name}
                     initialConfig={editConfig}
                     onChange={(cfg) => setEditConfig(cfg)}
+                    onValidationError={setIsFormInvalid}
                   />
                 </div>
               </div>
@@ -492,7 +504,10 @@ export const Plugins: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs uppercase"
+                  disabled={isFormInvalid}
+                  className={`px-4 py-2 rounded text-white font-bold text-xs uppercase transition-colors ${
+                    isFormInvalid ? 'bg-slate-300 cursor-not-allowed' : 'bg-brand-primary'
+                  }`}
                 >
                   Save Changes
                 </button>

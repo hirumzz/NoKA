@@ -93,7 +93,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	currentUser := currentUserVal.(*models.User)
-	isAdmin := currentUser.Admin || currentUser.Role == "admin"
+	isAdmin := currentUser.Admin || currentUser.Role == "admin" || currentUser.Role == "superadmin"
 
 	// Non-admins can only update themselves
 	if !isAdmin && currentUser.ID != uint(id) {
@@ -116,7 +116,7 @@ func UpdateUser(c *gin.Context) {
 	updates := make(map[string]interface{})
 	if req.Role != "" {
 		updates["role"] = req.Role
-		if req.Role == "admin" {
+		if req.Role == "admin" || req.Role == "superadmin" {
 			updates["admin"] = true
 		} else {
 			updates["admin"] = false

@@ -5,7 +5,9 @@ import {
   Users as UsersIcon, 
   Trash2, 
   Shield, 
-  AlertCircle
+  AlertCircle,
+  Plus,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,10 +25,23 @@ interface UserData {
 
 export const Users: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin');
+  const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin' || currentUser?.role === 'superadmin');
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    passwordConfirm: '',
+    firstName: '',
+    lastName: '',
+    role: 'developer'
+  });
+  const [addError, setAddError] = useState('');
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -77,14 +92,61 @@ export const Users: React.FC = () => {
     }
   };
 
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError('');
+    if (addForm.password !== addForm.passwordConfirm) {
+      return setAddError('Passwords do not match');
+    }
+    if (addForm.password.length < 7) {
+      return setAddError('Password must be at least 7 characters');
+    }
+    setAdding(true);
+    try {
+      await axios.post('/api/auth/signup', {
+        username: addForm.username,
+        email: addForm.email,
+        password: addForm.password,
+        password_confirmation: addForm.passwordConfirm,
+        firstName: addForm.firstName,
+        lastName: addForm.lastName,
+        role: addForm.role
+      });
+      setShowAddModal(false);
+      setAddForm({ username: '', email: '', password: '', passwordConfirm: '', firstName: '', lastName: '', role: 'developer' });
+      fetchUsers();
+    } catch (err: any) {
+      setAddError(err.response?.data?.message || 'Failed to create user');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowAddModal(false);
+    };
+    if (showAddModal) window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [showAddModal]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
+      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-row items-center justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight text-text-primary">Users</h2>
           <p className="text-xs text-text-secondary mt-1">Manage administrative accounts and roles for this NOKA console instance</p>
         </div>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 bg-brand-primary text-white px-4 py-2 rounded text-xs font-bold hover:bg-brand-primary/90 transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            ADD USER
+          </button>
+        )}
       </div>
 
       {error && (
@@ -218,6 +280,155 @@ export const Users: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div 
+          className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onMouseDown={() => setShowAddModal(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden flex flex-col"
+            style={{ maxHeight: '85vh' }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="font-bold tracking-tight text-slate-800 flex items-center gap-2">
+                <UsersIcon className="w-4 h-4 text-brand-primary" />
+                Create New User
+              </h3>
+              <button 
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded p-1 transition-colors border border-transparent hover:border-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto custom-scrollbar">
+              {addError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{addError}</span>
+                </div>
+              )}
+              
+              <form id="add-user-form" onSubmit={handleAddSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">First Name</label>
+                    <input 
+                      type="text" 
+                      value={addForm.firstName} 
+                      onChange={e => setAddForm({...addForm, firstName: e.target.value})}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white"
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Last Name</label>
+                    <input 
+                      type="text" 
+                      value={addForm.lastName} 
+                      onChange={e => setAddForm({...addForm, lastName: e.target.value})}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white"
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Username <span className="text-red-500">*</span></label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={addForm.username} 
+                    onChange={e => setAddForm({...addForm, username: e.target.value})}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white font-mono"
+                    placeholder="e.g. john.doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email Address <span className="text-red-500">*</span></label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={addForm.email} 
+                    onChange={e => setAddForm({...addForm, email: e.target.value})}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white"
+                    placeholder="john@example.com"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Password <span className="text-red-500">*</span></label>
+                    <input 
+                      type="password" 
+                      required 
+                      minLength={7}
+                      value={addForm.password} 
+                      onChange={e => setAddForm({...addForm, password: e.target.value})}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white font-mono"
+                      placeholder="Min. 7 chars"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Confirm Password <span className="text-red-500">*</span></label>
+                    <input 
+                      type="password" 
+                      required 
+                      minLength={7}
+                      value={addForm.passwordConfirm} 
+                      onChange={e => setAddForm({...addForm, passwordConfirm: e.target.value})}
+                      className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white font-mono"
+                      placeholder="Repeat password"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">System Role <span className="text-red-500">*</span></label>
+                  <select 
+                    required
+                    value={addForm.role}
+                    onChange={e => setAddForm({...addForm, role: e.target.value})}
+                    className="w-full text-sm px-3 py-2 border border-slate-200 rounded outline-none focus:border-brand-primary transition-colors bg-slate-50 focus:bg-white font-semibold"
+                  >
+                    <option value="admin">Administrator</option>
+                    <option value="developer">Developer</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                  <p className="text-[10px] text-slate-500 mt-1.5 leading-snug">
+                    <strong className="text-slate-700">Administrator</strong> has full access. <strong className="text-slate-700">Developer</strong> can manage routes and plugins but cannot delete them or change global settings. <strong className="text-slate-700">Viewer</strong> has read-only access.
+                  </p>
+                </div>
+              </form>
+            </div>
+            
+            <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 mt-auto">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-50 hover:text-slate-800 transition-colors"
+                disabled={adding}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="add-user-form"
+                disabled={adding}
+                className="px-4 py-2 text-xs font-bold text-white bg-brand-primary border border-transparent rounded hover:bg-brand-primary/90 transition-colors shadow-sm disabled:opacity-70 flex items-center gap-2"
+              >
+                {adding && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
