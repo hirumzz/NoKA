@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useKongData } from '../context/KongDataContext';
 import { useToast } from '../context/ToastContext';
 import { 
   Plus, 
@@ -15,7 +16,8 @@ import {
   ListFilter,
   CheckCircle2,
   Ban,
-  GitBranch
+  GitBranch,
+  RefreshCw
 } from 'lucide-react';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { PluginGallery } from '../components/PluginGallery';
@@ -66,10 +68,20 @@ const getTagColor = (tag: string) => {
 export const Plugins: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
-  const [plugins, setPlugins] = useState<PluginItem[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
-  const [routes, setRoutes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    plugins: cachedPlugins, 
+    services: cachedServices, 
+    routes: cachedRoutes,
+    refreshKongData 
+  } = useKongData();
+
+  // Initialize state immediately from pre-cached global data to avoid ANY loading spinner
+  const [plugins, setPlugins] = useState<PluginItem[]>(() => cachedPlugins as PluginItem[]);
+  const [services, setServices] = useState<Service[]>(() => cachedServices as Service[]);
+  const [routes, setRoutes] = useState<any[]>(() => cachedRoutes);
+  
+  // Loading is only true if we literally have 0 cached data on cold start
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -88,8 +100,28 @@ export const Plugins: React.FC = () => {
   const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
 
+  // Keep state in sync with global cache when it populates in background
   useEffect(() => {
-    fetchPluginsAndResources();
+    if (cachedPlugins.length > 0 && plugins.length === 0) {
+      setPlugins(cachedPlugins as PluginItem[]);
+    }
+  }, [cachedPlugins]);
+
+  useEffect(() => {
+    if (cachedServices.length > 0 && services.length === 0) {
+      setServices(cachedServices as Service[]);
+    }
+  }, [cachedServices]);
+
+  useEffect(() => {
+    if (cachedRoutes.length > 0 && routes.length === 0) {
+      setRoutes(cachedRoutes);
+    }
+  }, [cachedRoutes]);
+
+  // Initial and reactive background fetch without blocking page render
+  useEffect(() => {
+    fetchPluginsAndResources(plugins.length === 0 && cachedPlugins.length === 0);
   }, [user?.node]);
 
   useEffect(() => {
@@ -107,13 +139,30 @@ export const Plugins: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const fetchPluginsAndResources = async () => {
-    setLoading(true);
+  const fetchPluginsAndResources = async (showInitialLoader = false) => {
+    if (showInitialLoader) {
+      setIsSyncing(true);
+    }
     try {
+      // Step 1: Fast fetch plugins first so table displays in milliseconds
+      const pluginsPromise = axios.get('/api/kong/plugins?size=1000');
+      
+      // Concurrently fetch services & routes in background for enrichments
+      const servicesPromise = axios.get('/api/kong/services?size=1000');
+      const routesPromise = axios.get('/api/kong/routes?size=1000');
+
+      // Handle plugins response first
+      pluginsPromise.then((resp) => {
+        if (resp.data?.data) {
+          setPlugins(resp.data.data);
+        }
+      }).catch(console.error);
+
+      // Await all for complete background sync
       const [pluginsResp, servicesResp, routesResp] = await Promise.allSettled([
-        axios.get('/api/kong/plugins?size=1000'),
-        axios.get('/api/kong/services?size=1000'),
-        axios.get('/api/kong/routes?size=1000')
+        pluginsPromise,
+        servicesPromise,
+        routesPromise
       ]);
 
       if (pluginsResp.status === 'fulfilled') {
@@ -125,11 +174,13 @@ export const Plugins: React.FC = () => {
       if (routesResp.status === 'fulfilled') {
         setRoutes(routesResp.value.data?.data || []);
       }
+      
+      // Also update background cache
+      refreshKongData();
     } catch (err: any) {
-      addToast('error', err.response?.data?.message || 'Failed to fetch plugins', 'Fetch Error');
       console.error(err);
     } finally {
-      setLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -287,15 +338,32 @@ export const Plugins: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white p-6 rounded-lg border border-border-light shadow-sm">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary">Plugins</h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-bold tracking-tight text-text-primary">Plugins</h2>
+            {isSyncing && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-brand-primary bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin" /> Syncing in background...
+              </span>
+            )}
+          </div>
           <p className="text-xs text-text-secondary mt-1">Plugins allow you to extend gateway features, providing authentication, traffic control, security, logging, and more</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all animate-fadeIn shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 mr-2" /> ADD GLOBAL PLUGIN
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => fetchPluginsAndResources(false)}
+            disabled={isSyncing}
+            className="p-2 rounded border border-border-light text-text-secondary hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-brand-primary' : ''}`} />
+          </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all animate-fadeIn shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 mr-2" /> ADD GLOBAL PLUGIN
+          </button>
+        </div>
       </div>
 
       {/* Dedicated Request Termination Box */}
@@ -628,7 +696,7 @@ export const Plugins: React.FC = () => {
       ) : (
         /* Plugins List Table */
         <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
-          {loading ? (
+          {isSyncing && plugins.length === 0 ? (
             <div className="p-12 text-center text-text-muted text-xs font-semibold flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
               Loading plugins...
