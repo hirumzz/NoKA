@@ -14,7 +14,8 @@ import {
   Activity,
   Settings,
   X,
-  Eye
+  Eye,
+  Ban
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
@@ -143,7 +144,8 @@ export const RouteDetails: React.FC = () => {
   const fetchSubResources = async () => {
     try {
       const response = await axios.get(`/api/kong/routes/${id}/plugins`);
-      setPlugins(response.data?.data || []);
+      const plgs = response.data?.data || [];
+      setPlugins(plgs.sort((a: any, b: any) => (b.created_at || 0) - (a.created_at || 0)));
     } catch (err) {
       console.error('Failed to fetch plugins:', err);
     }
@@ -370,6 +372,47 @@ export const RouteDetails: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Request Termination Alert Banner (Conditional) */}
+      {(() => {
+        const activeTermPlugin = plugins.find(p => p.name === 'request-termination' && p.enabled !== false);
+        if (!activeTermPlugin) return null;
+
+        const statusCode = activeTermPlugin.config?.status_code || 503;
+        const msg = activeTermPlugin.config?.message || 'Request terminated';
+
+        return (
+          <div className="p-4 rounded-xl border border-rose-300 bg-rose-50/90 text-rose-900 shadow-sm flex items-start justify-between gap-4 animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-rose-600 text-white shrink-0 shadow-sm animate-pulse">
+                <Ban className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-rose-800">
+                    Traffic Intercepted by Request Termination Plugin
+                  </h4>
+                  <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-rose-200 text-rose-800">
+                    HTTP {statusCode}
+                  </span>
+                </div>
+                <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                  Semua matching request yang mengarah ke route ini saat ini <strong>diterminasi/diblokir</strong> dengan pesan: <em>"{msg}"</em>.
+                </p>
+                <span className="text-[10px] text-rose-600 font-medium block mt-1">
+                  Untuk mengalirkan kembali traffic normal, nonaktifkan (Disable) atau hapus plugin request-termination pada tab <strong>Plugins</strong> di bawah.
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('plugins')}
+              className="px-3 py-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors shrink-0 shadow-xs cursor-pointer"
+            >
+              Manage Plugin
+            </button>
+          </div>
+        );
+      })()}
 
       {error && (
         <div className="flex items-center gap-2.5 px-4 py-3 rounded border border-red-200 bg-red-50 text-red-700 text-xs font-semibold">

@@ -74,6 +74,7 @@ export const Services: React.FC = () => {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [terminatedServiceIds, setTerminatedServiceIds] = useState<Set<string>>(new Set());
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,8 +93,24 @@ export const Services: React.FC = () => {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/kong/services?size=1000');
-      setServices(response.data?.data || []);
+      const [svcResp, pluginResp] = await Promise.allSettled([
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/kong/plugins?size=1000')
+      ]);
+
+      if (svcResp.status === 'fulfilled') {
+        setServices(svcResp.value.data?.data || []);
+      }
+      if (pluginResp.status === 'fulfilled') {
+        const pList = pluginResp.value.data?.data || [];
+        const tIds = new Set<string>();
+        pList.forEach((p: any) => {
+          if (p.name === 'request-termination' && p.enabled !== false && p.service?.id) {
+            tIds.add(p.service.id);
+          }
+        });
+        setTerminatedServiceIds(tIds);
+      }
     } catch (err: any) {
       addToast('error', err.response?.data?.message || 'Failed to fetch services', 'Fetch Error');
       console.error(err);
@@ -245,7 +262,7 @@ export const Services: React.FC = () => {
     return Array.from(tagsSet).sort();
   }, [services]);
 
-  // Filtered services
+  // Filtered services (sorted by created_at desc - newest first)
   const filteredServices = React.useMemo(() => {
     const filtered = services.filter(svc => {
       const nameMatch = (svc.name || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -257,7 +274,8 @@ export const Services: React.FC = () => {
 
       return matchesSearch && matchesTag;
     });
-    return filtered;
+
+    return filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }, [services, searchTerm, selectedTag]);
 
   const paginatedServices = filteredServices.slice(
@@ -553,9 +571,16 @@ export const Services: React.FC = () => {
                           <Layers className="w-4 h-4" />
                         </div>
                         <div>
-                          <Link to={`/services/${svc.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
-                            {svc.name || 'Unnamed'}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link to={`/services/${svc.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                              {svc.name || 'Unnamed'}
+                            </Link>
+                            {terminatedServiceIds.has(svc.id) && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-100 border border-rose-200 text-rose-700 text-[9px] font-extrabold uppercase tracking-wider animate-pulse">
+                                🚫 Terminated
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-text-muted font-mono block select-all">{svc.id}</span>
                           {(() => {
                             let description = '';

@@ -83,6 +83,7 @@ export const Routes: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [terminatedRouteIds, setTerminatedRouteIds] = useState<Set<string>>(new Set());
 
   const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
   const protocolOptions = ['http', 'https', 'grpc', 'grpcs', 'tcp', 'tls', 'udp'];
@@ -104,8 +105,24 @@ export const Routes: React.FC = () => {
   const fetchRoutesAndServices = async () => {
     setLoading(true);
     try {
-      const routesResp = await axios.get('/api/kong/routes?size=1000');
-      setRoutes(routesResp.data?.data || []);
+      const [routesResp, pluginsResp] = await Promise.allSettled([
+        axios.get('/api/kong/routes?size=1000'),
+        axios.get('/api/kong/plugins?size=1000')
+      ]);
+
+      if (routesResp.status === 'fulfilled') {
+        setRoutes(routesResp.value.data?.data || []);
+      }
+      if (pluginsResp.status === 'fulfilled') {
+        const pList = pluginsResp.value.data?.data || [];
+        const tIds = new Set<string>();
+        pList.forEach((p: any) => {
+          if (p.name === 'request-termination' && p.enabled !== false && p.route?.id) {
+            tIds.add(p.route.id);
+          }
+        });
+        setTerminatedRouteIds(tIds);
+      }
     } catch (err: any) {
       addToast('error', err.response?.data?.message || 'Failed to fetch routes', 'Fetch Error');
       console.error(err);
@@ -297,20 +314,25 @@ export const Routes: React.FC = () => {
     return Array.from(tagsSet).sort();
   }, [routes]);
 
-  // Filtered routes
+  // Filtered routes (sorted by created_at desc - newest first)
   const filteredRoutes = React.useMemo(() => {
-    return routes.filter(route => {
+    const filtered = routes.filter(route => {
       const nameMatch = (route.name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const idMatch = (route.id || '').toLowerCase().includes(searchTerm.toLowerCase());
       const hostMatch = route.hosts
         ? route.hosts.some(h => h.toLowerCase().includes(searchTerm.toLowerCase()))
         : false;
-      const matchesSearch = nameMatch || idMatch || hostMatch;
+      const pathMatch = route.paths
+        ? route.paths.some(p => p.toLowerCase().includes(searchTerm.toLowerCase()))
+        : false;
+      const matchesSearch = nameMatch || idMatch || hostMatch || pathMatch;
 
       const matchesTag = !selectedTag || (route.tags && route.tags.includes(selectedTag));
 
       return matchesSearch && matchesTag;
     });
+
+    return filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }, [routes, searchTerm, selectedTag]);
 
   const paginatedRoutes = React.useMemo(() => {
@@ -656,8 +678,15 @@ export const Routes: React.FC = () => {
                             <GitBranch className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-bold text-sm block text-blue-600 hover:underline cursor-pointer">
-                              {route.name || 'Unnamed Route'}
+                            <div className="flex items-center gap-2">
+                              <div className="font-bold text-sm block text-blue-600 hover:underline cursor-pointer">
+                                {route.name || 'Unnamed Route'}
+                              </div>
+                              {terminatedRouteIds.has(route.id) && (
+                                <span className="px-1.5 py-0.5 rounded bg-rose-100 border border-rose-200 text-rose-700 text-[9px] font-extrabold uppercase tracking-wider animate-pulse">
+                                  🚫 Terminated
+                                </span>
+                              )}
                             </div>
                             <span className="text-[10px] text-text-muted font-mono block select-all">{route.id}</span>
                             {route.tags && route.tags.length > 0 && (

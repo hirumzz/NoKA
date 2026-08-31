@@ -109,6 +109,7 @@ func main() {
 	services.StartConnectionHealthChecker()
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
+	go kongHandler.StartPrometheusMetricsCollector()
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
 	r := gin.New()
