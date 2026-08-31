@@ -38,11 +38,16 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 	node := nodeVal.(*models.KongNode)
 
 	proxyPath := c.Param("proxyPath")
-	if strings.TrimPrefix(proxyPath, "/") == "prometheus-metrics" {
+	trimmedPath := strings.TrimPrefix(proxyPath, "/")
+	if trimmedPath == "enriched-plugins" {
+		h.GetEnrichedPlugins(c)
+		return
+	}
+	if trimmedPath == "prometheus-metrics" {
 		h.GetPrometheusMetrics(c)
 		return
 	}
-	if strings.TrimPrefix(proxyPath, "/") == "error-details" {
+	if trimmedPath == "error-details" {
 		h.GetErrorDetails(c)
 		return
 	}
@@ -914,6 +919,80 @@ func (h *KongHandler) GetReachabilityStatuses(c *gin.Context) {
 	})
 }
 
+// GetEnrichedPlugins returns all plugins along with their resolved services and routes in a single ultra-fast response
+func (h *KongHandler) GetEnrichedPlugins(c *gin.Context) {
+	nodeVal, exists := c.Get("kongNode")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "No active Kong connection found"})
+		return
+	}
+	node := nodeVal.(*models.KongNode)
+
+	var user *models.User
+	userVal, userExists := c.Get("user")
+	if userExists {
+		u, ok := userVal.(*models.User)
+		if ok {
+			user = u
+		}
+	}
+	clientIP := c.ClientIP()
+
+	// Concurrently fetch plugins, services, routes via Kong Admin API
+	type fetchRes struct {
+		data []byte
+		err  error
+	}
+	pluginsCh := make(chan fetchRes, 1)
+	servicesCh := make(chan fetchRes, 1)
+	routesCh := make(chan fetchRes, 1)
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/plugins?size=1000", "", nil, clientIP, user, "")
+		pluginsCh <- fetchRes{data: b, err: err}
+	}()
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/services?size=1000", "", nil, clientIP, user, "")
+		servicesCh <- fetchRes{data: b, err: err}
+	}()
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/routes?size=1000", "", nil, clientIP, user, "")
+		routesCh <- fetchRes{data: b, err: err}
+	}()
+
+	pRes := <-pluginsCh
+	sRes := <-servicesCh
+	rRes := <-routesCh
+
+	var pData struct {
+		Data []interface{} `json:"data"`
+	}
+	var sData struct {
+		Data []interface{} `json:"data"`
+	}
+	var rData struct {
+		Data []interface{} `json:"data"`
+	}
+
+	if pRes.err == nil && pRes.data != nil {
+		json.Unmarshal(pRes.data, &pData)
+	}
+	if sRes.err == nil && sRes.data != nil {
+		json.Unmarshal(sRes.data, &sData)
+	}
+	if rRes.err == nil && rRes.data != nil {
+		json.Unmarshal(rRes.data, &rData)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"plugins":  pData.Data,
+		"services": sData.Data,
+		"routes":   rData.Data,
+	})
+}
+
 // TriggerReachabilityCheck triggers a concurrent reachability check for all entities
 func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
 	services.RunReachabilityCheck()
@@ -922,3 +1001,5 @@ func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
 		"message": "Reachability statuses refreshed successfully",
 	})
 }
+
+

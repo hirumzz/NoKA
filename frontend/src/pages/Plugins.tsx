@@ -75,12 +75,31 @@ export const Plugins: React.FC = () => {
     refreshKongData 
   } = useKongData();
 
-  // Initialize state immediately from pre-cached global data to avoid ANY loading spinner
-  const [plugins, setPlugins] = useState<PluginItem[]>(() => cachedPlugins as PluginItem[]);
-  const [services, setServices] = useState<Service[]>(() => cachedServices as Service[]);
-  const [routes, setRoutes] = useState<any[]>(() => cachedRoutes);
+  // Initialize state from localStorage cache for INSTANT render on hard refresh (0ms wait)
+  const [plugins, setPlugins] = useState<PluginItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_plugins');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return (cachedPlugins || []) as PluginItem[];
+  });
+
+  const [services, setServices] = useState<Service[]>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_services');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return (cachedServices || []) as Service[];
+  });
+
+  const [routes, setRoutes] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_routes');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return cachedRoutes || [];
+  });
   
-  // Loading is only true if we literally have 0 cached data on cold start
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
@@ -100,28 +119,9 @@ export const Plugins: React.FC = () => {
   const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
 
-  // Keep state in sync with global cache when it populates in background
-  useEffect(() => {
-    if (cachedPlugins.length > 0 && plugins.length === 0) {
-      setPlugins(cachedPlugins as PluginItem[]);
-    }
-  }, [cachedPlugins]);
-
-  useEffect(() => {
-    if (cachedServices.length > 0 && services.length === 0) {
-      setServices(cachedServices as Service[]);
-    }
-  }, [cachedServices]);
-
-  useEffect(() => {
-    if (cachedRoutes.length > 0 && routes.length === 0) {
-      setRoutes(cachedRoutes);
-    }
-  }, [cachedRoutes]);
-
   // Initial and reactive background fetch without blocking page render
   useEffect(() => {
-    fetchPluginsAndResources(plugins.length === 0 && cachedPlugins.length === 0);
+    fetchPluginsAndResources(plugins.length === 0);
   }, [user?.node]);
 
   useEffect(() => {
@@ -144,41 +144,29 @@ export const Plugins: React.FC = () => {
       setIsSyncing(true);
     }
     try {
-      // Step 1: Fast fetch plugins first so table displays in milliseconds
-      const pluginsPromise = axios.get('/api/kong/plugins?size=1000');
-      
-      // Concurrently fetch services & routes in background for enrichments
-      const servicesPromise = axios.get('/api/kong/services?size=1000');
-      const routesPromise = axios.get('/api/kong/routes?size=1000');
+      // Use single aggregated endpoint that returns plugins, services, and routes together
+      const resp = await axios.get('/api/kong/enriched-plugins');
+      if (resp.data) {
+        const p = resp.data.plugins || [];
+        const s = resp.data.services || [];
+        const r = resp.data.routes || [];
 
-      // Handle plugins response first
-      pluginsPromise.then((resp) => {
-        if (resp.data?.data) {
-          setPlugins(resp.data.data);
-        }
-      }).catch(console.error);
+        setPlugins(p);
+        setServices(s);
+        setRoutes(r);
 
-      // Await all for complete background sync
-      const [pluginsResp, servicesResp, routesResp] = await Promise.allSettled([
-        pluginsPromise,
-        servicesPromise,
-        routesPromise
-      ]);
-
-      if (pluginsResp.status === 'fulfilled') {
-        setPlugins(pluginsResp.value.data?.data || []);
-      }
-      if (servicesResp.status === 'fulfilled') {
-        setServices(servicesResp.value.data?.data || []);
-      }
-      if (routesResp.status === 'fulfilled') {
-        setRoutes(routesResp.value.data?.data || []);
+        // Persist to localStorage for instant 0ms hard refreshes
+        try {
+          localStorage.setItem('noka_cache_plugins', JSON.stringify(p));
+          localStorage.setItem('noka_cache_services', JSON.stringify(s));
+          localStorage.setItem('noka_cache_routes', JSON.stringify(r));
+        } catch (e) {}
       }
       
-      // Also update background cache
+      // Also update background context
       refreshKongData();
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to fetch enriched plugins:', err);
     } finally {
       setIsSyncing(false);
     }
