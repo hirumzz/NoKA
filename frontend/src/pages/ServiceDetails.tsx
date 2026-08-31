@@ -84,6 +84,28 @@ export const ServiceDetails: React.FC = () => {
   const [routes, setRoutes] = useState<KongRoute[]>([]);
   const [plugins, setPlugins] = useState<KongPlugin[]>([]);
 
+  // Add Route Modal states
+  const [showAddRouteModal, setShowAddRouteModal] = useState(false);
+  const [routeName, setRouteName] = useState('');
+  const [routePaths, setRoutePaths] = useState('');
+  const [routeHosts, setRouteHosts] = useState('');
+  const [routeMethods, setRouteMethods] = useState<string[]>([]);
+  const [routeProtocols, setRouteProtocols] = useState<string[]>(['http', 'https']);
+  const [routeTags, setRouteTags] = useState('');
+  const [routeStripPath, setRouteStripPath] = useState(true);
+  const [routePreserveHost, setRoutePreserveHost] = useState(false);
+  const [routeRegexPriority, setRouteRegexPriority] = useState<number>(0);
+  const [routeHttpsRedirectStatusCode, setRouteHttpsRedirectStatusCode] = useState<number>(426);
+  const [routePathHandling, setRoutePathHandling] = useState<'v0' | 'v1'>('v0');
+  const [routeHeaders, setRouteHeaders] = useState('');
+  const [routeSnis, setRouteSnis] = useState('');
+  const [routeSources, setRouteSources] = useState('');
+  const [routeDestinations, setRouteDestinations] = useState('');
+  const [routeSubmitting, setRouteSubmitting] = useState(false);
+
+  const routeMethodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
+  const routeProtocolOptions = ['http', 'https', 'grpc', 'grpcs', 'tcp', 'tls', 'udp'];
+
   // Add Plugin Modal states
   const [showAddPlugin, setShowAddPlugin] = useState(false);
 
@@ -104,6 +126,7 @@ export const ServiceDetails: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setEditingPlugin(null);
+        setShowAddRouteModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -275,6 +298,99 @@ export const ServiceDetails: React.FC = () => {
         status: 'unreachable', 
         message: err.response?.data?.message || 'Check failed' 
       });
+    }
+  };
+
+  const handleToggleRouteMethod = (method: string) => {
+    if (routeMethods.includes(method)) {
+      setRouteMethods(routeMethods.filter(m => m !== method));
+    } else {
+      setRouteMethods([...routeMethods, method]);
+    }
+  };
+
+  const handleToggleRouteProtocol = (protocol: string) => {
+    if (routeProtocols.includes(protocol)) {
+      setRouteProtocols(routeProtocols.filter(p => p !== protocol));
+    } else {
+      setRouteProtocols([...routeProtocols, protocol]);
+    }
+  };
+
+  const handleCreateRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!routePaths.trim() && !routeHosts.trim() && routeMethods.length === 0) {
+      setError('Please specify at least one Path, Host, or Method for the route.');
+      return;
+    }
+
+    setRouteSubmitting(true);
+    setError('');
+
+    const parsedPaths = routePaths.split(',').map(p => p.trim()).filter(p => p !== '');
+    const parsedHosts = routeHosts ? routeHosts.split(',').map(h => h.trim()).filter(h => h !== '') : undefined;
+    const parsedTags = routeTags
+      ? routeTags.split(',').map((t) => t.trim()).filter(Boolean)
+      : [];
+
+    let parsedHeaders = undefined;
+    if (routeHeaders.trim()) {
+      try { parsedHeaders = JSON.parse(routeHeaders); } catch(e) {}
+    }
+    let parsedSources = undefined;
+    if (routeSources.trim()) {
+      try { parsedSources = JSON.parse(routeSources); } catch(e) {}
+    }
+    let parsedDestinations = undefined;
+    if (routeDestinations.trim()) {
+      try { parsedDestinations = JSON.parse(routeDestinations); } catch(e) {}
+    }
+    const parsedSnis = routeSnis ? routeSnis.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
+    const payload: any = {
+      service: { id: service?.id || id }
+    };
+    if (parsedPaths.length > 0) payload.paths = parsedPaths;
+    if (routeName.trim()) payload.name = routeName.trim();
+    if (parsedHosts && parsedHosts.length > 0) payload.hosts = parsedHosts;
+    if (routeMethods.length > 0) payload.methods = routeMethods;
+    if (routeProtocols.length > 0) payload.protocols = routeProtocols;
+    if (parsedTags.length > 0) payload.tags = parsedTags;
+    if (parsedHeaders) payload.headers = parsedHeaders;
+    payload.regex_priority = routeRegexPriority;
+    payload.https_redirect_status_code = routeHttpsRedirectStatusCode;
+    payload.path_handling = routePathHandling;
+    payload.strip_path = routeStripPath;
+    payload.preserve_host = routePreserveHost;
+    if (parsedSnis && parsedSnis.length > 0) payload.snis = parsedSnis;
+    if (parsedSources && Array.isArray(parsedSources)) payload.sources = parsedSources;
+    if (parsedDestinations && Array.isArray(parsedDestinations)) payload.destinations = parsedDestinations;
+
+    try {
+      await axios.post(`/api/kong/services/${service?.id || id}/routes`, payload);
+      setSuccess('Route has been successfully created and linked to this service!');
+      setShowAddRouteModal(false);
+      // Reset form fields
+      setRouteName('');
+      setRoutePaths('');
+      setRouteHosts('');
+      setRouteMethods([]);
+      setRouteProtocols(['http', 'https']);
+      setRouteTags('');
+      setRouteStripPath(true);
+      setRoutePreserveHost(false);
+      setRouteRegexPriority(0);
+      setRouteHttpsRedirectStatusCode(426);
+      setRoutePathHandling('v0');
+      setRouteHeaders('');
+      setRouteSnis('');
+      setRouteSources('');
+      setRouteDestinations('');
+      fetchSubResources();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create route');
+    } finally {
+      setRouteSubmitting(false);
     }
   };
 
@@ -599,12 +715,13 @@ export const ServiceDetails: React.FC = () => {
         <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-border-light flex justify-between items-center">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">Sub-routes of Service</h3>
-            <Link
-              to={`/routes?service_id=${service.id}`}
-              className="flex items-center px-3 py-1.5 rounded bg-brand-primary text-white font-bold text-[10px] hover:bg-brand-primary-hover shadow-sm transition-all"
+            <button
+              type="button"
+              onClick={() => setShowAddRouteModal(true)}
+              className="flex items-center px-3 py-1.5 rounded bg-brand-primary text-white font-bold text-[10px] hover:bg-brand-primary-hover shadow-sm transition-all cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> ADD ROUTE
-            </Link>
+            </button>
           </div>
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -856,6 +973,327 @@ export const ServiceDetails: React.FC = () => {
                   }`}
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Route Modal */}
+      {showAddRouteModal && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+          onMouseDown={() => setShowAddRouteModal(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-3xl rounded-lg border border-border-light shadow-xl flex flex-col animate-scaleUp overflow-hidden"
+            style={{ maxHeight: '85vh' }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
+              <div>
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide flex items-center gap-2">
+                  <GitBranch className="w-4 h-4 text-brand-primary" />
+                  Add Route to Service: <span className="text-brand-primary">{service.name || service.id}</span>
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowAddRouteModal(false)} 
+                className="p-1 rounded hover:bg-slate-100 text-text-muted transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRoute} className="p-6 space-y-5 overflow-y-auto">
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded p-3 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                <Layers className="w-4 h-4 text-brand-primary shrink-0" />
+                <span>*For hosts, paths, methods, protocols, snis, sources, headers and destinations, separate multiple values with commas or click their buttons.</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Route Name */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Name</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeName}
+                    onChange={(e) => setRouteName(e.target.value)}
+                    placeholder="The name of the Route."
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">The name of the Route.</p>
+                </div>
+
+                {/* Tags */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeTags}
+                    onChange={(e) => setRouteTags(e.target.value)}
+                    placeholder="e.g. public, v1 (comma-separated)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">Optionally add tags to the route.</p>
+                </div>
+
+                {/* Hosts */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hosts</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeHosts}
+                    onChange={(e) => setRouteHosts(e.target.value)}
+                    placeholder="e.g. example.com, api.domain.com"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A list of domain names that match this Route. At least one of hosts, paths, or methods must be set.</p>
+                </div>
+
+                {/* Matching Paths */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">
+                      Paths <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routePaths}
+                    onChange={(e) => setRoutePaths(e.target.value)}
+                    placeholder="e.g. /my-path, /v1/users (comma-separated)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A list of paths that match this Route. At least one of hosts, paths, or methods must be set.</p>
+                </div>
+
+                {/* Headers */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Headers</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeHeaders}
+                    onChange={(e) => setRouteHeaders(e.target.value)}
+                    placeholder='{"x-version":["v1"]}'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">One or more lists of values indexed by header name that will cause this Route to match if present.</p>
+                </div>
+
+                {/* Path Handling */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Path Handling</label>
+                    <span className="text-[9px] text-text-muted italic">(default: v0)</span>
+                  </div>
+                  <select
+                    value={routePathHandling}
+                    onChange={(e) => setRoutePathHandling(e.target.value as 'v0' | 'v1')}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  >
+                    <option value="v0">v0 (Legacy behavior)</option>
+                    <option value="v1">v1 (Standard RFC3986)</option>
+                  </select>
+                  <p className="text-[9px] text-text-muted">Controls how the Service path and Route path are combined when proxying.</p>
+                </div>
+
+                {/* HTTPS Redirect Status Code */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">HTTPS Redirect Status Code</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <select
+                    value={routeHttpsRedirectStatusCode}
+                    onChange={(e) => setRouteHttpsRedirectStatusCode(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  >
+                    <option value={426}>426</option>
+                    <option value={301}>301</option>
+                    <option value={302}>302</option>
+                    <option value={307}>307</option>
+                    <option value={308}>308</option>
+                  </select>
+                  <p className="text-[9px] text-text-muted">The status code Kong responds with when request protocol is HTTP instead of HTTPS.</p>
+                </div>
+
+                {/* Regex Priority */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Regex Priority</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <input
+                    type="number"
+                    value={routeRegexPriority}
+                    onChange={(e) => setRouteRegexPriority(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A number used to choose which route resolves a request when multiple regex routes match.</p>
+                </div>
+
+                {/* Protocols Selector */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase block">Protocols</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {routeProtocolOptions.map(p => {
+                      const isSelected = routeProtocols.includes(p);
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handleToggleRouteProtocol(p)}
+                          className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer uppercase ${
+                            isSelected 
+                              ? 'bg-brand-primary text-white border-brand-primary shadow-sm' 
+                              : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[9px] text-text-muted">A list of the protocols this Route should allow. By default it is ['http', 'https'].</p>
+                </div>
+
+                {/* HTTP Methods */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {routeMethodOptions.map(m => {
+                      const isSelected = routeMethods.includes(m);
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => handleToggleRouteMethod(m)}
+                          className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                            isSelected 
+                              ? 'bg-brand-primary text-white border-brand-primary shadow-sm' 
+                              : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[9px] text-text-muted">A list of HTTP methods that match this Route. Leave empty to allow any method.</p>
+                </div>
+
+                {/* Strip Path & Preserve Host */}
+                <div className="flex items-center gap-8 pt-2 md:col-span-2 text-xs font-semibold text-text-primary bg-slate-50/75 p-3.5 rounded border border-border-light">
+                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={routeStripPath}
+                      onChange={(e) => setRouteStripPath(e.target.checked)}
+                      className="rounded text-brand-primary border-border-light w-4 h-4"
+                    />
+                    <div>
+                      <span className="block font-bold">Strip Path</span>
+                      <span className="text-[9px] text-text-muted font-normal block">Strip the matching prefix from the upstream request URL.</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2.5 select-none cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={routePreserveHost}
+                      onChange={(e) => setRoutePreserveHost(e.target.checked)}
+                      className="rounded text-brand-primary border-border-light w-4 h-4"
+                    />
+                    <div>
+                      <span className="block font-bold">Preserve Host</span>
+                      <span className="text-[9px] text-text-muted font-normal block">Forward the incoming request Host header to the upstream server.</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* SNIs */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">SNIs</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeSnis}
+                    onChange={(e) => setRouteSnis(e.target.value)}
+                    placeholder="e.g. ssl.domain.com (comma-separated)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A list of SNIs that match this Route when using stream routing.</p>
+                </div>
+
+                {/* Sources */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Sources (JSON Array)</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeSources}
+                    onChange={(e) => setRouteSources(e.target.value)}
+                    placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A list of IP sources of incoming connections that match this Route.</p>
+                </div>
+
+                {/* Destinations */}
+                <div className="space-y-1 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Destinations (JSON Array)</label>
+                    <span className="text-[9px] text-text-muted italic">(semi-optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeDestinations}
+                    onChange={(e) => setRouteDestinations(e.target.value)}
+                    placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">A list of IP destinations of incoming connections that match this Route.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4 border-t border-border-light mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddRouteModal(false)}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={routeSubmitting}
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {routeSubmitting ? 'Adding...' : 'SUBMIT ROUTE'}
                 </button>
               </div>
             </form>

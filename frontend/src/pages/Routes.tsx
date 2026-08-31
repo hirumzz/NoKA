@@ -68,6 +68,7 @@ export const Routes: React.FC = () => {
   const [paths, setPaths] = useState('');
   const [hosts, setHosts] = useState('');
   const [methods, setMethods] = useState<string[]>([]);
+  const [protocols, setProtocols] = useState<string[]>(['http', 'https']);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [stripPath, setStripPath] = useState(true);
@@ -84,6 +85,7 @@ export const Routes: React.FC = () => {
   const [selectedTag, setSelectedTag] = useState('');
 
   const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
+  const protocolOptions = ['http', 'https', 'grpc', 'grpcs', 'tcp', 'tls', 'udp'];
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -196,6 +198,14 @@ export const Routes: React.FC = () => {
     }
   };
 
+  const handleToggleProtocol = (protocol: string) => {
+    if (protocols.includes(protocol)) {
+      setProtocols(protocols.filter(p => p !== protocol));
+    } else {
+      setProtocols([...protocols, protocol]);
+    }
+  };
+
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServiceId || !paths) return;
@@ -228,6 +238,7 @@ export const Routes: React.FC = () => {
     if (name) payload.name = name;
     if (parsedHosts && parsedHosts.length > 0) payload.hosts = parsedHosts;
     if (methods.length > 0) payload.methods = methods;
+    if (protocols.length > 0) payload.protocols = protocols;
     if (parsedTags.length > 0) payload.tags = parsedTags;
     if (parsedHeaders) payload.headers = parsedHeaders;
     payload.regex_priority = regexPriority;
@@ -245,6 +256,7 @@ export const Routes: React.FC = () => {
       setPaths('');
       setHosts('');
       setMethods([]);
+      setProtocols(['http', 'https']);
       setTagsInput('');
       setStripPath(true);
       setPreserveHost(false);
@@ -255,7 +267,6 @@ export const Routes: React.FC = () => {
       setSnis('');
       setSources('');
       setDestinations('');
-      setHttpsRedirectStatusCode(426);
       setShowAddForm(false);
       addToast('success', 'Route has been successfully created', 'Success');
       fetchRoutesAndServices();
@@ -498,6 +509,30 @@ export const Routes: React.FC = () => {
                   </label>
               </div>
 
+              {/* Protocols Selector */}
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[10px] font-bold text-text-secondary uppercase block">Protocols</label>
+                <div className="flex flex-wrap gap-2">
+                  {protocolOptions.map(p => {
+                    const isSelected = protocols.includes(p);
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handleToggleProtocol(p)}
+                        className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors uppercase cursor-pointer ${
+                          isSelected 
+                            ? 'bg-brand-primary text-white border-brand-primary' 
+                            : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (optional)</label>
                 <div className="flex flex-wrap gap-2">
@@ -508,7 +543,7 @@ export const Routes: React.FC = () => {
                         key={m}
                         type="button"
                         onClick={() => handleToggleMethod(m)}
-                        className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors ${
+                        className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
                           isSelected 
                             ? 'bg-brand-primary text-white border-brand-primary' 
                             : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
