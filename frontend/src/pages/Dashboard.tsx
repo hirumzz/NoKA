@@ -76,16 +76,36 @@ import { useAuth } from '../context/AuthContext';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState({
-    services: 0,
-    routes: 0,
-    consumers: 0,
-    plugins: 0
+  // Initialize state from local cache for instant 0ms dashboard render
+  const [loading] = useState(false);
+  const [counts, setCounts] = useState<{ services: number; routes: number; consumers: number; plugins: number }>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_counts');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return { services: 0, routes: 0, consumers: 0, plugins: 0 };
   });
-  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(null);
-  const [status, setStatus] = useState<KongStatus | null>(null);
-  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(null);
+  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_node_info');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [status, setStatus] = useState<KongStatus | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_status');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_prom_metrics');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
   const [hoveredCode, setHoveredCode] = useState<{ label: string; value: number; percent: number } | null>(null);
   const [terminationPlugins, setTerminationPlugins] = useState<Array<{
     id: string;
@@ -119,31 +139,41 @@ export const Dashboard: React.FC = () => {
   }, [user?.node]);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
     setError('');
-    try {
-      const infoResp = await axios.get('/api/kong/');
-      setNodeInfo(infoResp.data);
-    } catch (err: any) {
-      console.error(err);
-      setError('Failed to fetch gateway statistics. Please verify that a connection is active.');
-    } finally {
-      setLoading(false);
-    }
+    // Parallel non-blocking fetches across all dashboard endpoints
+    axios.get('/api/kong/')
+      .then(res => {
+        setNodeInfo(res.data);
+        try { localStorage.setItem('noka_cache_node_info', JSON.stringify(res.data)); } catch (e) {}
+      })
+      .catch(err => {
+        console.error(err);
+      });
 
-    // Load remaining stats and counts asynchronously without blocking initial page load
-    fetchDashboardMetricsAndCounts();
-  };
+    axios.get('/api/kong/status')
+      .then(res => {
+        setStatus(res.data);
+        try { localStorage.setItem('noka_cache_status', JSON.stringify(res.data)); } catch (e) {}
+      })
+      .catch(() => {});
 
-  const fetchDashboardMetricsAndCounts = async () => {
-    // Independent background fetches
-    axios.get('/api/kong/status').then(res => setStatus(res.data)).catch(() => {});
-    axios.get('/api/kong/prometheus-metrics').then(res => setPrometheusMetrics(res.data)).catch(() => {});
+    axios.get('/api/kong/prometheus-metrics')
+      .then(res => {
+        setPrometheusMetrics(res.data);
+        if (res.data?.success) {
+          try { localStorage.setItem('noka_cache_prom_metrics', JSON.stringify(res.data)); } catch (e) {}
+        }
+      })
+      .catch(() => {});
     
     axios.get('/api/kong/services?size=1000')
       .then(res => {
         const servs = res.data?.data || [];
-        setCounts(prev => ({ ...prev, services: servs.length }));
+        setCounts(prev => {
+          const updated = { ...prev, services: servs.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
         const sMap: Record<string, string> = {};
         servs.forEach((s: any) => { sMap[s.id] = s.name || s.id; });
         setServicesMap(sMap);
@@ -153,7 +183,11 @@ export const Dashboard: React.FC = () => {
     axios.get('/api/kong/routes?size=1000')
       .then(res => {
         const rts = res.data?.data || [];
-        setCounts(prev => ({ ...prev, routes: rts.length }));
+        setCounts(prev => {
+          const updated = { ...prev, routes: rts.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
         const rMap: Record<string, string> = {};
         rts.forEach((r: any) => { rMap[r.id] = r.name || r.paths?.join(', ') || r.id; });
         setRoutesMap(rMap);
@@ -161,13 +195,23 @@ export const Dashboard: React.FC = () => {
       .catch(() => {});
 
     axios.get('/api/kong/consumers?size=1000')
-      .then(res => setCounts(prev => ({ ...prev, consumers: res.data?.data?.length || 0 })))
+      .then(res => {
+        setCounts(prev => {
+          const updated = { ...prev, consumers: res.data?.data?.length || 0 };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+      })
       .catch(() => {});
 
     axios.get('/api/kong/plugins?size=1000')
       .then(res => {
         const allPlugins = res.data?.data || [];
-        setCounts(prev => ({ ...prev, plugins: allPlugins.length }));
+        setCounts(prev => {
+          const updated = { ...prev, plugins: allPlugins.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
         const termPlugins = allPlugins.filter((p: any) => p.name === 'request-termination');
         setTerminationPlugins(termPlugins);
       })
