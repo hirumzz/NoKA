@@ -684,10 +684,40 @@ export const Plugins: React.FC = () => {
       ) : (
         /* Plugins List Table */
         <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
-          {isSyncing && plugins.length === 0 ? (
-            <div className="p-12 text-center text-text-muted text-xs font-semibold flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
-              Loading plugins...
+          {plugins.length === 0 && isSyncing ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+                    <th className="px-6 py-3.5">Name</th>
+                    <th className="px-6 py-3.5">Scope</th>
+                    <th className="px-6 py-3.5">Apply To</th>
+                    <th className="px-6 py-3.5">Consumer</th>
+                    <th className="px-6 py-3.5">Created</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-light">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-slate-200" />
+                          <div className="space-y-1.5">
+                            <div className="h-3.5 w-28 bg-slate-200 rounded" />
+                            <div className="h-2.5 w-40 bg-slate-100 rounded" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4"><div className="h-3 w-14 bg-slate-200 rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-3 w-24 bg-slate-200 rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-3 w-20 bg-slate-200 rounded" /></td>
+                      <td className="px-6 py-4"><div className="h-3 w-16 bg-slate-200 rounded" /></td>
+                      <td className="px-6 py-4 text-right"><div className="h-7 w-16 bg-slate-100 rounded ml-auto" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : plugins.length > 0 ? (
             <div className="overflow-x-auto">
