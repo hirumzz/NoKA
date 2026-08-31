@@ -292,7 +292,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {[
               { label: 'Active', value: status?.server?.connections_active, desc: 'Open connections', highlight: false },
               { label: 'Reading', value: status?.server?.connections_reading, desc: 'Reading headers', highlight: false },
@@ -304,19 +304,19 @@ export const Dashboard: React.FC = () => {
             ].map((metric, idx) => (
               <div 
                 key={idx} 
-                className={`p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between ${
+                className={`p-3.5 rounded-xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between ${
                   metric.highlight 
                     ? 'bg-slate-900/5 border-slate-900/10 col-span-2 sm:col-span-1 shadow-sm' 
                     : 'bg-white/40 border-white/50'
                 }`}
               >
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{metric.label}</span>
-                  <p className="text-xl font-extrabold tracking-tight text-slate-800 mt-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block truncate">{metric.label}</span>
+                  <p className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-800 mt-1 truncate">
                     {loading ? '...' : formatNumber(metric.value)}
                   </p>
                 </div>
-                <span className="text-[8px] text-slate-400 font-medium mt-2 leading-tight block">{metric.desc}</span>
+                <span className="text-[8px] text-slate-400 font-medium mt-1.5 leading-tight block">{metric.desc}</span>
               </div>
             ))}
           </div>
