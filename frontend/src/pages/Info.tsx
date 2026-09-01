@@ -286,13 +286,13 @@ export const Info: React.FC = () => {
         {/* Card 3: Datastore configuration */}
         <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center justify-between border-b border-border-light pb-4 gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-light pb-4 gap-2">
               <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
                 <Database className="w-4 h-4 text-brand-primary" /> Datastore Config
               </h3>
-              <div className="flex items-center space-x-2 text-xs font-bold shrink-0">
+              <div className="flex items-center space-x-2 text-xs font-bold self-start sm:self-auto shrink-0">
                 {status.database.reachable ? (
-                  <span className="flex items-center text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[11px]">
+                  <span className="flex items-center text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[10px] sm:text-[11px]">
                     <span className="relative flex h-2 w-2 mr-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -300,7 +300,7 @@ export const Info: React.FC = () => {
                     Reachable
                   </span>
                 ) : (
-                  <span className="flex items-center text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 text-[11px]">
+                  <span className="flex items-center text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 text-[10px] sm:text-[11px]">
                     <span className="h-2 w-2 mr-1.5 rounded-full bg-red-500" />
                     Unreachable
                   </span>

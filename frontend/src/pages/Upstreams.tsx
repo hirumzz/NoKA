@@ -164,14 +164,14 @@ export const Upstreams: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-border-light shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary">Upstreams</h2>
-          <p className="text-xs text-text-secondary mt-1">Upstream entities represent virtual hostnames that load balance incoming requests across multiple targets</p>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary">Upstreams</h2>
+          <p className="text-xs text-text-secondary mt-0.5">Upstream entities represent virtual hostnames that load balance incoming requests across multiple targets</p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
+          className="flex items-center justify-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4 mr-2" /> ADD UPSTREAM
         </button>
