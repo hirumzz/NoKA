@@ -5,7 +5,8 @@ import {
   Plus, 
   Trash2, 
   User, 
-  Search
+  Search,
+  X
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -66,6 +67,16 @@ export const Consumers: React.FC = () => {
   useEffect(() => {
     fetchConsumers();
   }, [user?.node]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddForm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchConsumers = async () => {
     setLoading(true);
@@ -161,68 +172,92 @@ export const Consumers: React.FC = () => {
           <p className="text-xs text-text-secondary mt-0.5">Consumers represent downstream clients or developers consuming your API gateway services</p>
         </div>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => setShowAddForm(true)}
           className="flex items-center justify-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4 mr-2" /> ADD CONSUMER
         </button>
       </div>
 
-      {/* Add Form */}
+      {/* Add Form Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Consumer details</h3>
-          <form onSubmit={handleAddConsumer} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Username</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. client-application-abc"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Custom ID (optional)</label>
-                <input
-                  type="text"
-                  value={customId}
-                  onChange={(e) => setCustomId(e.target.value)}
-                  placeholder="e.g. external-client-uuid-123"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. production, core, v1"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onMouseDown={() => setShowAddForm(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-xl max-h-[85vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">
+                ADD NEW CONSUMER
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowAddForm(false)} 
+                className="p-1 rounded hover:bg-slate-100 text-text-muted transition-colors cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD CONSUMER
+                <X className="w-4 h-4" />
               </button>
             </div>
-          </form>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleAddConsumer} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. client-application-abc"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Custom ID (optional)</label>
+                  <input
+                    type="text"
+                    value={customId}
+                    onChange={(e) => setCustomId(e.target.value)}
+                    placeholder="e.g. external-client-uuid-123"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. production, core, v1"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-2 justify-end px-6 py-4 border-t border-border-light bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  ADD CONSUMER
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

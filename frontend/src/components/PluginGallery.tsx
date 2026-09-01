@@ -102,8 +102,8 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
 
   if (selectedPlugin) {
     return (
-      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-        <div className="flex justify-between items-center border-b border-border-light pb-4">
+      <div className="bg-white p-6 rounded-xl space-y-4 flex flex-col max-h-[88vh] overflow-y-auto custom-scrollbar">
+        <div className="flex justify-between items-center border-b border-border-light pb-4 shrink-0">
           <div className="flex items-center gap-4">
              <div className="w-12 h-12 rounded overflow-hidden flex items-center justify-center bg-white border border-border-light shadow-sm shrink-0">
                 <img 
@@ -125,7 +125,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
           </button>
         </div>
 
-        <div className="bg-slate-50 border border-border-light rounded-lg p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="bg-slate-50 border border-border-light rounded-lg p-6 max-h-[50vh] overflow-y-auto custom-scrollbar">
           <PluginDynamicForm
             pluginName={selectedPlugin}
             initialConfig={{}}
@@ -134,7 +134,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1 shrink-0">
           <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
           <input
             type="text"
@@ -145,7 +145,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
           />
         </div>
 
-        <div className="flex gap-2 justify-end pt-4">
+        <div className="flex gap-2 justify-end pt-4 shrink-0 border-t border-border-light">
           <button
             type="button"
             onClick={() => setSelectedPlugin(null)}
@@ -173,9 +173,9 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
   }
 
   return (
-    <div className="bg-white rounded-lg border border-border-light shadow-sm animate-slideDown overflow-hidden">
+    <div className="bg-white flex flex-col h-full overflow-hidden">
       {/* Alert Banner */}
-      <div className="bg-[#b4e6d4] text-[#1c644d] p-4 text-xs relative flex justify-between items-start">
+      <div className="bg-[#b4e6d4] text-[#1c644d] p-4 text-xs relative flex justify-between items-start shrink-0">
         <div>
           <p className="font-bold">Plugins added in this section will be applied {scopeContext}.</p>
           <p>- If you need to add plugins to a specific Service or Route, you can do it in the respective section.</p>
@@ -185,7 +185,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border-light pt-4 px-4 overflow-x-auto custom-scrollbar">
+      <div className="flex border-b border-border-light pt-4 px-4 overflow-x-auto custom-scrollbar shrink-0">
         {PLUGIN_GROUPS.map((group) => (
           <button
             key={group.name}
@@ -201,7 +201,7 @@ export const PluginGallery: React.FC<PluginGalleryProps> = ({ onAdd, onCancel, s
         ))}
       </div>
 
-      <div className="p-6 bg-slate-50/50">
+      <div className="p-6 bg-slate-50/50 overflow-y-auto max-h-[calc(88vh-140px)] custom-scrollbar flex-1">
         <div className="mb-6 flex items-center gap-2">
           <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
             {activeGroup?.name}
