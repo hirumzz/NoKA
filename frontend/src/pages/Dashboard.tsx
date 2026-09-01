@@ -14,7 +14,11 @@ import {
   TrendingUp,
   Clock,
   BarChart2,
-  PieChart
+  PieChart,
+  ShieldAlert,
+  AlertTriangle,
+  Ban,
+  CheckCircle2
 } from 'lucide-react';
 
 interface GatewayInfo {
@@ -72,17 +76,46 @@ import { useAuth } from '../context/AuthContext';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState({
-    services: 0,
-    routes: 0,
-    consumers: 0,
-    plugins: 0
+  // Initialize state from local cache for instant 0ms dashboard render
+  const [loading] = useState(false);
+  const [counts, setCounts] = useState<{ services: number; routes: number; consumers: number; plugins: number }>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_counts');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return { services: 0, routes: 0, consumers: 0, plugins: 0 };
   });
-  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(null);
-  const [status, setStatus] = useState<KongStatus | null>(null);
-  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(null);
+  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_node_info');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [status, setStatus] = useState<KongStatus | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_status');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(() => {
+    try {
+      const saved = localStorage.getItem('noka_cache_prom_metrics');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
   const [hoveredCode, setHoveredCode] = useState<{ label: string; value: number; percent: number } | null>(null);
+  const [terminationPlugins, setTerminationPlugins] = useState<Array<{
+    id: string;
+    enabled: boolean;
+    service?: { id: string };
+    route?: { id: string };
+    config?: { status_code?: number; message?: string };
+  }>>([]);
+  const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
+  const [routesMap, setRoutesMap] = useState<Record<string, string>>({});
   const [errorModal, setErrorModal] = useState<{
     service: string;
     category: '4xx' | '5xx';
@@ -106,41 +139,82 @@ export const Dashboard: React.FC = () => {
   }, [user?.node]);
 
   const fetchDashboardData = async () => {
-    setLoading(true);
     setError('');
-    try {
-      const infoResp = await axios.get('/api/kong/');
-      setNodeInfo(infoResp.data);
-    } catch (err: any) {
-      console.error(err);
-      setError('Failed to fetch gateway statistics. Please verify that a connection is active.');
-    } finally {
-      setLoading(false);
-    }
+    // Parallel non-blocking fetches across all dashboard endpoints
+    axios.get('/api/kong/')
+      .then(res => {
+        setNodeInfo(res.data);
+        try { localStorage.setItem('noka_cache_node_info', JSON.stringify(res.data)); } catch (e) {}
+      })
+      .catch(err => {
+        console.error(err);
+      });
 
-    // Load remaining stats and counts asynchronously without blocking initial page load
-    fetchDashboardMetricsAndCounts();
-  };
+    axios.get('/api/kong/status')
+      .then(res => {
+        setStatus(res.data);
+        try { localStorage.setItem('noka_cache_status', JSON.stringify(res.data)); } catch (e) {}
+      })
+      .catch(() => {});
 
-  const fetchDashboardMetricsAndCounts = async () => {
-    // Independent background fetches
-    axios.get('/api/kong/status').then(res => setStatus(res.data)).catch(() => {});
-    axios.get('/api/kong/prometheus-metrics').then(res => setPrometheusMetrics(res.data)).catch(() => {});
+    axios.get('/api/kong/prometheus-metrics')
+      .then(res => {
+        setPrometheusMetrics(res.data);
+        if (res.data?.success) {
+          try { localStorage.setItem('noka_cache_prom_metrics', JSON.stringify(res.data)); } catch (e) {}
+        }
+      })
+      .catch(() => {});
     
     axios.get('/api/kong/services?size=1000')
-      .then(res => setCounts(prev => ({ ...prev, services: res.data?.data?.length || 0 })))
+      .then(res => {
+        const servs = res.data?.data || [];
+        setCounts(prev => {
+          const updated = { ...prev, services: servs.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+        const sMap: Record<string, string> = {};
+        servs.forEach((s: any) => { sMap[s.id] = s.name || s.id; });
+        setServicesMap(sMap);
+      })
       .catch(() => {});
 
     axios.get('/api/kong/routes?size=1000')
-      .then(res => setCounts(prev => ({ ...prev, routes: res.data?.data?.length || 0 })))
+      .then(res => {
+        const rts = res.data?.data || [];
+        setCounts(prev => {
+          const updated = { ...prev, routes: rts.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+        const rMap: Record<string, string> = {};
+        rts.forEach((r: any) => { rMap[r.id] = r.name || r.paths?.join(', ') || r.id; });
+        setRoutesMap(rMap);
+      })
       .catch(() => {});
 
     axios.get('/api/kong/consumers?size=1000')
-      .then(res => setCounts(prev => ({ ...prev, consumers: res.data?.data?.length || 0 })))
+      .then(res => {
+        setCounts(prev => {
+          const updated = { ...prev, consumers: res.data?.data?.length || 0 };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+      })
       .catch(() => {});
 
     axios.get('/api/kong/plugins?size=1000')
-      .then(res => setCounts(prev => ({ ...prev, plugins: res.data?.data?.length || 0 })))
+      .then(res => {
+        const allPlugins = res.data?.data || [];
+        setCounts(prev => {
+          const updated = { ...prev, plugins: allPlugins.length };
+          try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
+          return updated;
+        });
+        const termPlugins = allPlugins.filter((p: any) => p.name === 'request-termination');
+        setTerminationPlugins(termPlugins);
+      })
       .catch(() => {});
   };
 
@@ -218,7 +292,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {[
               { label: 'Active', value: status?.server?.connections_active, desc: 'Open connections', highlight: false },
               { label: 'Reading', value: status?.server?.connections_reading, desc: 'Reading headers', highlight: false },
@@ -230,47 +304,216 @@ export const Dashboard: React.FC = () => {
             ].map((metric, idx) => (
               <div 
                 key={idx} 
-                className={`p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between ${
+                className={`p-3.5 rounded-xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between ${
                   metric.highlight 
                     ? 'bg-slate-900/5 border-slate-900/10 col-span-2 sm:col-span-1 shadow-sm' 
                     : 'bg-white/40 border-white/50'
                 }`}
               >
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">{metric.label}</span>
-                  <p className="text-xl font-extrabold tracking-tight text-slate-800 mt-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block truncate">{metric.label}</span>
+                  <p className="text-lg sm:text-xl font-extrabold tracking-tight text-slate-800 mt-1 truncate">
                     {loading ? '...' : formatNumber(metric.value)}
                   </p>
                 </div>
-                <span className="text-[8px] text-slate-400 font-medium mt-2 leading-tight block">{metric.desc}</span>
+                <span className="text-[8px] text-slate-400 font-medium mt-1.5 leading-tight block">{metric.desc}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
+      {/* Request Termination Status Box (Viewer Only) */}
+      {(() => {
+        const activeTerminations = terminationPlugins.filter(p => p.enabled !== false);
+        const disabledTerminations = terminationPlugins.filter(p => p.enabled === false);
+        const hasActive = activeTerminations.length > 0;
+
+        return (
+          <div className={`p-4 sm:p-5 rounded-xl border transition-all shadow-sm ${
+            hasActive 
+              ? 'bg-rose-50/70 border-rose-200' 
+              : 'bg-white border-border-light'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-lg shrink-0 ${
+                  hasActive ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary break-words">
+                    Request Termination Status
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-text-secondary mt-0.5 leading-relaxed">
+                    Monitors gateway ingress endpoints intentionally blocked by Kong.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                {hasActive ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-rose-600 text-white shadow-sm animate-pulse">
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>ACTIVE TERMINATION ({activeTerminations.length})</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>ALL TRAFFIC ALLOWED</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Affected Targets List (if any) */}
+            {hasActive && (
+              <div className="mt-4 pt-3 border-t border-rose-200/80">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-2">
+                  Target Endpoints Currently Blocked:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {activeTerminations.map((p) => {
+                    const targetName = p.service?.id 
+                      ? `Service: ${servicesMap[p.service.id] || p.service.id}` 
+                      : p.route?.id 
+                      ? `Route: ${routesMap[p.route.id] || p.route.id}` 
+                      : 'Global (All Traffic)';
+                    const statusCode = p.config?.status_code || 503;
+                    const message = p.config?.message || 'Request terminated';
+
+                    return (
+                      <div key={p.id} className="p-2.5 rounded-lg bg-white/90 border border-rose-200 text-xs shadow-2xs flex flex-col justify-between">
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-bold text-rose-900 truncate">{targetName}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-mono text-[10px] font-bold shrink-0">
+                            HTTP {statusCode}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-text-muted italic mt-1 truncate">
+                          "{message}"
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Disabled History Note */}
+            {!hasActive && disabledTerminations.length > 0 && (
+              <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-2 text-[10px] sm:text-[11px] text-text-muted">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>{disabledTerminations.length} request-termination rule(s) configured in standby.</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
             <Link 
               key={idx} 
               to={stat.path}
-              className={`p-6 bg-white rounded-lg border border-border-light shadow-sm transition-all duration-150 hover:shadow-md flex items-center justify-between cursor-pointer`}
+              className={`p-4 sm:p-6 bg-white rounded-lg border border-border-light shadow-sm transition-all duration-150 hover:shadow-md flex items-center justify-between cursor-pointer`}
             >
-              <div>
-                <span className="text-xs font-bold text-text-secondary uppercase tracking-wider block">{stat.label}</span>
-                <p className="text-3xl font-extrabold tracking-tight text-text-primary mt-1">
+              <div className="min-w-0 flex-1 mr-2">
+                <span className="text-[10px] sm:text-xs font-bold text-text-secondary uppercase tracking-wider block truncate">{stat.label}</span>
+                <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-text-primary mt-1">
                   {loading ? '...' : stat.value}
                 </p>
               </div>
-              <div className={`p-3.5 rounded ${stat.color}`}>
-                <Icon className="w-5 h-5" />
+              <div className={`p-2.5 sm:p-3.5 rounded shrink-0 ${stat.color}`}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             </Link>
           );
         })}
+      </div>
+
+      {/* SVG Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm overflow-hidden">
+          <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+            <Server className="w-4 h-4 text-brand-primary" /> Server Activity
+          </h3>
+          {(() => {
+            const serverItems = [
+              { label: 'Active', value: status?.server?.connections_active || 0, color: '#3b82f6' },
+              { label: 'Reading', value: status?.server?.connections_reading || 0, color: '#10b981' },
+              { label: 'Writing', value: status?.server?.connections_writing || 0, color: '#f59e0b' },
+              { label: 'Waiting', value: status?.server?.connections_waiting || 0, color: '#ef4444' }
+            ];
+            const maxServerVal = Math.max(1, ...serverItems.map(i => i.value));
+            return (
+              <div className="flex items-end h-48 gap-2 sm:gap-4 justify-around mt-4 w-full overflow-x-auto pb-2">
+                {serverItems.map((item, idx) => {
+                  const heightPct = Math.max(4, (item.value / maxServerVal) * 96);
+                  return (
+                    <div key={idx} className="flex flex-col items-center flex-1 min-w-[50px]">
+                      <span className="text-[11px] sm:text-xs font-bold text-text-primary mb-2">{item.value}</span>
+                      <div className="w-full flex justify-center h-32 relative">
+                        <svg className="w-6 sm:w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                          <rect x="0" y="0" width="100" height="100" fill="#f1f5f9" rx="4" />
+                          <rect
+                            x="0"
+                            y={100 - heightPct}
+                            width="100"
+                            height={heightPct}
+                            fill={item.color}
+                            rx="4"
+                          />
+                        </svg>
+                      </div>
+                      <span className="text-[9px] sm:text-[10px] text-text-secondary mt-2 uppercase font-bold text-center truncate w-full">{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm overflow-hidden">
+          <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
+            <Database className="w-4 h-4 text-brand-primary" /> Database Distribution
+          </h3>
+          <div className="flex items-end h-48 gap-2 sm:gap-4 justify-around mt-4 w-full overflow-x-auto pb-2">
+            {[
+              { label: 'Services', value: counts.services, color: '#6366f1', path: '/services' },
+              { label: 'Routes', value: counts.routes, color: '#8b5cf6', path: '/routes' },
+              { label: 'Consumers', value: counts.consumers, color: '#ec4899', path: '/consumers' },
+              { label: 'Plugins', value: counts.plugins, color: '#14b8a6', path: '/plugins' }
+            ].map((item, idx) => {
+              const maxVal = Math.max(1, counts.services, counts.routes, counts.consumers, counts.plugins);
+              const heightPct = (item.value / maxVal) * 100;
+              return (
+                <Link key={idx} to={item.path} className="flex flex-col items-center flex-1 min-w-[50px] cursor-pointer hover:opacity-80 transition-opacity">
+                  <span className="text-[11px] sm:text-xs font-bold text-text-primary mb-2">{item.value}</span>
+                  <div className="w-full flex justify-center h-32 relative">
+                    <svg className="w-6 sm:w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <rect 
+                        x="0" 
+                        y={100 - Math.max(5, heightPct)} 
+                        width="100" 
+                        height={Math.max(5, heightPct)} 
+                        fill={item.color} 
+                        rx="4" 
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] text-text-secondary mt-2 uppercase font-bold text-center truncate w-full">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Node Info & System Status */}
@@ -661,85 +904,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>);
       })()}
-
-      {/* SVG Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
-            <Server className="w-4 h-4 text-brand-primary" /> Server Activity
-          </h3>
-          {(() => {
-            const serverItems = [
-              { label: 'Active', value: status?.server?.connections_active || 0, color: '#3b82f6' },
-              { label: 'Reading', value: status?.server?.connections_reading || 0, color: '#10b981' },
-              { label: 'Writing', value: status?.server?.connections_writing || 0, color: '#f59e0b' },
-              { label: 'Waiting', value: status?.server?.connections_waiting || 0, color: '#ef4444' }
-            ];
-            const maxServerVal = Math.max(1, ...serverItems.map(i => i.value));
-            return (
-              <div className="flex items-end h-48 gap-4 justify-around mt-4">
-                {serverItems.map((item, idx) => {
-                  const heightPct = Math.max(4, (item.value / maxServerVal) * 96);
-                  return (
-                    <div key={idx} className="flex flex-col items-center flex-1">
-                      <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
-                      <div className="w-full flex justify-center h-32 relative">
-                        <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                          <rect x="0" y="0" width="100" height="100" fill="#f1f5f9" rx="4" />
-                          <rect
-                            x="0"
-                            y={100 - heightPct}
-                            width="100"
-                            height={heightPct}
-                            fill={item.color}
-                            rx="4"
-                          />
-                        </svg>
-                      </div>
-                      <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4 mb-4">
-            <Database className="w-4 h-4 text-brand-primary" /> Database Distribution
-          </h3>
-          <div className="flex items-end h-48 gap-4 justify-around mt-4">
-            {[
-              { label: 'Services', value: counts.services, color: '#6366f1', path: '/services' },
-              { label: 'Routes', value: counts.routes, color: '#8b5cf6', path: '/routes' },
-              { label: 'Consumers', value: counts.consumers, color: '#ec4899', path: '/consumers' },
-              { label: 'Plugins', value: counts.plugins, color: '#14b8a6', path: '/plugins' }
-            ].map((item, idx) => {
-              const maxVal = Math.max(1, counts.services, counts.routes, counts.consumers, counts.plugins);
-              const heightPct = (item.value / maxVal) * 100;
-              return (
-                <Link key={idx} to={item.path} className="flex flex-col items-center flex-1 cursor-pointer hover:opacity-80 transition-opacity">
-                  <span className="text-xs font-bold text-text-primary mb-2">{item.value}</span>
-                  <div className="w-full flex justify-center h-32 relative">
-                    <svg className="w-8 h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                      <rect 
-                        x="0" 
-                        y={100 - Math.max(5, heightPct)} 
-                        width="100" 
-                        height={Math.max(5, heightPct)} 
-                        fill={item.color} 
-                        rx="4" 
-                      />
-                    </svg>
-                  </div>
-                  <span className="text-[10px] text-text-secondary mt-2 uppercase font-bold">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
 
       {/* Error Detail Modal */}

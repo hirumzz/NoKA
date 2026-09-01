@@ -20,7 +20,7 @@ export const Login: React.FC = () => {
   useEffect(() => {
     const fetchInfo = async () => {
       try {
-        const response = await axios.get('/info');
+        const response = await axios.get('/api/info');
         setSignupEnabled(!!response.data?.signup_enabled);
       } catch (err) {
         console.error('Failed to fetch info:', err);

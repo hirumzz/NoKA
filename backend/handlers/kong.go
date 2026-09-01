@@ -1,15 +1,16 @@
 package handlers
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"konga-backend/db"
@@ -37,11 +38,16 @@ func (h *KongHandler) ProxyKong(c *gin.Context) {
 	node := nodeVal.(*models.KongNode)
 
 	proxyPath := c.Param("proxyPath")
-	if strings.TrimPrefix(proxyPath, "/") == "prometheus-metrics" {
+	trimmedPath := strings.TrimPrefix(proxyPath, "/")
+	if trimmedPath == "enriched-plugins" {
+		h.GetEnrichedPlugins(c)
+		return
+	}
+	if trimmedPath == "prometheus-metrics" {
 		h.GetPrometheusMetrics(c)
 		return
 	}
-	if strings.TrimPrefix(proxyPath, "/") == "error-details" {
+	if trimmedPath == "error-details" {
 		h.GetErrorDetails(c)
 		return
 	}
@@ -132,38 +138,125 @@ type ErrorPathDetail struct {
 	Count float64  `json:"count"`
 }
 
-var (
-	requestsTotalRegex = regexp.MustCompile(`^kong_http_requests_total(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
-	latencySumRegex    = regexp.MustCompile(`^kong_request_latency_ms_sum(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
-	latencyCountRegex  = regexp.MustCompile(`^kong_request_latency_ms_count(?:\{([^}]+)\})?\s+([0-9eE.+-]+)`)
-
-	serviceLabelRegex = regexp.MustCompile(`service="([^"]*)"`)
-	routeLabelRegex   = regexp.MustCompile(`route="([^"]*)"`)
-	codeLabelRegex    = regexp.MustCompile(`code="([^"]*)"`)
-)
-
-func getEndpoint(labels string) string {
-	var service, route string
-	if serviceMatch := serviceLabelRegex.FindStringSubmatch(labels); len(serviceMatch) > 1 {
-		service = serviceMatch[1]
-	}
-	if routeMatch := routeLabelRegex.FindStringSubmatch(labels); len(routeMatch) > 1 {
-		route = routeMatch[1]
-	}
-	if service != "" {
-		return service
-	}
-	return route
+type PrometheusCacheEntry struct {
+	TotalRequests    float64                       `json:"totalRequests"`
+	TopHits          []TopHit                      `json:"topHits"`
+	SlowestEndpoints []SlowestEndpoint             `json:"slowestEndpoints"`
+	StatusCodes      map[string]float64            `json:"statusCodes"`
+	Top4xxEndpoints  []ErrorEndpoint               `json:"top4xxEndpoints"`
+	Top5xxEndpoints  []ErrorEndpoint               `json:"top5xxEndpoints"`
+	ErrorDetails4xx  map[string][]ErrorRouteDetail `json:"errorDetails4xx"`
+	ErrorDetails5xx  map[string][]ErrorRouteDetail `json:"errorDetails5xx"`
+	UpdatedAt        time.Time                     `json:"updatedAt"`
 }
 
-func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
+var (
+	promCacheMu    sync.RWMutex
+	promCacheStore = make(map[uint]*PrometheusCacheEntry)
+
+	// Dedicated HTTP client for metrics: longer timeout, no audit log overhead
+	metricsHTTPClient = &http.Client{Timeout: 90 * time.Second}
+)
+
+// StartPrometheusMetricsCollector starts a background goroutine that pre-warms
+// and keeps the Prometheus metrics cache fresh every 30 seconds for all active nodes.
+func (h *KongHandler) StartPrometheusMetricsCollector() {
+	// Run immediately on startup, then on interval
+	h.collectAllActiveNodeMetrics()
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		h.collectAllActiveNodeMetrics()
+	}
+}
+
+func (h *KongHandler) collectAllActiveNodeMetrics() {
+	var nodes []struct {
+		ID           uint
+		KongAdminURL string
+		Type         string
+		KongAPIKey   string
+	}
+
+	// Only fetch active nodes directly from DB
+	if err := db.DB.
+		Table("konga_kong_nodes").
+		Select("id, kong_admin_url, type, kong_api_key").
+		Where("active = ?", true).
+		Scan(&nodes).Error; err != nil {
+		return
+	}
+
+	for _, n := range nodes {
+		go func(nodeID uint, adminURL, nodeType, apiKey string) {
+			adminURL = strings.TrimSuffix(adminURL, "/")
+			targetURL := adminURL + "/metrics"
+
+			req, err := http.NewRequest("GET", targetURL, nil)
+			if err != nil {
+				return
+			}
+			if nodeType == "key_auth" && apiKey != "" {
+				req.Header.Set("apikey", apiKey)
+			}
+
+			resp, err := metricsHTTPClient.Do(req)
+			if err != nil || resp.StatusCode != http.StatusOK {
+				if resp != nil {
+					resp.Body.Close()
+				}
+				return
+			}
+			defer resp.Body.Close()
+
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return
+			}
+
+			totalRequests, topHits, slowestEndpoints, statusCodes, top4xx, top5xx, errDetails4xx, errDetails5xx :=
+				parsePrometheusMetricsFast(string(bodyBytes))
+
+			entry := &PrometheusCacheEntry{
+				TotalRequests:    totalRequests,
+				TopHits:          topHits,
+				SlowestEndpoints: slowestEndpoints,
+				StatusCodes:      statusCodes,
+				Top4xxEndpoints:  top4xx,
+				Top5xxEndpoints:  top5xx,
+				ErrorDetails4xx:  errDetails4xx,
+				ErrorDetails5xx:  errDetails5xx,
+				UpdatedAt:        time.Now(),
+			}
+
+			promCacheMu.Lock()
+			promCacheStore[nodeID] = entry
+			promCacheMu.Unlock()
+		}(n.ID, n.KongAdminURL, n.Type, n.KongAPIKey)
+	}
+}
+
+func extractLabel(labels, key string) string {
+	idx := strings.Index(labels, key+`="`)
+	if idx == -1 {
+		return ""
+	}
+	start := idx + len(key) + 2
+	end := strings.Index(labels[start:], `"`)
+	if end == -1 {
+		return ""
+	}
+	return labels[start : start+end]
+}
+
+func parsePrometheusMetricsFast(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
 	var totalRequests float64
 	hitsByEndpoint := make(map[string]float64)
 	latencySumByEndpoint := make(map[string]float64)
 	latencyCountByEndpoint := make(map[string]float64)
 	errorsByEndpoint4xx := make(map[string]float64)
 	errorsByEndpoint5xx := make(map[string]float64)
-	// map[service][route+":"+code] -> *ErrorRouteDetail
 	errDetailRaw4xx := make(map[string]map[string]*ErrorRouteDetail)
 	errDetailRaw5xx := make(map[string]map[string]*ErrorRouteDetail)
 
@@ -174,96 +267,125 @@ func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEnd
 		"5xx": 0,
 	}
 
-	lines := strings.Split(metricsData, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+	scanner := bufio.NewScanner(strings.NewReader(metricsData))
+	// Allocate buffer for long lines
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || line[0] == '#' {
 			continue
 		}
 
-		if match := requestsTotalRegex.FindStringSubmatch(line); len(match) > 2 {
-			labels := match[1]
-			valStr := match[2]
+		if strings.HasPrefix(line, "kong_http_requests_total") {
+			// e.g. kong_http_requests_total{code="200",route="...",service="..."} 123
+			braceOpen := strings.IndexByte(line, '{')
+			braceClose := strings.LastIndexByte(line, '}')
+			
+			var labels string
+			var valStr string
+			if braceOpen != -1 && braceClose > braceOpen {
+				labels = line[braceOpen+1 : braceClose]
+				valStr = strings.TrimSpace(line[braceClose+1:])
+			} else {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					valStr = parts[1]
+				}
+			}
+
 			val, err := strconv.ParseFloat(valStr, 64)
 			if err == nil {
 				totalRequests += val
 
-				// Sum hits by endpoint
-				endpoint := getEndpoint(labels)
+				service := extractLabel(labels, "service")
+				route := extractLabel(labels, "route")
+				endpoint := service
+				if endpoint == "" {
+					endpoint = route
+				}
 				if endpoint != "" {
 					hitsByEndpoint[endpoint] += val
 				}
 
-				// Status code distribution
-				if codeMatch := codeLabelRegex.FindStringSubmatch(labels); len(codeMatch) > 1 {
-					code := codeMatch[1]
-					if strings.HasPrefix(code, "2") {
+				code := extractLabel(labels, "code")
+				if len(code) > 0 {
+					if code[0] == '2' {
 						statusCodes["2xx"] += val
-					} else if strings.HasPrefix(code, "3") {
+					} else if code[0] == '3' {
 						statusCodes["3xx"] += val
-					} else if strings.HasPrefix(code, "4") {
+					} else if code[0] == '4' {
 						statusCodes["4xx"] += val
-						svcEp := getEndpoint(labels)
-						if svcEp != "" {
-							errorsByEndpoint4xx[svcEp] += val
-							var routeLabel string
-							if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
-								routeLabel = rm[1]
-							}
+						if endpoint != "" {
+							errorsByEndpoint4xx[endpoint] += val
+							routeLabel := route
 							if routeLabel == "" {
-								routeLabel = svcEp
+								routeLabel = endpoint
 							}
 							key := routeLabel + ":" + code
-							if errDetailRaw4xx[svcEp] == nil {
-								errDetailRaw4xx[svcEp] = make(map[string]*ErrorRouteDetail)
+							if errDetailRaw4xx[endpoint] == nil {
+								errDetailRaw4xx[endpoint] = make(map[string]*ErrorRouteDetail)
 							}
-							if errDetailRaw4xx[svcEp][key] == nil {
-								errDetailRaw4xx[svcEp][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
+							if errDetailRaw4xx[endpoint][key] == nil {
+								errDetailRaw4xx[endpoint][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
 							}
-							errDetailRaw4xx[svcEp][key].Count += val
+							errDetailRaw4xx[endpoint][key].Count += val
 						}
-					} else if strings.HasPrefix(code, "5") {
+					} else if code[0] == '5' {
 						statusCodes["5xx"] += val
-						svcEp := getEndpoint(labels)
-						if svcEp != "" {
-							errorsByEndpoint5xx[svcEp] += val
-							var routeLabel string
-							if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
-								routeLabel = rm[1]
-							}
+						if endpoint != "" {
+							errorsByEndpoint5xx[endpoint] += val
+							routeLabel := route
 							if routeLabel == "" {
-								routeLabel = svcEp
+								routeLabel = endpoint
 							}
 							key := routeLabel + ":" + code
-							if errDetailRaw5xx[svcEp] == nil {
-								errDetailRaw5xx[svcEp] = make(map[string]*ErrorRouteDetail)
+							if errDetailRaw5xx[endpoint] == nil {
+								errDetailRaw5xx[endpoint] = make(map[string]*ErrorRouteDetail)
 							}
-							if errDetailRaw5xx[svcEp][key] == nil {
-								errDetailRaw5xx[svcEp][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
+							if errDetailRaw5xx[endpoint][key] == nil {
+								errDetailRaw5xx[endpoint][key] = &ErrorRouteDetail{Route: routeLabel, Code: code}
 							}
-							errDetailRaw5xx[svcEp][key].Count += val
+							errDetailRaw5xx[endpoint][key].Count += val
 						}
 					}
 				}
 			}
-		} else if match := latencySumRegex.FindStringSubmatch(line); len(match) > 2 {
-			labels := match[1]
-			valStr := match[2]
-			val, err := strconv.ParseFloat(valStr, 64)
-			if err == nil {
-				endpoint := getEndpoint(labels)
-				if endpoint != "" {
-					latencySumByEndpoint[endpoint] += val
+		} else if strings.HasPrefix(line, "kong_request_latency_ms_sum") {
+			braceOpen := strings.IndexByte(line, '{')
+			braceClose := strings.LastIndexByte(line, '}')
+			if braceOpen != -1 && braceClose > braceOpen {
+				labels := line[braceOpen+1 : braceClose]
+				valStr := strings.TrimSpace(line[braceClose+1:])
+				val, err := strconv.ParseFloat(valStr, 64)
+				if err == nil {
+					service := extractLabel(labels, "service")
+					endpoint := service
+					if endpoint == "" {
+						endpoint = extractLabel(labels, "route")
+					}
+					if endpoint != "" {
+						latencySumByEndpoint[endpoint] += val
+					}
 				}
 			}
-		} else if match := latencyCountRegex.FindStringSubmatch(line); len(match) > 2 {
-			labels := match[1]
-			valStr := match[2]
-			val, err := strconv.ParseFloat(valStr, 64)
-			if err == nil {
-				endpoint := getEndpoint(labels)
-				if endpoint != "" {
-					latencyCountByEndpoint[endpoint] += val
+		} else if strings.HasPrefix(line, "kong_request_latency_ms_count") {
+			braceOpen := strings.IndexByte(line, '{')
+			braceClose := strings.LastIndexByte(line, '}')
+			if braceOpen != -1 && braceClose > braceOpen {
+				labels := line[braceOpen+1 : braceClose]
+				valStr := strings.TrimSpace(line[braceClose+1:])
+				val, err := strconv.ParseFloat(valStr, 64)
+				if err == nil {
+					service := extractLabel(labels, "service")
+					endpoint := service
+					if endpoint == "" {
+						endpoint = extractLabel(labels, "route")
+					}
+					if endpoint != "" {
+						latencyCountByEndpoint[endpoint] += val
+					}
 				}
 			}
 		}
@@ -364,6 +486,27 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 	}
 	node := nodeVal.(*models.KongNode)
 
+	// Check in-memory cache first (valid for 30s)
+	promCacheMu.RLock()
+	cached, hasCache := promCacheStore[node.ID]
+	promCacheMu.RUnlock()
+
+	if hasCache && cached != nil && time.Since(cached.UpdatedAt) < 30*time.Second {
+		c.JSON(http.StatusOK, gin.H{
+			"success":          true,
+			"totalRequests":    cached.TotalRequests,
+			"topHits":          cached.TopHits,
+			"slowestEndpoints": cached.SlowestEndpoints,
+			"statusCodes":      cached.StatusCodes,
+			"top4xxEndpoints":  cached.Top4xxEndpoints,
+			"top5xxEndpoints":  cached.Top5xxEndpoints,
+			"errorDetails4xx":  cached.ErrorDetails4xx,
+			"errorDetails5xx":  cached.ErrorDetails5xx,
+			"cached":           true,
+		})
+		return
+	}
+
 	var user *models.User
 	userVal, userExists := c.Get("user")
 	if userExists {
@@ -377,6 +520,22 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 
 	statusCode, _, respBytes, err := h.kongService.ForwardRequest(node, "GET", "/metrics", "", nil, clientIP, user, "")
 	if err != nil || statusCode != http.StatusOK {
+		// If fetch fails but we have older cache, serve older cache gracefully
+		if hasCache && cached != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success":          true,
+				"totalRequests":    cached.TotalRequests,
+				"topHits":          cached.TopHits,
+				"slowestEndpoints": cached.SlowestEndpoints,
+				"statusCodes":      cached.StatusCodes,
+				"top4xxEndpoints":  cached.Top4xxEndpoints,
+				"top5xxEndpoints":  cached.Top5xxEndpoints,
+				"errorDetails4xx":  cached.ErrorDetails4xx,
+				"errorDetails5xx":  cached.ErrorDetails5xx,
+				"stale":            true,
+			})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "Prometheus plugin is not enabled or not reachable on this node",
@@ -384,7 +543,23 @@ func (h *KongHandler) GetPrometheusMetrics(c *gin.Context) {
 		return
 	}
 
-	totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints, errorDetails4xx, errorDetails5xx := parsePrometheusMetrics(string(respBytes))
+	totalRequests, topHits, slowestEndpoints, statusCodes, top4xxEndpoints, top5xxEndpoints, errorDetails4xx, errorDetails5xx := parsePrometheusMetricsFast(string(respBytes))
+
+	entry := &PrometheusCacheEntry{
+		TotalRequests:    totalRequests,
+		TopHits:          topHits,
+		SlowestEndpoints: slowestEndpoints,
+		StatusCodes:      statusCodes,
+		Top4xxEndpoints:  top4xxEndpoints,
+		Top5xxEndpoints:  top5xxEndpoints,
+		ErrorDetails4xx:  errorDetails4xx,
+		ErrorDetails5xx:  errorDetails5xx,
+		UpdatedAt:        time.Now(),
+	}
+
+	promCacheMu.Lock()
+	promCacheStore[node.ID] = entry
+	promCacheMu.Unlock()
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":          true,
@@ -435,37 +610,42 @@ func (h *KongHandler) GetErrorDetails(c *gin.Context) {
 	// 2. Parse metrics to get route+code+count for the specific service
 	// map[route:code] -> count
 	routeCodeCountMap := make(map[string]float64)
-	lines := strings.Split(string(respBytes), "\n")
 	prefixMatch := "5"
 	if category == "4xx" {
 		prefixMatch = "4"
 	}
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+
+	scanner := bufio.NewScanner(strings.NewReader(string(respBytes)))
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || line[0] == '#' {
 			continue
 		}
-		if match := requestsTotalRegex.FindStringSubmatch(line); len(match) > 2 {
-			labels := match[1]
-			valStr := match[2]
-			val, err := strconv.ParseFloat(valStr, 64)
-			if err == nil {
-				svcEp := getEndpoint(labels)
-				if svcEp == service {
-					var code string
-					if codeMatch := codeLabelRegex.FindStringSubmatch(labels); len(codeMatch) > 1 {
-						code = codeMatch[1]
+		if strings.HasPrefix(line, "kong_http_requests_total") {
+			braceOpen := strings.IndexByte(line, '{')
+			braceClose := strings.LastIndexByte(line, '}')
+			if braceOpen != -1 && braceClose > braceOpen {
+				labels := line[braceOpen+1 : braceClose]
+				valStr := strings.TrimSpace(line[braceClose+1:])
+				val, err := strconv.ParseFloat(valStr, 64)
+				if err == nil {
+					svcEp := extractLabel(labels, "service")
+					if svcEp == "" {
+						svcEp = extractLabel(labels, "route")
 					}
-					if strings.HasPrefix(code, prefixMatch) {
-						var routeLabel string
-						if rm := routeLabelRegex.FindStringSubmatch(labels); len(rm) > 1 {
-							routeLabel = rm[1]
+					if svcEp == service {
+						code := extractLabel(labels, "code")
+						if strings.HasPrefix(code, prefixMatch) {
+							routeLabel := extractLabel(labels, "route")
+							if routeLabel == "" {
+								routeLabel = svcEp
+							}
+							key := routeLabel + ":" + code
+							routeCodeCountMap[key] += val
 						}
-						if routeLabel == "" {
-							routeLabel = svcEp
-						}
-						key := routeLabel + ":" + code
-						routeCodeCountMap[key] += val
 					}
 				}
 			}
@@ -739,6 +919,80 @@ func (h *KongHandler) GetReachabilityStatuses(c *gin.Context) {
 	})
 }
 
+// GetEnrichedPlugins returns all plugins along with their resolved services and routes in a single ultra-fast response
+func (h *KongHandler) GetEnrichedPlugins(c *gin.Context) {
+	nodeVal, exists := c.Get("kongNode")
+	if !exists {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "No active Kong connection found"})
+		return
+	}
+	node := nodeVal.(*models.KongNode)
+
+	var user *models.User
+	userVal, userExists := c.Get("user")
+	if userExists {
+		u, ok := userVal.(*models.User)
+		if ok {
+			user = u
+		}
+	}
+	clientIP := c.ClientIP()
+
+	// Concurrently fetch plugins, services, routes via Kong Admin API
+	type fetchRes struct {
+		data []byte
+		err  error
+	}
+	pluginsCh := make(chan fetchRes, 1)
+	servicesCh := make(chan fetchRes, 1)
+	routesCh := make(chan fetchRes, 1)
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/plugins?size=1000", "", nil, clientIP, user, "")
+		pluginsCh <- fetchRes{data: b, err: err}
+	}()
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/services?size=1000", "", nil, clientIP, user, "")
+		servicesCh <- fetchRes{data: b, err: err}
+	}()
+
+	go func() {
+		_, _, b, err := h.kongService.ForwardRequest(node, "GET", "/routes?size=1000", "", nil, clientIP, user, "")
+		routesCh <- fetchRes{data: b, err: err}
+	}()
+
+	pRes := <-pluginsCh
+	sRes := <-servicesCh
+	rRes := <-routesCh
+
+	var pData struct {
+		Data []interface{} `json:"data"`
+	}
+	var sData struct {
+		Data []interface{} `json:"data"`
+	}
+	var rData struct {
+		Data []interface{} `json:"data"`
+	}
+
+	if pRes.err == nil && pRes.data != nil {
+		json.Unmarshal(pRes.data, &pData)
+	}
+	if sRes.err == nil && sRes.data != nil {
+		json.Unmarshal(sRes.data, &sData)
+	}
+	if rRes.err == nil && rRes.data != nil {
+		json.Unmarshal(rRes.data, &rData)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"plugins":  pData.Data,
+		"services": sData.Data,
+		"routes":   rData.Data,
+	})
+}
+
 // TriggerReachabilityCheck triggers a concurrent reachability check for all entities
 func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
 	services.RunReachabilityCheck()
@@ -747,3 +1001,5 @@ func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
 		"message": "Reachability statuses refreshed successfully",
 	})
 }
+
+

@@ -23,7 +23,8 @@ import {
   Info,
   Settings,
   Camera,
-  FileText
+  FileText,
+  Menu
 } from 'lucide-react';
 
 interface ConnectionNode {
@@ -56,12 +57,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lastReadTime, setLastReadTime] = useState<string>(
     localStorage.getItem('noka_last_read_time') || new Date(0).toISOString()
   );
 
   const notificationsRef = React.useRef<HTMLDivElement>(null);
   const profileRef = React.useRef<HTMLDivElement>(null);
+
+  // Auto-close mobile drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -198,11 +205,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }));
 
   return (
-    <div className="min-h-screen flex bg-bg-light text-text-primary font-sans">
-      {/* Sidebar */}
-      <aside className="w-60 bg-brand-royal text-brand-mint flex flex-col z-20 shrink-0">
+    <div className="min-h-screen flex bg-bg-light text-text-primary font-sans relative">
+      {/* Mobile Backdrop Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Desktop static / Mobile fixed drawer) */}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50 w-60 bg-brand-royal text-brand-mint flex flex-col shrink-0
+        transform transition-transform duration-300 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'}
+      `}>
         {/* Brand Header */}
-        <div className="h-16 flex items-center gap-3 px-6 bg-brand-royal-dark border-b border-white/5">
+        <div className="h-16 flex items-center justify-between px-6 bg-brand-royal-dark border-b border-white/5">
           <div className="flex flex-col">
             <span className="font-extrabold text-xl tracking-wider text-brand-primary font-montserrat leading-none">
               NOKA
@@ -211,6 +230,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               Nocta Kong Admin
             </span>
           </div>
+          <button 
+            onClick={() => setMobileMenuOpen(false)}
+            className="md:hidden p-1.5 rounded text-brand-mint/60 hover:text-white hover:bg-white/10 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Navigation Groups */}
@@ -230,6 +255,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center px-3 py-2 rounded transition-colors duration-150 text-xs font-semibold ${isActive
                         ? 'bg-brand-royal-light text-white border-l-2 border-brand-primary'
                         : 'text-brand-mint hover:text-white hover:bg-white/5'
@@ -246,22 +272,31 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.4.0</span>
+          <span className="text-brand-primary">NOKA v2.5.5</span>
         </div>
       </aside>
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-border-light flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm shrink-0">
-          <div className="flex items-center gap-4">
+        <header className="h-16 bg-white border-b border-border-light flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Hamburger Button on Mobile */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="md:hidden p-2 rounded-lg border border-border-light hover:bg-slate-50 text-text-primary cursor-pointer"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
             {connections.length > 0 ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-text-secondary">Gateway Node:</span>
+                <span className="text-xs font-semibold text-text-secondary hidden sm:inline">Gateway Node:</span>
                 <select
                   value={activeNode?.id || ''}
                   onChange={(e) => handleSwitchNode(Number(e.target.value))}
-                  className="px-3 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors"
+                  className="px-2.5 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors max-w-[170px] sm:max-w-xs truncate"
                 >
                   <option value="" disabled>Select Connection</option>
                   {connections.map((conn) => (
@@ -272,7 +307,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </select>
               </div>
             ) : (
-              <span className="text-xs font-semibold text-red-500">No active Kong node connections. Go to Connections page.</span>
+              <span className="text-xs font-semibold text-red-500">No active Kong node</span>
             )}
           </div>
 
@@ -384,7 +419,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* Content Page wrapper */}
-        <main className="flex-1 p-8 flex flex-col justify-between">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
           <div className="w-full">
             {children}
           </div>

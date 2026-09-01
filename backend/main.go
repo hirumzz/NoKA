@@ -109,6 +109,7 @@ func main() {
 	services.StartConnectionHealthChecker()
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
+	go kongHandler.StartPrometheusMetricsCollector()
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
 	r := gin.New()
@@ -150,7 +151,7 @@ func main() {
 	r.POST("/login", loginRateLimitMiddleware(loginRL), authHandler.Login)
 	r.POST("/register", authHandler.RegisterFirstAdmin) // Only works if 0 users exist
 
-	r.GET("/info", func(c *gin.Context) {
+	r.GET("/api/info", func(c *gin.Context) {
 		signupEnabled := os.Getenv("SIGNUP_ENABLED") == "true"
 		c.JSON(http.StatusOK, gin.H{"signup_enabled": signupEnabled})
 	})

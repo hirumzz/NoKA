@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { KongDataProvider } from './context/KongDataContext';
 import { ToastProvider } from './context/ToastContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -74,8 +75,9 @@ function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <Router>
-        <Routes>
+        <KongDataProvider>
+          <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -270,6 +272,7 @@ function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Router>
+      </KongDataProvider>
       </AuthProvider>
     </ToastProvider>
   );
