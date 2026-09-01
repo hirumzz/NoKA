@@ -6,7 +6,8 @@ import {
   Trash2, 
   Share2, 
   AlertCircle,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -72,6 +73,16 @@ export const Upstreams: React.FC = () => {
   useEffect(() => {
     fetchUpstreams();
   }, [user?.node]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddForm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchUpstreams = async () => {
     setLoading(true);
@@ -164,14 +175,14 @@ export const Upstreams: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-border-light shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary">Upstreams</h2>
-          <p className="text-xs text-text-secondary mt-1">Upstream entities represent virtual hostnames that load balance incoming requests across multiple targets</p>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary">Upstreams</h2>
+          <p className="text-xs text-text-secondary mt-0.5">Upstream entities represent virtual hostnames that load balance incoming requests across multiple targets</p>
         </div>
         <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center justify-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4 mr-2" /> ADD UPSTREAM
         </button>
@@ -184,148 +195,174 @@ export const Upstreams: React.FC = () => {
         </div>
       )}
 
-      {/* Add Form */}
+      {/* Add Form Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Upstream Details</h3>
-          <form onSubmit={handleAddUpstream} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Upstream Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. backend-load-balancer"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Load Balancing Algorithm</label>
-                <select
-                  value={algorithm}
-                  onChange={(e) => setAlgorithm(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="round-robin">Round Robin</option>
-                  <option value="least-connections">Least Connections</option>
-                  <option value="consistent-hashing">Consistent Hashing</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Slots</label>
-                <input
-                  type="number"
-                  value={slots}
-                  onChange={(e) => setSlots(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On</label>
-                <select
-                  value={hashOn}
-                  onChange={(e) => setHashOn(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="none">None</option>
-                  <option value="consumer">Consumer</option>
-                  <option value="ip">IP</option>
-                  <option value="header">Header</option>
-                  <option value="cookie">Cookie</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback</label>
-                <select
-                  value={hashFallback}
-                  onChange={(e) => setHashFallback(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  <option value="none">None</option>
-                  <option value="consumer">Consumer</option>
-                  <option value="ip">IP</option>
-                  <option value="header">Header</option>
-                  <option value="cookie">Cookie</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Header</label>
-                <input
-                  type="text"
-                  value={hashOnHeader}
-                  onChange={(e) => setHashOnHeader(e.target.value)}
-                  placeholder="e.g. x-custom-header"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback Header</label>
-                <input
-                  type="text"
-                  value={hashFallbackHeader}
-                  onChange={(e) => setHashFallbackHeader(e.target.value)}
-                  placeholder="e.g. x-custom-header"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie</label>
-                <input
-                  type="text"
-                  value={hashOnCookie}
-                  onChange={(e) => setHashOnCookie(e.target.value)}
-                  placeholder="e.g. session_id"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie Path</label>
-                <input
-                  type="text"
-                  value={hashOnCookiePath}
-                  onChange={(e) => setHashOnCookiePath(e.target.value)}
-                  placeholder="e.g. /"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. staging, api, secure"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onMouseDown={() => setShowAddForm(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl max-h-[85vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">
+                ADD NEW UPSTREAM
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setShowAddForm(false)} 
+                className="p-1 rounded hover:bg-slate-100 text-text-muted transition-colors cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD UPSTREAM
+                <X className="w-4 h-4" />
               </button>
             </div>
-          </form>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleAddUpstream} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Upstream Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. backend-load-balancer"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Load Balancing Algorithm</label>
+                    <select
+                      value={algorithm}
+                      onChange={(e) => setAlgorithm(e.target.value)}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                    >
+                      <option value="round-robin">Round Robin</option>
+                      <option value="least-connections">Least Connections</option>
+                      <option value="consistent-hashing">Consistent Hashing</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Slots</label>
+                    <input
+                      type="number"
+                      value={slots}
+                      onChange={(e) => setSlots(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On</label>
+                    <select
+                      value={hashOn}
+                      onChange={(e) => setHashOn(e.target.value)}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                    >
+                      <option value="none">None</option>
+                      <option value="consumer">Consumer</option>
+                      <option value="ip">IP</option>
+                      <option value="header">Header</option>
+                      <option value="cookie">Cookie</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback</label>
+                    <select
+                      value={hashFallback}
+                      onChange={(e) => setHashFallback(e.target.value)}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                    >
+                      <option value="none">None</option>
+                      <option value="consumer">Consumer</option>
+                      <option value="ip">IP</option>
+                      <option value="header">Header</option>
+                      <option value="cookie">Cookie</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Header</label>
+                    <input
+                      type="text"
+                      value={hashOnHeader}
+                      onChange={(e) => setHashOnHeader(e.target.value)}
+                      placeholder="e.g. x-custom-header"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash Fallback Header</label>
+                    <input
+                      type="text"
+                      value={hashFallbackHeader}
+                      onChange={(e) => setHashFallbackHeader(e.target.value)}
+                      placeholder="e.g. x-custom-header"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie</label>
+                    <input
+                      type="text"
+                      value={hashOnCookie}
+                      onChange={(e) => setHashOnCookie(e.target.value)}
+                      placeholder="e.g. session_id"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Hash On Cookie Path</label>
+                    <input
+                      type="text"
+                      value={hashOnCookiePath}
+                      onChange={(e) => setHashOnCookiePath(e.target.value)}
+                      placeholder="e.g. /"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      placeholder="e.g. staging, api, secure"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-2 justify-end px-6 py-4 border-t border-border-light bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors cursor-pointer"
+                >
+                  ADD UPSTREAM
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

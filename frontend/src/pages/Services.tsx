@@ -9,7 +9,8 @@ import {
   Activity,
   CheckCircle, 
   XCircle,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -74,6 +75,7 @@ export const Services: React.FC = () => {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [terminatedServiceIds, setTerminatedServiceIds] = useState<Set<string>>(new Set());
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -87,13 +89,39 @@ export const Services: React.FC = () => {
     fetchServices();
   }, [user?.node]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showAddForm) {
+        setShowAddForm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddForm]);
+
 
 
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/kong/services?size=1000');
-      setServices(response.data?.data || []);
+      const [svcResp, pluginResp] = await Promise.allSettled([
+        axios.get('/api/kong/services?size=1000'),
+        axios.get('/api/kong/plugins?size=1000')
+      ]);
+
+      if (svcResp.status === 'fulfilled') {
+        setServices(svcResp.value.data?.data || []);
+      }
+      if (pluginResp.status === 'fulfilled') {
+        const pList = pluginResp.value.data?.data || [];
+        const tIds = new Set<string>();
+        pList.forEach((p: any) => {
+          if (p.name === 'request-termination' && p.enabled !== false && p.service?.id) {
+            tIds.add(p.service.id);
+          }
+        });
+        setTerminatedServiceIds(tIds);
+      }
     } catch (err: any) {
       addToast('error', err.response?.data?.message || 'Failed to fetch services', 'Fetch Error');
       console.error(err);
@@ -245,7 +273,7 @@ export const Services: React.FC = () => {
     return Array.from(tagsSet).sort();
   }, [services]);
 
-  // Filtered services
+  // Filtered services (sorted by created_at desc - newest first)
   const filteredServices = React.useMemo(() => {
     const filtered = services.filter(svc => {
       const nameMatch = (svc.name || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -257,7 +285,8 @@ export const Services: React.FC = () => {
 
       return matchesSearch && matchesTag;
     });
-    return filtered;
+
+    return filtered.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }, [services, searchTerm, selectedTag]);
 
   const paginatedServices = filteredServices.slice(
@@ -268,210 +297,234 @@ export const Services: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-border-light shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary">Services</h2>
-          <p className="text-xs text-text-secondary mt-1">Services represent your upstream APIs and microservices managed by Kong</p>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary">Services</h2>
+          <p className="text-xs text-text-secondary mt-0.5">Services represent your upstream APIs and microservices managed by Kong</p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all"
+          className="flex items-center justify-center px-4 py-2 rounded bg-brand-primary text-white font-bold text-xs hover:bg-brand-primary-hover shadow-sm transition-all self-start sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4 mr-2" /> ADD NEW SERVICE
         </button>
       </div>
 
-      {/* Add Form */}
+      {/* Add Form Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Service details</h3>
-          <form onSubmit={handleAddService} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Service Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. users-api"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddForm(false); }}
+        >
+          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border-light flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">ADD NEW SERVICE</h3>
+                <p className="text-xs text-text-secondary mt-0.5">Configure upstream service parameters and connection timeouts</p>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Description</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <div className="flex gap-4 mb-2">
-                  <label className="flex items-center text-xs font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={useUrlField}
-                      onChange={() => setUseUrlField(true)}
-                      className="mr-1.5 accent-brand-primary"
-                    />
-                    Use URL shorthand
-                  </label>
-                  <label className="flex items-center text-xs font-semibold cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={!useUrlField}
-                      onChange={() => setUseUrlField(false)}
-                      className="mr-1.5 accent-brand-primary"
-                    />
-                    Specify host components
-                  </label>
-                </div>
-
-                {useUrlField ? (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Full Service URL</label>
-                    <input
-                      type="url"
-                      required
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="e.g. http://my-microservice.internal:8080/v1"
-                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                    />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-1 md:col-span-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">Host</label>
-                      <input
-                        type="text"
-                        required
-                        value={host}
-                        onChange={(e) => setHost(e.target.value)}
-                        placeholder="e.g. users-service.local"
-                        className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">Port</label>
-                      <input
-                        type="number"
-                        required
-                        value={port}
-                        onChange={(e) => setPort(Number(e.target.value))}
-                        placeholder="80"
-                        className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">Protocol</label>
-                      <select
-                        value={protocol}
-                        onChange={(e) => setProtocol(e.target.value)}
-                        className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold"
-                      >
-                        <option value="http">HTTP</option>
-                        <option value="https">HTTPS</option>
-                        <option value="grpc">gRPC</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1 md:col-span-4">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">Path</label>
-                      <input
-                        type="text"
-                        value={path}
-                        onChange={(e) => setPath(e.target.value)}
-                        placeholder="e.g. /v1 (optional)"
-                        className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. production, core, v1"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Retries</label>
-                <input
-                  type="number"
-                  value={retries}
-                  onChange={(e) => setRetries(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Connect Timeout (ms)</label>
-                <input
-                  type="number"
-                  value={connectTimeout}
-                  onChange={(e) => setConnectTimeout(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Write Timeout (ms)</label>
-                <input
-                  type="number"
-                  value={writeTimeout}
-                  onChange={(e) => setWriteTimeout(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Read Timeout (ms)</label>
-                <input
-                  type="number"
-                  value={readTimeout}
-                  onChange={(e) => setReadTimeout(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Client Certificate ID</label>
-                <input
-                  type="text"
-                  value={clientCertificateId}
-                  onChange={(e) => setClientCertificateId(e.target.value)}
-                  placeholder="Optional UUID"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
+                className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD SERVICE
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </form>
+
+            {/* Form Body */}
+            <form onSubmit={handleAddService} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Service Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. users-api"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Description</label>
+                    <input
+                      type="text"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Optional description"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <div className="flex gap-4 mb-2">
+                      <label className="flex items-center text-xs font-semibold cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={useUrlField}
+                          onChange={() => setUseUrlField(true)}
+                          className="mr-1.5 accent-brand-primary"
+                        />
+                        Use URL shorthand
+                      </label>
+                      <label className="flex items-center text-xs font-semibold cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={!useUrlField}
+                          onChange={() => setUseUrlField(false)}
+                          className="mr-1.5 accent-brand-primary"
+                        />
+                        Specify host components
+                      </label>
+                    </div>
+
+                    {useUrlField ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-text-secondary uppercase">Full Service URL</label>
+                        <input
+                          type="url"
+                          required
+                          value={url}
+                          onChange={(e) => setUrl(e.target.value)}
+                          placeholder="e.g. http://my-microservice.internal:8080/v1"
+                          className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-1 md:col-span-2">
+                          <label className="text-[10px] font-bold text-text-secondary uppercase">Host</label>
+                          <input
+                            type="text"
+                            required
+                            value={host}
+                            onChange={(e) => setHost(e.target.value)}
+                            placeholder="e.g. users-service.local"
+                            className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-text-secondary uppercase">Port</label>
+                          <input
+                            type="number"
+                            required
+                            value={port}
+                            onChange={(e) => setPort(Number(e.target.value))}
+                            placeholder="80"
+                            className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-text-secondary uppercase">Protocol</label>
+                          <select
+                            value={protocol}
+                            onChange={(e) => setProtocol(e.target.value)}
+                            className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold"
+                          >
+                            <option value="http">HTTP</option>
+                            <option value="https">HTTPS</option>
+                            <option value="grpc">gRPC</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1 md:col-span-4">
+                          <label className="text-[10px] font-bold text-text-secondary uppercase">Path</label>
+                          <input
+                            type="text"
+                            value={path}
+                            onChange={(e) => setPath(e.target.value)}
+                            placeholder="e.g. /v1 (optional)"
+                            className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      placeholder="e.g. production, core, v1"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Retries</label>
+                    <input
+                      type="number"
+                      value={retries}
+                      onChange={(e) => setRetries(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Connect Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={connectTimeout}
+                      onChange={(e) => setConnectTimeout(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Write Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={writeTimeout}
+                      onChange={(e) => setWriteTimeout(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Read Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={readTimeout}
+                      onChange={(e) => setReadTimeout(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Client Certificate ID</label>
+                    <input
+                      type="text"
+                      value={clientCertificateId}
+                      onChange={(e) => setClientCertificateId(e.target.value)}
+                      placeholder="Optional UUID"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-border-light flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors shadow-sm cursor-pointer"
+                >
+                  ADD SERVICE
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -553,9 +606,16 @@ export const Services: React.FC = () => {
                           <Layers className="w-4 h-4" />
                         </div>
                         <div>
-                          <Link to={`/services/${svc.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
-                            {svc.name || 'Unnamed'}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link to={`/services/${svc.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                              {svc.name || 'Unnamed'}
+                            </Link>
+                            {terminatedServiceIds.has(svc.id) && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-100 border border-rose-200 text-rose-700 text-[9px] font-extrabold uppercase tracking-wider animate-pulse">
+                                🚫 Terminated
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-text-muted font-mono block select-all">{svc.id}</span>
                           {(() => {
                             let description = '';

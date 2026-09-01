@@ -143,58 +143,58 @@ export const Info: React.FC = () => {
 
   return (
     <div className="space-y-6 font-sans">
-      <div className="p-6 rounded-lg bg-white border border-border-light shadow-sm flex items-center justify-between">
+      <div className="p-4 sm:p-6 rounded-lg bg-white border border-border-light shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary">Node Information</h2>
-          <p className="text-xs text-text-secondary mt-1">Detailed metrics and configurations for your Kong Gateway node.</p>
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-text-primary">Node Information</h2>
+          <p className="text-xs text-text-secondary mt-0.5">Detailed metrics and configurations for your Kong Gateway node.</p>
         </div>
-        <div className="flex items-center space-x-2 text-sm font-semibold">
+        <div className="flex items-center space-x-2 text-xs font-semibold self-start sm:self-auto shrink-0">
           {status.database.reachable ? (
-            <span className="flex items-center text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
-              <CheckCircle2 className="w-4 h-4 mr-1.5" /> DB Connected
+            <span className="flex items-center text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> DB Connected
             </span>
           ) : (
-            <span className="flex items-center text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100">
-              <AlertCircle className="w-4 h-4 mr-1.5" /> DB Disconnected
+            <span className="flex items-center text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100 text-xs">
+              <AlertCircle className="w-3.5 h-3.5 mr-1.5" /> DB Disconnected
             </span>
           )}
         </div>
       </div>
 
       {/* 3-column layout card */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Card 1: Node specifications */}
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
               <Server className="w-4 h-4 text-brand-primary" /> Node Specifications
             </h3>
-            <div className="space-y-4 mt-4">
+            <div className="space-y-3.5 mt-4">
               <div className="flex items-start gap-3">
-                <Cpu className="w-4 h-4 text-text-secondary mt-0.5" />
-                <div>
+                <Cpu className="w-4 h-4 text-text-secondary mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-text-muted font-bold uppercase">Hostname</p>
-                  <p className="text-xs font-bold text-text-primary mt-0.5">{info.hostname}</p>
+                  <p className="text-xs font-bold text-text-primary mt-0.5 break-words">{info.hostname}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Server className="w-4 h-4 text-text-secondary mt-0.5" />
-                <div>
+                <Server className="w-4 h-4 text-text-secondary mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-text-muted font-bold uppercase">Kong Version</p>
                   <p className="text-xs font-bold text-text-primary mt-0.5">{info.version}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Globe className="w-4 h-4 text-text-secondary mt-0.5" />
-                <div>
+                <Globe className="w-4 h-4 text-text-secondary mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-text-muted font-bold uppercase">Lua VM Version</p>
                   <p className="text-xs font-bold text-text-primary mt-0.5">{info.lua_version}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <Activity className="w-4 h-4 text-text-secondary mt-0.5" />
-                <div>
+                <Activity className="w-4 h-4 text-text-secondary mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-text-muted font-bold uppercase">Admin Listener</p>
                   <p className="text-xs font-bold text-text-primary mt-0.5 break-all">
                     {formatAdminListen(info.configuration?.admin_listen)}
@@ -206,9 +206,9 @@ export const Info: React.FC = () => {
         </div>
 
         {/* Card 2: Lua VM Timers */}
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
+            <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2 border-b border-border-light pb-4">
               <Clock className="w-4 h-4 text-brand-primary" /> Lua VM Timers
             </h3>
             <svg className="hidden">
@@ -227,7 +227,7 @@ export const Info: React.FC = () => {
               <div className="flex items-center justify-around h-full py-6">
                 {/* Pending Timers */}
                 <div className="flex flex-col items-center">
-                  <div className="relative w-24 h-24">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24">
                     <svg className="w-full h-full animate-[spin_25s_linear_infinite]" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
                       <circle 
@@ -245,15 +245,15 @@ export const Info: React.FC = () => {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-xl font-extrabold text-amber-500">{info.timers.pending}</span>
-                      <span className="text-[9px] text-text-secondary uppercase font-bold">Pending</span>
+                      <span className="text-lg sm:text-xl font-extrabold text-amber-500">{info.timers.pending}</span>
+                      <span className="text-[8px] sm:text-[9px] text-text-secondary uppercase font-bold">Pending</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Running Timers */}
                 <div className="flex flex-col items-center">
-                  <div className="relative w-24 h-24">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24">
                     <svg className="w-full h-full animate-[spin_25s_linear_infinite]" viewBox="0 0 100 100">
                       <circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="8" fill="transparent" />
                       <circle 
@@ -271,8 +271,8 @@ export const Info: React.FC = () => {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-xl font-extrabold text-emerald-500">{info.timers.running}</span>
-                      <span className="text-[9px] text-text-secondary uppercase font-bold">Running</span>
+                      <span className="text-lg sm:text-xl font-extrabold text-emerald-500">{info.timers.running}</span>
+                      <span className="text-[8px] sm:text-[9px] text-text-secondary uppercase font-bold">Running</span>
                     </div>
                   </div>
                 </div>
@@ -284,15 +284,15 @@ export const Info: React.FC = () => {
         </div>
 
         {/* Card 3: Datastore configuration */}
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
+        <div className="bg-white p-4 sm:p-6 rounded-lg border border-border-light shadow-sm flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center justify-between border-b border-border-light pb-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-light pb-4 gap-2">
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary flex items-center gap-2">
                 <Database className="w-4 h-4 text-brand-primary" /> Datastore Config
               </h3>
-              <div className="flex items-center space-x-2 text-xs font-bold">
+              <div className="flex items-center space-x-2 text-xs font-bold self-start sm:self-auto shrink-0">
                 {status.database.reachable ? (
-                  <span className="flex items-center text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                  <span className="flex items-center text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[10px] sm:text-[11px]">
                     <span className="relative flex h-2 w-2 mr-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -300,7 +300,7 @@ export const Info: React.FC = () => {
                     Reachable
                   </span>
                 ) : (
-                  <span className="flex items-center text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+                  <span className="flex items-center text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100 text-[10px] sm:text-[11px]">
                     <span className="h-2 w-2 mr-1.5 rounded-full bg-red-500" />
                     Unreachable
                   </span>
@@ -311,24 +311,24 @@ export const Info: React.FC = () => {
             {(() => {
               const details = getDatastoreDetails(info.configuration);
               return (
-                <div className="grid grid-cols-2 gap-y-4 gap-x-2 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3.5 gap-x-2 mt-4">
                   <div>
                     <p className="text-[10px] text-text-muted font-bold uppercase">DBMS</p>
                     <p className="text-xs font-bold text-text-primary mt-0.5 capitalize">{details.dbms}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-text-muted font-bold uppercase">Host</p>
-                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.host)}>{details.host}</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 break-all">{details.host}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-text-muted font-bold uppercase">Database Name</p>
-                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.name)}>{details.name}</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 break-all">{details.name}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-text-muted font-bold uppercase">User</p>
-                    <p className="text-xs font-bold text-text-primary mt-0.5 truncate" title={String(details.user)}>{details.user}</p>
+                    <p className="text-xs font-bold text-text-primary mt-0.5 break-all">{details.user}</p>
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <p className="text-[10px] text-text-muted font-bold uppercase">Port</p>
                     <p className="text-xs font-bold text-text-primary mt-0.5">{details.port}</p>
                   </div>
