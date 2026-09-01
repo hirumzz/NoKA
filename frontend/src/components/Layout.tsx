@@ -272,7 +272,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.5.4</span>
+          <span className="text-brand-primary">NOKA v2.5.5</span>
         </div>
       </aside>
 
