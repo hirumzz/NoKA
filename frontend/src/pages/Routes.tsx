@@ -9,7 +9,8 @@ import {
   Activity,
   CheckCircle,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -99,6 +100,16 @@ export const Routes: React.FC = () => {
   useEffect(() => {
     fetchRoutesAndServices();
   }, [user?.node]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showAddForm) {
+        setShowAddForm(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddForm]);
 
 
 
@@ -365,236 +376,259 @@ export const Routes: React.FC = () => {
         </div>
       )}
 
-      {/* Add Form */}
+      {/* Add Form Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Route config</h3>
-          <form onSubmit={handleAddRoute} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Associated Service</label>
-                <select
-                  value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
-                >
-                  {services.map(s => (
-                    <option key={s.id} value={s.id}>{s.name || s.id}</option>
-                  ))}
-                </select>
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddForm(false); }}
+        >
+          <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-border-light flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">ADD NEW ROUTE</h3>
+                <p className="text-xs text-text-secondary mt-0.5">Configure route match criteria and upstream forwarding rules</p>
               </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Route Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. get-users-route"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Matching Paths (comma separated)</label>
-                <input
-                  type="text"
-                  required
-                  value={paths}
-                  onChange={(e) => setPaths(e.target.value)}
-                  placeholder="e.g. /users, /profiles"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Matching Hosts (comma separated, optional)</label>
-                <input
-                  type="text"
-                  value={hosts}
-                  onChange={(e) => setHosts(e.target.value)}
-                  placeholder="e.g. api.domain.com"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. production, core, v1"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Regex Priority</label>
-                <input
-                  type="number"
-                  value={regexPriority}
-                  onChange={(e) => setRegexPriority(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">HTTPS Redirect Status</label>
-                <select
-                  value={httpsRedirectStatusCode}
-                  onChange={(e) => setHttpsRedirectStatusCode(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                >
-                  <option value={426}>426</option>
-                  <option value={301}>301</option>
-                  <option value={302}>302</option>
-                  <option value={307}>307</option>
-                  <option value={308}>308</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Path Handling</label>
-                <select
-                  value={pathHandling}
-                  onChange={(e) => setPathHandling(e.target.value as 'v0' | 'v1')}
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                >
-                  <option value="v0">v0</option>
-                  <option value="v1">v1</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Headers (JSON)</label>
-                <input
-                  type="text"
-                  value={headers}
-                  onChange={(e) => setHeaders(e.target.value)}
-                  placeholder='{"x-version":["v1"]}'
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">SNIs (comma separated)</label>
-                <input
-                  type="text"
-                  value={snis}
-                  onChange={(e) => setSnis(e.target.value)}
-                  placeholder="e.g. ssl.domain.com"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Sources (JSON Array)</label>
-                <input
-                  type="text"
-                  value={sources}
-                  onChange={(e) => setSources(e.target.value)}
-                  placeholder='[{"ip":"10.0.0.0/24","port":80}]'
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Destinations (JSON Array)</label>
-                <input
-                  type="text"
-                  value={destinations}
-                  onChange={(e) => setDestinations(e.target.value)}
-                  placeholder='[{"ip":"10.0.0.0/24","port":80}]'
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-
-              <div className="flex items-center gap-6 pt-2 md:col-span-2 text-xs font-semibold text-text-primary">
-                  <label className="flex items-center gap-2 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={stripPath}
-                      onChange={(e) => setStripPath(e.target.checked)}
-                      className="rounded text-brand-primary border-border-light"
-                    />
-                    <span>Strip Path</span>
-                  </label>
-                  <label className="flex items-center gap-2 select-none cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={preserveHost}
-                      onChange={(e) => setPreserveHost(e.target.checked)}
-                      className="rounded text-brand-primary border-border-light"
-                    />
-                    <span>Preserve Host</span>
-                  </label>
-              </div>
-
-              {/* Protocols Selector */}
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase block">Protocols</label>
-                <div className="flex flex-wrap gap-2">
-                  {protocolOptions.map(p => {
-                    const isSelected = protocols.includes(p);
-                    return (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => handleToggleProtocol(p)}
-                        className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors uppercase cursor-pointer ${
-                          isSelected 
-                            ? 'bg-brand-primary text-white border-brand-primary' 
-                            : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (optional)</label>
-                <div className="flex flex-wrap gap-2">
-                  {methodOptions.map(m => {
-                    const isSelected = methods.includes(m);
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => handleToggleMethod(m)}
-                        className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
-                          isSelected 
-                            ? 'bg-brand-primary text-white border-brand-primary' 
-                            : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end">
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
+                className="p-1 rounded-md text-text-secondary hover:text-text-primary hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD ROUTE
+                <X className="w-5 h-5" />
               </button>
             </div>
-          </form>
+
+            {/* Form Body */}
+            <form onSubmit={handleAddRoute} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Associated Service</label>
+                    <select
+                      value={selectedServiceId}
+                      onChange={(e) => setSelectedServiceId(e.target.value)}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-semibold text-text-primary"
+                    >
+                      {services.map(s => (
+                        <option key={s.id} value={s.id}>{s.name || s.id}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Route Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. get-users-route"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Matching Paths (comma separated)</label>
+                    <input
+                      type="text"
+                      required
+                      value={paths}
+                      onChange={(e) => setPaths(e.target.value)}
+                      placeholder="e.g. /users, /profiles"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Matching Hosts (comma separated, optional)</label>
+                    <input
+                      type="text"
+                      value={hosts}
+                      onChange={(e) => setHosts(e.target.value)}
+                      placeholder="e.g. api.domain.com"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      placeholder="e.g. production, core, v1"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Regex Priority</label>
+                    <input
+                      type="number"
+                      value={regexPriority}
+                      onChange={(e) => setRegexPriority(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">HTTPS Redirect Status</label>
+                    <select
+                      value={httpsRedirectStatusCode}
+                      onChange={(e) => setHttpsRedirectStatusCode(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    >
+                      <option value={426}>426</option>
+                      <option value={301}>301</option>
+                      <option value={302}>302</option>
+                      <option value={307}>307</option>
+                      <option value={308}>308</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Path Handling</label>
+                    <select
+                      value={pathHandling}
+                      onChange={(e) => setPathHandling(e.target.value as 'v0' | 'v1')}
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    >
+                      <option value="v0">v0</option>
+                      <option value="v1">v1</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Headers (JSON)</label>
+                    <input
+                      type="text"
+                      value={headers}
+                      onChange={(e) => setHeaders(e.target.value)}
+                      placeholder='{"x-version":["v1"]}'
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">SNIs (comma separated)</label>
+                    <input
+                      type="text"
+                      value={snis}
+                      onChange={(e) => setSnis(e.target.value)}
+                      placeholder="e.g. ssl.domain.com"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Sources (JSON Array)</label>
+                    <input
+                      type="text"
+                      value={sources}
+                      onChange={(e) => setSources(e.target.value)}
+                      placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Destinations (JSON Array)</label>
+                    <input
+                      type="text"
+                      value={destinations}
+                      onChange={(e) => setDestinations(e.target.value)}
+                      placeholder='[{"ip":"10.0.0.0/24","port":80}]'
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-6 pt-2 md:col-span-2 text-xs font-semibold text-text-primary">
+                      <label className="flex items-center gap-2 select-none cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={stripPath}
+                          onChange={(e) => setStripPath(e.target.checked)}
+                          className="rounded text-brand-primary border-border-light"
+                        />
+                        <span>Strip Path</span>
+                      </label>
+                      <label className="flex items-center gap-2 select-none cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preserveHost}
+                          onChange={(e) => setPreserveHost(e.target.checked)}
+                          className="rounded text-brand-primary border-border-light"
+                        />
+                        <span>Preserve Host</span>
+                      </label>
+                  </div>
+
+                  {/* Protocols Selector */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase block">Protocols</label>
+                    <div className="flex flex-wrap gap-2">
+                      {protocolOptions.map(p => {
+                        const isSelected = protocols.includes(p);
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => handleToggleProtocol(p)}
+                            className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors uppercase cursor-pointer ${
+                              isSelected 
+                                ? 'bg-brand-primary text-white border-brand-primary' 
+                                : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (optional)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {methodOptions.map(m => {
+                        const isSelected = methods.includes(m);
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleToggleMethod(m)}
+                            className={`px-3 py-1 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                              isSelected 
+                                ? 'bg-brand-primary text-white border-brand-primary' 
+                                : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-border-light flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-100 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors shadow-sm cursor-pointer"
+                >
+                  ADD ROUTE
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

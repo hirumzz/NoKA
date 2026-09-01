@@ -487,13 +487,23 @@ export const Plugins: React.FC = () => {
         </button>
       </div>
 
-      {/* Add Form / Gallery */}
+      {/* Add Form / Gallery Modal Dialog */}
       {showAddForm && (
-        <PluginGallery 
-          onAdd={handleAddPluginFromGallery} 
-          onCancel={() => setShowAddForm(false)} 
-          scopeContext="Globally" 
-        />
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onMouseDown={() => setShowAddForm(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-5xl max-h-[88vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <PluginGallery 
+              onAdd={handleAddPluginFromGallery} 
+              onCancel={() => setShowAddForm(false)} 
+              scopeContext="Globally" 
+            />
+          </div>
+        </div>
       )}
 
       {/* Search and Filter Panel */}

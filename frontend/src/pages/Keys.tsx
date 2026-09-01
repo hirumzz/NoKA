@@ -5,7 +5,8 @@ import {
   Trash2, 
   Key, 
   AlertCircle,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +64,17 @@ export const Keys: React.FC = () => {
   useEffect(() => {
     fetchKeys();
   }, [user?.node]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAddForm(false);
+        setTagsInput('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchKeys = async () => {
     setLoading(true);
@@ -152,52 +164,79 @@ export const Keys: React.FC = () => {
         </div>
       )}
 
+      {/* Add Key Modal */}
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-4 animate-slideDown">
-          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">New Cryptographic Key</h3>
-          <form onSubmit={handleAddKey} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Key Name / Alias</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. auth-jwt-key"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
-                <input
-                  type="text"
-                  value={tagsInput}
-                  onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="e.g. jwt, auth, prod"
-                  className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          onMouseDown={() => {
+            setShowAddForm(false);
+            setTagsInput('');
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-xl max-h-[85vh] rounded-xl border border-border-light shadow-2xl flex flex-col animate-scaleUp overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="h-14 flex items-center justify-between px-6 border-b border-border-light bg-slate-50/50">
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide flex items-center gap-2">
+                <Key className="w-4 h-4 text-brand-primary" />
+                Add New Cryptographic Key
+              </h3>
+              <button 
                 onClick={() => {
                   setShowAddForm(false);
                   setTagsInput('');
-                }}
-                className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors"
+                }} 
+                className="p-1 rounded hover:bg-slate-100 text-text-muted transition-colors cursor-pointer"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs transition-colors"
-              >
-                ADD KEY
+                <X className="w-4 h-4" />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleAddKey} className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Key Name / Alias</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. auth-jwt-key"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. jwt, auth, prod"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end pt-4 border-t border-border-light mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setTagsInput('');
+                  }}
+                  className="px-4 py-2 rounded border border-border-light hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
+                >
+                  ADD KEY
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

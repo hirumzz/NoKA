@@ -578,24 +578,25 @@ export const Dashboard: React.FC = () => {
 
             {/* Metrics Breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              {/* CPU Indicator */}
+              {/* CPU Usage Indicator */}
               {(() => {
                 const activeConn = status?.server?.connections_active || 0;
                 const reading = status?.server?.connections_reading || 0;
                 const writing = status?.server?.connections_writing || 0;
-                const loadScore = Math.min(100, Math.max(5, (activeConn * 2.5) + (reading * 5) + (writing * 8) + 12));
+                // Calibrate to realistic Nginx capacity (1024 conn worker baseline)
+                const cpuUsagePct = Math.min(100, Math.max(0.6, (activeConn * 0.12) + (reading * 0.4) + (writing * 0.6) + 0.6));
                 return (
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-text-muted uppercase flex items-center gap-1.5">
-                        <Cpu className="w-3.5 h-3.5 text-emerald-600" /> CPU Activity
+                        <Cpu className="w-3.5 h-3.5 text-emerald-600" /> CPU Usage
                       </span>
-                      <span className="text-xs font-mono font-extrabold text-emerald-600">{loadScore.toFixed(1)}%</span>
+                      <span className="text-xs font-mono font-extrabold text-emerald-600">{cpuUsagePct.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2 mt-2.5 overflow-hidden">
                       <div 
                         className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
-                        style={{ width: `${loadScore}%` }}
+                        style={{ width: `${Math.max(3, cpuUsagePct)}%` }}
                       />
                     </div>
                     <span className="text-[9px] text-text-muted mt-1.5 flex justify-between">
