@@ -181,8 +181,9 @@ func main() {
 		api.DELETE("/connections/:id", middleware.AdminRequired(), handlers.DeleteConnection)
 		api.POST("/connections/:id/activate", middleware.AdminRequired(), handlers.ActivateConnection)
 
-		// System Settings
+		// System Settings & Resource Metrics
 		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)
+		api.GET("/system/resources", handlers.GetSystemResources)
 
 		// Comments management
 		api.GET("/comments", handlers.GetComments)
