@@ -98,41 +98,11 @@ export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   // Initialize state from local cache for instant 0ms dashboard render
   const [loading] = useState(false);
-  const [counts, setCounts] = useState<{ services: number; routes: number; consumers: number; plugins: number }>(() => {
-    try {
-      const saved = localStorage.getItem('noka_cache_counts');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return { services: 0, routes: 0, consumers: 0, plugins: 0 };
-  });
-  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(() => {
-    try {
-      const saved = localStorage.getItem('noka_cache_node_info');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
-  const [status, setStatus] = useState<KongStatus | null>(() => {
-    try {
-      const saved = localStorage.getItem('noka_cache_status');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
-  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(() => {
-    try {
-      const saved = localStorage.getItem('noka_cache_prom_metrics');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
-  const [systemResources, setSystemResources] = useState<SystemResources | null>(() => {
-    try {
-      const saved = localStorage.getItem('noka_cache_system_resources');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
+  const [counts, setCounts] = useState<{ services: number; routes: number; consumers: number; plugins: number }>({ services: 0, routes: 0, consumers: 0, plugins: 0 });
+  const [nodeInfo, setNodeInfo] = useState<GatewayInfo | null>(null);
+  const [status, setStatus] = useState<KongStatus | null>(null);
+  const [prometheusMetrics, setPrometheusMetrics] = useState<PrometheusMetrics | null>(null);
+  const [systemResources, setSystemResources] = useState<SystemResources | null>(null);
   const [hoveredCode, setHoveredCode] = useState<{ label: string; value: number; percent: number } | null>(null);
   const [terminationPlugins, setTerminationPlugins] = useState<Array<{
     id: string;
@@ -179,13 +149,29 @@ export const Dashboard: React.FC = () => {
 
   const fetchDashboardData = async () => {
     setError('');
-    // Parallel non-blocking fetches across all dashboard endpoints
+
+    // Fetch NoKA App System Resources (Live from Go runtime)
     axios.get('/api/system/resources')
       .then(res => {
         setSystemResources(res.data);
-        try { localStorage.setItem('noka_cache_system_resources', JSON.stringify(res.data)); } catch (e) {}
       })
       .catch(() => {});
+
+    // If no Kong node assigned, reset Kong metrics to clean state
+    if (!user?.node) {
+      setNodeInfo(null);
+      setStatus(null);
+      setPrometheusMetrics(null);
+      setCounts({ services: 0, routes: 0, consumers: 0, plugins: 0 });
+      setRawServices([]);
+      setRawRoutes([]);
+      setRawPlugins([]);
+      setTerminationPlugins([]);
+      setPreFunctionPlugins([]);
+      setServicesMap({});
+      setRoutesMap({});
+      return;
+    }
 
     axios.get('/api/kong/')
       .then(res => {
@@ -707,51 +693,66 @@ export const Dashboard: React.FC = () => {
           <div>
             <div className="flex items-center justify-between border-b border-border-light pb-3 gap-2">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-md bg-emerald-50 text-emerald-600 border border-emerald-100">
+                <div className={`p-2 rounded-md border ${
+                  user?.node && nodeInfo 
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                    : 'bg-slate-50 text-slate-400 border-slate-200'
+                }`}>
                   <Globe className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary">
                     Kong API Gateway (Pod)
                   </h3>
-                  <p className="text-[10px] text-text-muted">Active Node: {nodeInfo?.hostname || 'Connecting...'}</p>
+                  <p className="text-[10px] text-text-muted">
+                    {user?.node && nodeInfo ? `Active Node: ${nodeInfo.hostname || 'Connected'}` : 'No active Kong gateway connected'}
+                  </p>
                 </div>
               </div>
-              <span className="flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
-                <span className="relative flex h-2 w-2 mr-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              {user?.node && nodeInfo ? (
+                <span className="flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">
+                  <span className="relative flex h-2 w-2 mr-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  Online
                 </span>
-                Online
-              </span>
+              ) : (
+                <span className="flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 mr-1.5" />
+                  Disconnected
+                </span>
+              )}
             </div>
 
             {/* Metrics Breakdown */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               {/* CPU Usage Indicator */}
               {(() => {
+                const hasNode = Boolean(user?.node && status);
                 const activeConn = status?.server?.connections_active || 0;
                 const reading = status?.server?.connections_reading || 0;
                 const writing = status?.server?.connections_writing || 0;
-                // Calibrate to realistic Nginx capacity (1024 conn worker baseline)
-                const cpuUsagePct = Math.min(100, Math.max(0.6, (activeConn * 0.12) + (reading * 0.4) + (writing * 0.6) + 0.6));
+                const cpuUsagePct = hasNode ? Math.min(100, (activeConn * 0.12) + (reading * 0.4) + (writing * 0.6)) : 0;
                 return (
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-text-muted uppercase flex items-center gap-1.5">
                         <Cpu className="w-3.5 h-3.5 text-emerald-600" /> CPU Usage
                       </span>
-                      <span className="text-xs font-mono font-extrabold text-emerald-600">{cpuUsagePct.toFixed(1)}%</span>
+                      <span className="text-xs font-mono font-extrabold text-emerald-600">
+                        {hasNode ? `${cpuUsagePct.toFixed(1)}%` : 'N/A'}
+                      </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2 mt-2.5 overflow-hidden">
                       <div 
                         className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
-                        style={{ width: `${Math.max(3, cpuUsagePct)}%` }}
+                        style={{ width: `${hasNode ? Math.max(3, cpuUsagePct) : 0}%` }}
                       />
                     </div>
                     <span className="text-[9px] text-text-muted mt-1.5 flex justify-between">
                       <span>Nginx Worker Threads</span>
-                      <span className="font-semibold text-text-primary">Healthy</span>
+                      <span className="font-semibold text-text-primary">{hasNode ? 'Healthy' : '-'}</span>
                     </span>
                   </div>
                 );
@@ -759,26 +760,29 @@ export const Dashboard: React.FC = () => {
 
               {/* Memory Indicator */}
               {(() => {
+                const hasNode = Boolean(user?.node && nodeInfo);
                 const pendingTimers = nodeInfo?.timers?.pending || 0;
                 const runningTimers = nodeInfo?.timers?.running || 0;
-                const estLuaMemMB = Math.max(32, (runningTimers * 1.8) + (pendingTimers * 0.5) + 48);
+                const estLuaMemMB = hasNode ? (runningTimers * 1.8) + (pendingTimers * 0.5) : 0;
                 return (
                   <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold text-text-muted uppercase flex items-center gap-1.5">
                         <HardDrive className="w-3.5 h-3.5 text-teal-600" /> Memory Usage
                       </span>
-                      <span className="text-xs font-mono font-extrabold text-teal-600">{estLuaMemMB.toFixed(0)} MB</span>
+                      <span className="text-xs font-mono font-extrabold text-teal-600">
+                        {hasNode ? `${estLuaMemMB.toFixed(0)} MB` : 'N/A'}
+                      </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2 mt-2.5 overflow-hidden">
                       <div 
                         className="bg-teal-500 h-2 rounded-full transition-all duration-500" 
-                        style={{ width: `${Math.min(100, (estLuaMemMB / 512) * 100)}%` }}
+                        style={{ width: `${hasNode ? Math.min(100, (estLuaMemMB / 512) * 100) : 0}%` }}
                       />
                     </div>
                     <span className="text-[9px] text-text-muted mt-1.5 flex justify-between">
                       <span>Lua VM & Shared Dict</span>
-                      <span className="font-semibold text-text-primary">512 MB Pool</span>
+                      <span className="font-semibold text-text-primary">{hasNode ? 'Active Pool' : '-'}</span>
                     </span>
                   </div>
                 );
@@ -789,15 +793,15 @@ export const Dashboard: React.FC = () => {
             <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100 text-center">
               <div>
                 <p className="text-[9px] text-text-muted font-bold uppercase">Kong Version</p>
-                <p className="text-xs font-bold text-text-primary mt-0.5">{nodeInfo?.version || '3.4.2'}</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">{user?.node && nodeInfo?.version ? nodeInfo.version : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-[9px] text-text-muted font-bold uppercase">Total Requests</p>
-                <p className="text-xs font-bold text-text-primary mt-0.5">{formatNumber(status?.server?.total_requests)}</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">{user?.node && status?.server ? formatNumber(status.server.total_requests) : '-'}</p>
               </div>
               <div>
                 <p className="text-[9px] text-text-muted font-bold uppercase">Active Conn</p>
-                <p className="text-xs font-bold text-text-primary mt-0.5">{status?.server?.connections_active || 0}</p>
+                <p className="text-xs font-bold text-text-primary mt-0.5">{user?.node && status?.server ? (status.server.connections_active || 0) : '-'}</p>
               </div>
             </div>
           </div>
@@ -930,7 +934,7 @@ export const Dashboard: React.FC = () => {
               <div>
                 <p className="text-[10px] text-text-muted font-bold uppercase">Datastore</p>
                 <p className="text-xs font-bold text-text-primary mt-0.5 capitalize">
-                  {loading ? 'Loading...' : (nodeInfo?.configuration?.database || 'PostgreSQL')}
+                  {user?.node && nodeInfo?.configuration?.database ? nodeInfo.configuration.database : 'N/A'}
                 </p>
               </div>
             </div>
@@ -942,7 +946,7 @@ export const Dashboard: React.FC = () => {
               <div>
                 <p className="text-[10px] text-text-muted font-bold uppercase">Lua VM Version</p>
                 <p className="text-xs font-bold text-text-primary mt-0.5">
-                  {loading ? 'Loading...' : (nodeInfo?.lua_version || 'LuaJIT')}
+                  {user?.node && nodeInfo?.lua_version ? nodeInfo.lua_version : 'N/A'}
                 </p>
               </div>
             </div>
@@ -955,27 +959,47 @@ export const Dashboard: React.FC = () => {
             <Cpu className="w-4 h-4 text-brand-primary" /> Gateway Status
           </h3>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-xs mb-1 font-semibold">
-                <span className="text-text-secondary">API Proxy Latency</span>
-                <span className="text-brand-primary">1.2ms</span>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-brand-primary rounded-full" style={{ width: '12%' }} />
-              </div>
-            </div>
+          {(() => {
+            const hasNode = Boolean(user?.node && nodeInfo);
+            // Calculate real average latency from prometheus slowest endpoints if available
+            let avgLatencyStr = 'N/A';
+            let latencyPct = 0;
+            if (prometheusMetrics?.slowestEndpoints && prometheusMetrics.slowestEndpoints.length > 0) {
+              const totalLat = prometheusMetrics.slowestEndpoints.reduce((sum, e) => sum + e.avgLatency, 0);
+              const avg = totalLat / prometheusMetrics.slowestEndpoints.length;
+              avgLatencyStr = `${avg.toFixed(1)}ms`;
+              latencyPct = Math.min(100, Math.max(5, (avg / 100) * 100));
+            } else if (hasNode) {
+              avgLatencyStr = '< 1ms';
+              latencyPct = 5;
+            }
 
-            <div>
-              <div className="flex justify-between text-xs mb-1 font-semibold">
-                <span className="text-text-secondary">Admin API Health</span>
-                <span className="text-emerald-500">100% OK</span>
+            return (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs mb-1 font-semibold">
+                    <span className="text-text-secondary">API Proxy Latency</span>
+                    <span className={hasNode ? 'text-brand-primary' : 'text-slate-400 font-mono'}>{avgLatencyStr}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-brand-primary rounded-full transition-all duration-500" style={{ width: `${latencyPct}%` }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1 font-semibold">
+                    <span className="text-text-secondary">Admin API Health</span>
+                    <span className={hasNode ? 'text-emerald-500 font-bold' : 'text-slate-400 font-semibold'}>
+                      {hasNode ? '100% Connected' : 'Disconnected'}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-500 ${hasNode ? 'bg-emerald-500' : 'bg-slate-300'}`} style={{ width: hasNode ? '100%' : '0%' }} />
+                  </div>
+                </div>
               </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 
