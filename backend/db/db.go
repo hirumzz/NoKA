@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -59,8 +60,14 @@ func InitDB() *gorm.DB {
 	}
 
 	var err error
+	gormLogLevel := logger.Warn
+	if strings.ToLower(os.Getenv("DB_LOG_SQL")) == "true" || strings.ToLower(os.Getenv("DB_DEBUG")) == "true" {
+		gormLogLevel = logger.Info
+		log.Println("GORM SQL Query Logging enabled (DB_LOG_SQL=true)")
+	}
+
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(gormLogLevel),
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -68,25 +75,20 @@ func InitDB() *gorm.DB {
 
 	log.Println("Database connection established successfully")
 
-	err = DB.AutoMigrate(&models.KongNode{})
+	err = DB.AutoMigrate(
+		&models.User{},
+		&models.Passport{},
+		&models.KongNode{},
+		&models.AuditLog{},
+		&models.KongaComment{},
+		&models.KongaNotification{},
+		&models.BlacklistedToken{},
+		&models.ReachabilityStatus{},
+		&models.Snapshot{},
+		&models.EntityAuthor{},
+	)
 	if err != nil {
-		log.Printf("Failed to auto-migrate KongNode: %v", err)
-	}
-	err = DB.AutoMigrate(&models.BlacklistedToken{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate BlacklistedToken: %v", err)
-	}
-	err = DB.AutoMigrate(&models.ReachabilityStatus{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate ReachabilityStatus: %v", err)
-	}
-	err = DB.AutoMigrate(&models.Snapshot{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate Snapshot: %v", err)
-	}
-	err = DB.AutoMigrate(&models.EntityAuthor{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate EntityAuthor: %v", err)
+		log.Printf("Failed to auto-migrate database schema: %v", err)
 	}
 
 	return DB
