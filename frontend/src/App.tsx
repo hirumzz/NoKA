@@ -22,6 +22,7 @@ import { KeySets } from './pages/KeySets';
 import { Users } from './pages/Users';
 import { UserProfile } from './pages/UserProfile';
 import { Help } from './pages/Help';
+import { ChangePassword } from './pages/ChangePassword';
 import { ServiceDetails } from './pages/ServiceDetails';
 import { RouteDetails } from './pages/RouteDetails';
 import { ConsumerDetails } from './pages/ConsumerDetails';
@@ -46,6 +47,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/login" replace />;
   }
 
+  if (user.require_password_change) {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return <Layout>{children}</Layout>;
 };
 
@@ -64,6 +69,10 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.require_password_change) {
+    return <Navigate to="/change-password" replace />;
+  }
+
   const isAdmin = user.admin || user.role === 'admin';
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -80,9 +89,10 @@ function App() {
           <KongDataProvider>
             <Router>
             <Routes>
-            {/* Public Routes */}
+            {/* Public / Auth Flow Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/change-password" element={<ChangePassword />} />
 
             {/* Protected Routes */}
             <Route

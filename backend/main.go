@@ -106,6 +106,7 @@ func main() {
 	// Rate limiter for login
 	loginRL := newRateLimiter()
 
+	services.AutoSeedFirstAdmin(database)
 	services.StartConnectionHealthChecker()
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
@@ -153,8 +154,12 @@ func main() {
 	r.POST("/register", authHandler.RegisterFirstAdmin) // Only works if 0 users exist
 
 	r.GET("/api/info", func(c *gin.Context) {
+		count, _ := userRepo.CountUsers()
 		signupEnabled := os.Getenv("SIGNUP_ENABLED") == "true"
-		c.JSON(http.StatusOK, gin.H{"signup_enabled": signupEnabled})
+		c.JSON(http.StatusOK, gin.H{
+			"signup_enabled": signupEnabled,
+			"has_users":      count > 0,
+		})
 	})
 
 	// API Group with Authentication Required
@@ -165,6 +170,9 @@ func main() {
 			user, _ := c.Get("user")
 			c.JSON(http.StatusOK, user)
 		})
+
+		// First-time force change password
+		api.POST("/auth/change-initial-password", authHandler.ChangeInitialPassword)
 
 		// Admin-only: create new users
 		api.POST("/auth/signup", middleware.AdminRequired(), authHandler.Signup)

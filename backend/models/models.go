@@ -19,14 +19,16 @@ type User struct {
 	LastName        string     `gorm:"column:lastName" json:"lastName"`
 	Admin           bool       `gorm:"column:admin;default:false" json:"admin"`
 	NodeID          string     `gorm:"column:node_id" json:"node_id"`
-	Active          bool       `gorm:"column:active;default:false" json:"active"`
-	ActivationToken string     `gorm:"column:activationToken" json:"-"`
-	Node            *uint      `gorm:"column:node" json:"node"`
-	CreatedAt       time.Time  `gorm:"column:createdAt" json:"createdAt"`
-	UpdatedAt       time.Time  `gorm:"column:updatedAt" json:"updatedAt"`
-	CreatedUserID   *uint      `gorm:"column:createdUserId" json:"createdUserId,omitempty"`
-	UpdatedUserID   *uint      `gorm:"column:updatedUserId" json:"updatedUserId,omitempty"`
-	Passports       []Passport `gorm:"foreignKey:UserID" json:"-"`
+	Active                     bool       `gorm:"column:active;default:false" json:"active"`
+	ActivationToken            string     `gorm:"column:activationToken" json:"-"`
+	RequirePasswordChange      bool       `gorm:"column:require_password_change;default:false" json:"require_password_change"`
+	TemporaryPasswordExpiresAt *time.Time `gorm:"column:temp_password_expires_at" json:"temp_password_expires_at,omitempty"`
+	Node                       *uint      `gorm:"column:node" json:"node"`
+	CreatedAt                  time.Time  `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt             time.Time  `gorm:"column:updatedAt" json:"updatedAt"`
+	CreatedUserID         *uint      `gorm:"column:createdUserId" json:"createdUserId,omitempty"`
+	UpdatedUserID         *uint      `gorm:"column:updatedUserId" json:"updatedUserId,omitempty"`
+	Passports             []Passport `gorm:"foreignKey:UserID" json:"-"`
 }
 
 func (User) TableName() string {

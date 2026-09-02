@@ -14,6 +14,7 @@ type AuthService interface {
 	Login(identifier, password string) (*models.User, string, error)
 	RegisterFirstAdmin(username, email, password, firstName, lastName string) (*models.User, string, error)
 	Signup(username, email, password, firstName, lastName, role string) (*models.User, error)
+	ChangeInitialPassword(userID uint, newPassword string) (*models.User, error)
 }
 
 type authService struct {
@@ -38,6 +39,13 @@ func (s *authService) Login(identifier, password string) (*models.User, string, 
 
 	if !utils.CheckPasswordHash(password, passport.Password) {
 		return nil, "", errors.New("Invalid username or password")
+	}
+
+	// Verify if temporary password has expired (24h limit)
+	if user.RequirePasswordChange && user.TemporaryPasswordExpiresAt != nil {
+		if time.Now().After(*user.TemporaryPasswordExpiresAt) {
+			return nil, "", errors.New("TEMPORARY_PASSWORD_EXPIRED")
+		}
 	}
 
 	// Verify if account is active ONLY AFTER password is correct
@@ -145,3 +153,40 @@ func (s *authService) Signup(username, email, password, firstName, lastName, rol
 
 	return user, nil
 }
+
+func (s *authService) ChangeInitialPassword(userID uint, newPassword string) (*models.User, error) {
+	if len(newPassword) < 7 {
+		return nil, errors.New("Password must be at least 7 characters long")
+	}
+
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, errors.New("User not found")
+	}
+
+	passport, err := s.userRepo.GetPassportByUserID(userID, "local")
+	if err != nil {
+		return nil, errors.New("Local authentication record not found")
+	}
+
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return nil, errors.New("Failed to encrypt new password")
+	}
+
+	passport.Password = hashedPassword
+	passport.UpdatedAt = time.Now()
+	if err := s.userRepo.UpdatePassport(passport); err != nil {
+		return nil, errors.New("Failed to update password")
+	}
+
+	user.RequirePasswordChange = false
+	user.TemporaryPasswordExpiresAt = nil
+	user.UpdatedAt = time.Now()
+	if err := s.userRepo.UpdateUser(user); err != nil {
+		return nil, errors.New("Failed to update user status")
+	}
+
+	return user, nil
+}
+

@@ -144,3 +144,40 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 
 	c.JSON(http.StatusOK, user)
 }
+
+type ChangeInitialPasswordRequest struct {
+	Password             string `json:"password" binding:"required,min=7"`
+	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
+}
+
+func (h *AuthHandler) ChangeInitialPassword(c *gin.Context) {
+	var req ChangeInitialPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Password must be at least 7 characters", "error": err.Error()})
+		return
+	}
+
+	if req.Password != req.PasswordConfirmation {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Passwords do not match"})
+		return
+	}
+
+	currentUserVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+
+	currUser := currentUserVal.(*models.User)
+	updatedUser, err := h.authService.ChangeInitialPassword(currUser.ID, req.Password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password updated successfully",
+		"user":    updatedUser,
+	})
+}
+

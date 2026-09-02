@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-interface User {
+export interface User {
   id: number;
   username: string;
   email: string;
   role: string;
   admin: boolean;
   active: boolean;
+  require_password_change?: boolean;
   node: number | null;
   firstName?: string;
   lastName?: string;
@@ -17,7 +18,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (identifier: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<User>;
   logout: () => void;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
@@ -57,9 +58,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUser();
   }, []);
 
-  const login = async (identifier: string, password: string) => {
+  const login = async (identifier: string, password: string): Promise<User> => {
     const response = await axios.post('/login', { identifier, password });
     setUser(response.data.user);
+    return response.data.user;
   };
 
   const logout = async () => {
