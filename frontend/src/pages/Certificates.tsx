@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
+import { AuthorBadge } from '../components/AuthorBadge';
 
 interface Certificate {
   id: string;
@@ -352,12 +353,6 @@ export const Certificates: React.FC = () => {
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
                   {paginatedCertificates.map((cert) => {
                     const authorInfo = entityAuthors[cert.id];
-                    const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
-                      ? authorInfo.created_by_username
-                      : null;
-                    const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
-                      ? authorInfo.updated_by_username
-                      : null;
                     const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
 
                     const normalTags = (cert.tags || []).filter((t: string) =>
@@ -412,13 +407,23 @@ export const Certificates: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
-                          {creator || '-'}
+                          <AuthorBadge
+                            username={authorInfo?.created_by_username}
+                            fullName={authorInfo?.created_by_full_name}
+                            email={authorInfo?.created_by_email}
+                            labelPrefix="Created by"
+                          />
                         </td>
                         <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
                           {new Date(cert.created_at * 1000).toLocaleDateString()} {new Date(cert.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
-                          {updater || '-'}
+                          <AuthorBadge
+                            username={authorInfo?.updated_by_username}
+                            fullName={authorInfo?.updated_by_full_name}
+                            email={authorInfo?.updated_by_email}
+                            labelPrefix="Updated by"
+                          />
                         </td>
                         <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
                           {updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-'}

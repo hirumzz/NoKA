@@ -919,7 +919,24 @@ func (h *KongHandler) GetReachabilityStatuses(c *gin.Context) {
 	})
 }
 
-// GetEntityAuthors returns all entity authors as a map[string]EntityAuthor for instant lookup
+// EntityAuthorResponse represents the enriched entity author with creator/updater full names
+type EntityAuthorResponse struct {
+	ID                uint      `json:"id"`
+	EntityID          string    `json:"entity_id"`
+	EntityType        string    `json:"entity_type"`
+	CreatedByUserID   *uint     `json:"created_by_user_id"`
+	CreatedByUsername string    `json:"created_by_username"`
+	CreatedByFullName string    `json:"created_by_full_name"`
+	CreatedByEmail    string    `json:"created_by_email"`
+	UpdatedByUserID   *uint     `json:"updated_by_user_id"`
+	UpdatedByUsername string    `json:"updated_by_username"`
+	UpdatedByFullName string    `json:"updated_by_full_name"`
+	UpdatedByEmail    string    `json:"updated_by_email"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+// GetEntityAuthors returns all entity authors with resolved full names as a map[string]EntityAuthorResponse
 func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 	var authors []models.EntityAuthor
 	if err := db.DB.Find(&authors).Error; err != nil {
@@ -927,14 +944,70 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 		return
 	}
 
-	authorMap := make(map[string]models.EntityAuthor)
+	// Fetch all users to resolve full names
+	var users []models.User
+	userMap := make(map[string]models.User)
+	userByIDMap := make(map[uint]models.User)
+	if err := db.DB.Find(&users).Error; err == nil {
+		for _, u := range users {
+			userMap[strings.ToLower(u.Username)] = u
+			userByIDMap[u.ID] = u
+		}
+	}
+
+	resolveFullName := func(userID *uint, username string) (string, string) {
+		if userID != nil {
+			if u, exists := userByIDMap[*userID]; exists {
+				fullName := strings.TrimSpace(u.FirstName + " " + u.LastName)
+				if fullName == "" {
+					fullName = u.Username
+				}
+				return fullName, u.Email
+			}
+		}
+		if username != "" && username != "-" {
+			if u, exists := userMap[strings.ToLower(username)]; exists {
+				fullName := strings.TrimSpace(u.FirstName + " " + u.LastName)
+				if fullName == "" {
+					fullName = u.Username
+				}
+				return fullName, u.Email
+			}
+			return username, ""
+		}
+		return "-", ""
+	}
+
+	authorMap := make(map[string]EntityAuthorResponse)
+	var enrichedList []EntityAuthorResponse
+
 	for _, a := range authors {
-		authorMap[a.EntityID] = a
+		createdFullName, createdEmail := resolveFullName(a.CreatedByUserID, a.CreatedByUsername)
+		updatedFullName, updatedEmail := resolveFullName(a.UpdatedByUserID, a.UpdatedByUsername)
+
+		resp := EntityAuthorResponse{
+			ID:                a.ID,
+			EntityID:          a.EntityID,
+			EntityType:        a.EntityType,
+			CreatedByUserID:   a.CreatedByUserID,
+			CreatedByUsername: a.CreatedByUsername,
+			CreatedByFullName: createdFullName,
+			CreatedByEmail:    createdEmail,
+			UpdatedByUserID:   a.UpdatedByUserID,
+			UpdatedByUsername: a.UpdatedByUsername,
+			UpdatedByFullName: updatedFullName,
+			UpdatedByEmail:    updatedEmail,
+			CreatedAt:         a.CreatedAt,
+			UpdatedAt:         a.UpdatedAt,
+		}
+
+		authorMap[a.EntityID] = resp
+		enrichedList = append(enrichedList, resp)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": authorMap,
-		"list": authors,
+		"list": enrichedList,
 	})
 }
 
