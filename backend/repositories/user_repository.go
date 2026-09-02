@@ -14,6 +14,8 @@ type UserRepository interface {
 	CreateUserAndPassport(user *models.User, passport *models.Passport) error
 	CreateUser(user *models.User) error
 	CreatePassport(passport *models.Passport) error
+	UpdateUser(user *models.User) error
+	UpdatePassport(passport *models.Passport) error
 }
 
 type userRepository struct {
@@ -77,3 +79,12 @@ func (r *userRepository) CreateUser(user *models.User) error {
 func (r *userRepository) CreatePassport(passport *models.Passport) error {
 	return r.db.Create(passport).Error
 }
+
+func (r *userRepository) UpdateUser(user *models.User) error {
+	return r.db.Save(user).Error
+}
+
+func (r *userRepository) UpdatePassport(passport *models.Passport) error {
+	return r.db.Save(passport).Error
+}
+

@@ -68,6 +68,10 @@ func InitDB() *gorm.DB {
 
 	log.Println("Database connection established successfully")
 
+	err = DB.AutoMigrate(&models.User{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate User: %v", err)
+	}
 	err = DB.AutoMigrate(&models.KongNode{})
 	if err != nil {
 		log.Printf("Failed to auto-migrate KongNode: %v", err)

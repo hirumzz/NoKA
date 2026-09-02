@@ -15,6 +15,7 @@ export const Login: React.FC = () => {
   const [shake, setShake] = useState(false);
   const [signupEnabled, setSignupEnabled] = useState(false);
   const [disabledModalOpen, setDisabledModalOpen] = useState(false);
+  const [expiredModalOpen, setExpiredModalOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -34,8 +35,12 @@ export const Login: React.FC = () => {
     setShake(false);
     setLoading(true);
     try {
-      await login(identifier, password);
-      navigate('/dashboard');
+      const loggedInUser = await login(identifier, password);
+      if (loggedInUser.require_password_change) {
+        navigate('/change-password');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       console.error(err);
       
@@ -43,6 +48,8 @@ export const Login: React.FC = () => {
       
       if (errMsg === 'ACCOUNT_DISABLED') {
         setDisabledModalOpen(true);
+      } else if (errMsg === 'TEMPORARY_PASSWORD_EXPIRED') {
+        setExpiredModalOpen(true);
       } else {
         setShake(true);
         setTimeout(() => setShake(false), 500); // reset shake animation
@@ -156,9 +163,38 @@ export const Login: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setDisabledModalOpen(false)}
-                  className="px-6 py-2.5 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold transition-colors shadow-sm"
+                  className="px-6 py-2.5 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
                 >
                   Understood
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Password Expired Modal */}
+      {expiredModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl border border-border-light w-full max-w-sm overflow-hidden animate-scaleUp">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-center text-base font-bold text-text-primary mb-2">Temporary Password Expired</h3>
+              <p className="text-center text-xs text-text-secondary leading-relaxed">
+                The 24-hour setup window for this temporary password has expired and the account has been frozen for security.
+              </p>
+              <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] text-text-muted">
+                Please ask your system/database administrator to reset the admin credentials in the database or clear the users table to re-run initial setup.
+              </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setExpiredModalOpen(false)}
+                  className="px-6 py-2.5 rounded bg-brand-primary hover:bg-brand-primary-hover text-white text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>
