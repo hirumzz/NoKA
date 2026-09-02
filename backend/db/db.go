@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -59,8 +60,14 @@ func InitDB() *gorm.DB {
 	}
 
 	var err error
+	gormLogLevel := logger.Warn
+	if strings.ToLower(os.Getenv("DB_LOG_SQL")) == "true" || strings.ToLower(os.Getenv("DB_DEBUG")) == "true" {
+		gormLogLevel = logger.Info
+		log.Println("GORM SQL Query Logging enabled (DB_LOG_SQL=true)")
+	}
+
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(gormLogLevel),
 	})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

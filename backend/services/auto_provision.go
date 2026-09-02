@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"os"
 	"time"
 
 	"konga-backend/models"
@@ -42,9 +43,21 @@ func AutoSeedFirstAdmin(database *gorm.DB) {
 	}
 
 	// Database is fresh, provision default admin
-	username := "admin"
-	email := "admin@admin.com"
-	rawPassword := generateSecureRandomPassword(16)
+	username := os.Getenv("SEED_ADMIN_USERNAME")
+	if username == "" {
+		username = "admin"
+	}
+
+	email := os.Getenv("SEED_ADMIN_EMAIL")
+	if email == "" {
+		email = "admin@admin.com"
+	}
+
+	rawPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+	isCustomPassword := rawPassword != ""
+	if !isCustomPassword {
+		rawPassword = generateSecureRandomPassword(16)
+	}
 
 	hashedPassword, err := utils.HashPassword(rawPassword)
 	if err != nil {
@@ -62,7 +75,7 @@ func AutoSeedFirstAdmin(database *gorm.DB) {
 		LastName:                   "Admin",
 		Admin:                      true,
 		Active:                     true,
-		RequirePasswordChange:      true,
+		RequirePasswordChange:      !isCustomPassword, // If custom password provided via env, don't force change unless random
 		TemporaryPasswordExpiresAt: &expiresAt,
 		CreatedAt:                  now,
 		UpdatedAt:                  now,
