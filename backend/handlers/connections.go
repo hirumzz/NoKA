@@ -144,9 +144,9 @@ func DeactivateConnection(c *gin.Context) {
 		return
 	}
 
-	if err := tx.Model(&models.KongNode{}).Update("active", false).Error; err != nil {
+	if err := tx.Model(&models.KongNode{}).Where("active = ?", true).Update("active", false).Error; err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection states"})
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection states", "error": err.Error()})
 		return
 	}
 
