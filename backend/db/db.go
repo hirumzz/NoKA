@@ -75,29 +75,20 @@ func InitDB() *gorm.DB {
 
 	log.Println("Database connection established successfully")
 
-	err = DB.AutoMigrate(&models.User{})
+	err = DB.AutoMigrate(
+		&models.User{},
+		&models.Passport{},
+		&models.KongNode{},
+		&models.AuditLog{},
+		&models.KongaComment{},
+		&models.KongaNotification{},
+		&models.BlacklistedToken{},
+		&models.ReachabilityStatus{},
+		&models.Snapshot{},
+		&models.EntityAuthor{},
+	)
 	if err != nil {
-		log.Printf("Failed to auto-migrate User: %v", err)
-	}
-	err = DB.AutoMigrate(&models.KongNode{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate KongNode: %v", err)
-	}
-	err = DB.AutoMigrate(&models.BlacklistedToken{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate BlacklistedToken: %v", err)
-	}
-	err = DB.AutoMigrate(&models.ReachabilityStatus{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate ReachabilityStatus: %v", err)
-	}
-	err = DB.AutoMigrate(&models.Snapshot{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate Snapshot: %v", err)
-	}
-	err = DB.AutoMigrate(&models.EntityAuthor{})
-	if err != nil {
-		log.Printf("Failed to auto-migrate EntityAuthor: %v", err)
+		log.Printf("Failed to auto-migrate database schema: %v", err)
 	}
 
 	return DB
