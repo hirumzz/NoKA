@@ -264,6 +264,58 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 		} else {
 			log.Printf("Audit log written: %s %s by %s from %s", method, entity, username, clientIP)
 		}
+
+		// Save / Update Entity Ownership in konga_entity_authors table
+		var finalEntityID string
+		if entityID != "" {
+			finalEntityID = entityID
+		} else {
+			var respMap map[string]interface{}
+			if json.Unmarshal(respBytes, &respMap) == nil {
+				if idStr, ok := respMap["id"].(string); ok && idStr != "" {
+					finalEntityID = idStr
+				}
+			}
+		}
+
+		if finalEntityID != "" && entity != "unknown" {
+			if method == "POST" {
+				entityAuthor := models.EntityAuthor{
+					EntityID:          finalEntityID,
+					EntityType:        entity,
+					CreatedByUserID:   userID,
+					CreatedByUsername: username,
+					UpdatedByUserID:   userID,
+					UpdatedByUsername: username,
+					CreatedAt:         now,
+					UpdatedAt:         now,
+				}
+				db.DB.Where(models.EntityAuthor{EntityID: finalEntityID}).Assign(entityAuthor).FirstOrCreate(&entityAuthor)
+			} else if method == "PATCH" || method == "PUT" {
+				var existing models.EntityAuthor
+				if err := db.DB.Where("entity_id = ?", finalEntityID).First(&existing).Error; err == nil {
+					db.DB.Model(&existing).Updates(map[string]interface{}{
+						"updated_by_user_id":   userID,
+						"updated_by_username":  username,
+						"updatedAt":            now,
+					})
+				} else {
+					// Created outside NOKA, first time updated via NOKA
+					entityAuthor := models.EntityAuthor{
+						EntityID:          finalEntityID,
+						EntityType:        entity,
+						CreatedByUsername: "-",
+						UpdatedByUserID:   userID,
+						UpdatedByUsername: username,
+						CreatedAt:         now,
+						UpdatedAt:         now,
+					}
+					db.DB.Create(&entityAuthor)
+				}
+			} else if method == "DELETE" {
+				db.DB.Where("entity_id = ?", finalEntityID).Delete(&models.EntityAuthor{})
+			}
+		}
 	}
 
 	return resp.StatusCode, resp.Header, respBytes, nil

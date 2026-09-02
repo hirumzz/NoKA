@@ -16,6 +16,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useConfirm } from '../context/ConfirmContext';
 
 
 interface Consumer {
@@ -71,6 +72,7 @@ interface AclGroup {
 
 export const ConsumerDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { confirm } = useConfirm();
   const [consumer, setConsumer] = useState<Consumer | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'credentials' | 'acls'>('details');
   const [loading, setLoading] = useState(true);
@@ -330,7 +332,14 @@ export const ConsumerDetails: React.FC = () => {
 
   // Delete credentials
   const handleDeleteCred = async (type: string, credId: string) => {
-    if (!window.confirm('Are you sure you want to delete this credential?')) return;
+    const ok = await confirm({
+      title: 'Delete Credential',
+      message: `Are you sure you want to delete this ${type} credential for this consumer?`,
+      confirmText: 'Delete Credential',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/consumers/${id}/${type}/${credId}`);

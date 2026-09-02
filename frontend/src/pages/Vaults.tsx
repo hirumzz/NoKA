@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface Vault {
@@ -39,6 +40,7 @@ const getTagBadgeStyle = (tag: string) => {
 
 export const Vaults: React.FC = () => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [vaults, setVaults] = useState<Vault[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -117,7 +119,14 @@ export const Vaults: React.FC = () => {
   };
 
   const handleDeleteVault = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this vault?')) return;
+    const ok = await confirm({
+      title: 'Delete Vault',
+      message: 'Are you sure you want to delete this Kong Vault configuration? Any secrets stored in this backend might become inaccessible.',
+      confirmText: 'Delete Vault',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/vaults/${id}`);

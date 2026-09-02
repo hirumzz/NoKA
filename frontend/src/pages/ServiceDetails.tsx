@@ -22,6 +22,7 @@ import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { RawViewModal } from '../components/RawViewModal';
+import { useConfirm } from '../context/ConfirmContext';
 
 
 interface KongService {
@@ -58,6 +59,7 @@ interface KongPlugin {
 
 export const ServiceDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { confirm } = useConfirm();
   const [service, setService] = useState<KongService | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'routes' | 'plugins'>('details');
   const [loading, setLoading] = useState(true);
@@ -439,7 +441,14 @@ export const ServiceDetails: React.FC = () => {
   };
 
   const handleDeletePlugin = async (pluginId: string) => {
-    if (!window.confirm('Are you sure you want to disable this plugin?')) return;
+    const ok = await confirm({
+      title: 'Disable Plugin',
+      message: 'Are you sure you want to disable and delete this plugin from this service?',
+      confirmText: 'Delete Plugin',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/plugins/${pluginId}`);
@@ -506,10 +515,10 @@ export const ServiceDetails: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-                  Semua request traffic ke service ini saat ini <strong>diterminasi/diblokir</strong> dengan pesan response: <em>"{msg}"</em>.
+                  All incoming traffic to this service is currently <strong>terminated/blocked</strong> with response message: <em>"{msg}"</em>.
                 </p>
                 <span className="text-[10px] text-rose-600 font-medium block mt-1">
-                  Untuk mengalirkan kembali traffic normal, nonaktifkan (Disable) atau hapus plugin request-termination pada tab <strong>Plugins</strong> di bawah.
+                  To restore normal traffic flow, disable or delete the request-termination plugin in the <strong>Plugins</strong> tab below.
                 </span>
               </div>
             </div>
@@ -579,13 +588,13 @@ export const ServiceDetails: React.FC = () => {
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Service Specifications</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {reachabilityStatus.status !== 'idle' && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold mr-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
                     {reachabilityStatus.status === 'checking' && (
                       <span className="flex items-center gap-1 text-slate-500">
                         <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -814,8 +823,15 @@ export const ServiceDetails: React.FC = () => {
                         </Link>
                         <button 
                           className="flex items-center gap-1 text-red-500 hover:text-red-600 transition-colors"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this route?')) {
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: 'Delete Route',
+                              message: 'Are you sure you want to delete this route from this service?',
+                              confirmText: 'Delete Route',
+                              cancelText: 'Cancel',
+                              type: 'danger'
+                            });
+                            if (ok) {
                               axios.delete(`/api/kong/routes/${route.id}`).then(() => fetchSubResources());
                             }
                           }}

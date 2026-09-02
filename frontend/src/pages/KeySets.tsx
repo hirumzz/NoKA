@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface KeySet {
@@ -38,6 +39,7 @@ const getTagBadgeStyle = (tag: string) => {
 
 export const KeySets: React.FC = () => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [keySets, setKeySets] = useState<KeySet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -110,7 +112,14 @@ export const KeySets: React.FC = () => {
   };
 
   const handleDeleteKeySet = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this key set?')) return;
+    const ok = await confirm({
+      title: 'Delete Key Set',
+      message: 'Are you sure you want to delete this key set? Associated cryptographic keys in this set will be unlinked.',
+      confirmText: 'Delete Key Set',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/key-sets/${id}`);
