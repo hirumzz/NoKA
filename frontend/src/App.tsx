@@ -54,6 +54,33 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <Layout>{children}</Layout>;
 };
 
+// Route guard requiring an active Kong Gateway connection
+const GatewayRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <span className="w-10 h-10 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.require_password_change) {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  if (!user.node) {
+    return <Navigate to="/connections" replace />;
+  }
+
+  return <Layout>{children}</Layout>;
+};
+
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -76,6 +103,38 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAdmin = user.admin || user.role === 'admin';
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Layout>{children}</Layout>;
+};
+
+// Route guard requiring Admin AND active Kong Gateway connection
+const GatewayAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <span className="w-10 h-10 border-4 border-brand-primary/30 border-t-brand-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.require_password_change) {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  const isAdmin = user.admin || user.role === 'admin';
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!user.node) {
+    return <Navigate to="/connections" replace />;
   }
 
   return <Layout>{children}</Layout>;
@@ -114,113 +173,113 @@ function App() {
             <Route
               path="/services"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Services />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/services/:id"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <ServiceDetails />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/routes"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <RoutesPage />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/routes/:id"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <RouteDetails />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/consumers"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Consumers />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/consumers/:id"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <ConsumerDetails />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/plugins"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Plugins />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/upstreams"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Upstreams />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/upstreams/:id"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <UpstreamDetails />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/certificates"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Certificates />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/certificates/:id"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <CertificateDetails />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/vaults"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Vaults />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/keys"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Keys />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/key-sets"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <KeySets />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
@@ -258,17 +317,17 @@ function App() {
             <Route
               path="/info"
               element={
-                <ProtectedRoute>
+                <GatewayRoute>
                   <Info />
-                </ProtectedRoute>
+                </GatewayRoute>
               }
             />
             <Route
               path="/snapshots"
               element={
-                <AdminRoute>
+                <GatewayAdminRoute>
                   <Snapshots />
-                </AdminRoute>
+                </GatewayAdminRoute>
               }
             />
             <Route
