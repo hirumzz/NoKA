@@ -11,6 +11,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface UserData {
   id: number;
@@ -37,6 +38,7 @@ export const UserProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { confirm } = useConfirm();
   
   const [user, setUser] = useState<UserData | null>(null);
   const [connections, setConnections] = useState<ConnectionData[]>([]);
@@ -142,7 +144,14 @@ export const UserProfile: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    const ok = await confirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this user profile? This account will permanently lose access.',
+      confirmText: 'Delete User',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/users/${id}`);

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { KongDataProvider } from './context/KongDataContext';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -74,206 +75,208 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function App() {
   return (
     <ToastProvider>
-      <AuthProvider>
-        <KongDataProvider>
-          <Router>
-          <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      <ConfirmProvider>
+        <AuthProvider>
+          <KongDataProvider>
+            <Router>
+            <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/connections"
-            element={
-              <ProtectedRoute>
-                <Connections />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/services"
-            element={
-              <ProtectedRoute>
-                <Services />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/services/:id"
-            element={
-              <ProtectedRoute>
-                <ServiceDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/routes"
-            element={
-              <ProtectedRoute>
-                <RoutesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/routes/:id"
-            element={
-              <ProtectedRoute>
-                <RouteDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/consumers"
-            element={
-              <ProtectedRoute>
-                <Consumers />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/consumers/:id"
-            element={
-              <ProtectedRoute>
-                <ConsumerDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/plugins"
-            element={
-              <ProtectedRoute>
-                <Plugins />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/upstreams"
-            element={
-              <ProtectedRoute>
-                <Upstreams />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/upstreams/:id"
-            element={
-              <ProtectedRoute>
-                <UpstreamDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/certificates"
-            element={
-              <ProtectedRoute>
-                <Certificates />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/certificates/:id"
-            element={
-              <ProtectedRoute>
-                <CertificateDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/vaults"
-            element={
-              <ProtectedRoute>
-                <Vaults />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/keys"
-            element={
-              <ProtectedRoute>
-                <Keys />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/key-sets"
-            element={
-              <ProtectedRoute>
-                <KeySets />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users"
-            element={
-              <ProtectedRoute>
-                <Users />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/users/:id"
-            element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/audit-logs"
-            element={
-              <AdminRoute>
-                <AuditLogs />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/help"
-            element={
-              <ProtectedRoute>
-                <Help />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/info"
-            element={
-              <ProtectedRoute>
-                <Info />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/snapshots"
-            element={
-              <AdminRoute>
-                <Snapshots />
-              </AdminRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/connections"
+              element={
+                <ProtectedRoute>
+                  <Connections />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/services"
+              element={
+                <ProtectedRoute>
+                  <Services />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/services/:id"
+              element={
+                <ProtectedRoute>
+                  <ServiceDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/routes"
+              element={
+                <ProtectedRoute>
+                  <RoutesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/routes/:id"
+              element={
+                <ProtectedRoute>
+                  <RouteDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/consumers"
+              element={
+                <ProtectedRoute>
+                  <Consumers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/consumers/:id"
+              element={
+                <ProtectedRoute>
+                  <ConsumerDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/plugins"
+              element={
+                <ProtectedRoute>
+                  <Plugins />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/upstreams"
+              element={
+                <ProtectedRoute>
+                  <Upstreams />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/upstreams/:id"
+              element={
+                <ProtectedRoute>
+                  <UpstreamDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/certificates"
+              element={
+                <ProtectedRoute>
+                  <Certificates />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/certificates/:id"
+              element={
+                <ProtectedRoute>
+                  <CertificateDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/vaults"
+              element={
+                <ProtectedRoute>
+                  <Vaults />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/keys"
+              element={
+                <ProtectedRoute>
+                  <Keys />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/key-sets"
+              element={
+                <ProtectedRoute>
+                  <KeySets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute>
+                  <Users />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users/:id"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                <AdminRoute>
+                  <AuditLogs />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <ProtectedRoute>
+                  <Help />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/info"
+              element={
+                <ProtectedRoute>
+                  <Info />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/snapshots"
+              element={
+                <AdminRoute>
+                  <Snapshots />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Catch-all Redirect */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
-      </KongDataProvider>
-      </AuthProvider>
+            {/* Catch-all Redirect */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+        </KongDataProvider>
+        </AuthProvider>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

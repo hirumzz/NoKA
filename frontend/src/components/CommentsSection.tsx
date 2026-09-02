@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Trash2, Edit2, Check, X, AlertCircle } from 'lucide-react';
 
 interface CommentUser {
@@ -29,6 +30,7 @@ interface CommentsSectionProps {
 
 export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, referenceType, referenceName }) => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
@@ -93,7 +95,14 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ referenceId, r
   };
 
   const handleDeleteComment = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this comment?')) return;
+    const ok = await confirm({
+      title: 'Delete Comment',
+      message: 'Are you sure you want to delete this comment?',
+      confirmText: 'Delete Comment',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/comments/${id}?referenceName=${encodeURIComponent(referenceName || '')}`);

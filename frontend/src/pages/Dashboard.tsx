@@ -141,8 +141,20 @@ export const Dashboard: React.FC = () => {
     route?: { id: string };
     config?: { status_code?: number; message?: string };
   }>>([]);
+  const [preFunctionPlugins, setPreFunctionPlugins] = useState<Array<{
+    id: string;
+    name: string;
+    enabled: boolean;
+    service?: { id: string };
+    route?: { id: string };
+    config?: any;
+  }>>([]);
+  const [rawServices, setRawServices] = useState<any[]>([]);
+  const [rawRoutes, setRawRoutes] = useState<any[]>([]);
+  const [rawPlugins, setRawPlugins] = useState<any[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
   const [routesMap, setRoutesMap] = useState<Record<string, string>>({});
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
   const [errorModal, setErrorModal] = useState<{
     service: string;
     category: '4xx' | '5xx';
@@ -203,6 +215,7 @@ export const Dashboard: React.FC = () => {
     axios.get('/api/kong/services?size=1000')
       .then(res => {
         const servs = res.data?.data || [];
+        setRawServices(servs);
         setCounts(prev => {
           const updated = { ...prev, services: servs.length };
           try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
@@ -217,6 +230,7 @@ export const Dashboard: React.FC = () => {
     axios.get('/api/kong/routes?size=1000')
       .then(res => {
         const rts = res.data?.data || [];
+        setRawRoutes(rts);
         setCounts(prev => {
           const updated = { ...prev, routes: rts.length };
           try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
@@ -241,6 +255,7 @@ export const Dashboard: React.FC = () => {
     axios.get('/api/kong/plugins?size=1000')
       .then(res => {
         const allPlugins = res.data?.data || [];
+        setRawPlugins(allPlugins);
         setCounts(prev => {
           const updated = { ...prev, plugins: allPlugins.length };
           try { localStorage.setItem('noka_cache_counts', JSON.stringify(updated)); } catch (e) {}
@@ -248,6 +263,16 @@ export const Dashboard: React.FC = () => {
         });
         const termPlugins = allPlugins.filter((p: any) => p.name === 'request-termination');
         setTerminationPlugins(termPlugins);
+        const preFuncs = allPlugins.filter((p: any) => p.name === 'pre-function' || p.name === 'post-function');
+        setPreFunctionPlugins(preFuncs);
+      })
+      .catch(() => {});
+
+    axios.get('/api/entity-authors')
+      .then(res => {
+        if (res.data?.data) {
+          setEntityAuthors(res.data.data);
+        }
       })
       .catch(() => {});
   };
@@ -443,6 +468,131 @@ export const Dashboard: React.FC = () => {
                 <span>{disabledTerminations.length} request-termination rule(s) configured in standby.</span>
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* Pre-Function / Post-Function Security Box */}
+      {(() => {
+        const activePreFuncs = preFunctionPlugins.filter(p => p.enabled !== false);
+        if (preFunctionPlugins.length === 0) return null;
+
+        return (
+          <div className="bg-amber-50/80 rounded-xl border border-amber-200 p-4 sm:p-5 shadow-sm space-y-3 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-950">
+                      Lua Dynamic Script Execution Detected ({preFunctionPlugins.length} Plugin{preFunctionPlugins.length > 1 ? 's' : ''})
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-200 text-amber-900 uppercase">
+                      Security Advisory
+                    </span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
+                    Gateway has active <code>pre-function</code> or <code>post-function</code> plugins executing custom dynamic Lua code.
+                  </p>
+                </div>
+              </div>
+              <span className={`flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 ${
+                activePreFuncs.length > 0 ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {activePreFuncs.length > 0 ? `${activePreFuncs.length} ACTIVE` : 'ALL DISABLED'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2 border-t border-amber-200/60">
+              {preFunctionPlugins.map(p => {
+                const targetName = p.service?.id 
+                  ? `Service: ${servicesMap[p.service.id] || p.service.id}` 
+                  : p.route?.id 
+                  ? `Route: ${routesMap[p.route.id] || p.route.id}` 
+                  : 'Global (All Endpoints)';
+                return (
+                  <div key={p.id} className="p-2.5 rounded-lg bg-white/90 border border-amber-200 text-xs flex flex-col justify-between">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-amber-950 font-mono text-[11px] truncate">{p.name}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono ${p.enabled !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {p.enabled !== false ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-text-muted mt-1 truncate">{targetName}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Gateway Hygiene & Unattributed Entities Audit Box */}
+      {(() => {
+        // Find services without plugins (unprotected)
+        const servicesWithPlugins = new Set(rawPlugins.filter(p => p.service?.id).map(p => p.service.id));
+        const unprotectedServices = rawServices.filter(s => !servicesWithPlugins.has(s.id));
+        
+        // Find services without author record in konga_entity_authors
+        const unattributedServices = rawServices.filter(s => {
+          const auth = entityAuthors[s.id];
+          return !auth || !auth.created_by_username || auth.created_by_username === '-';
+        });
+
+        // Find routes without plugins
+        const routesWithPlugins = new Set(rawPlugins.filter(p => p.route?.id).map(p => p.route.id));
+        const unprotectedRoutes = rawRoutes.filter(r => !routesWithPlugins.has(r.id));
+
+        // Find routes without author record in konga_entity_authors
+        const unattributedRoutes = rawRoutes.filter(r => {
+          const auth = entityAuthors[r.id];
+          return !auth || !auth.created_by_username || auth.created_by_username === '-';
+        });
+
+        if (unprotectedServices.length === 0 && unattributedServices.length === 0 && unprotectedRoutes.length === 0 && unattributedRoutes.length === 0) {
+          return null;
+        }
+
+        return (
+          <div className="bg-white rounded-xl border border-border-light p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border-light pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+                  <PieChart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-primary">
+                    Gateway Hygiene & Attribution Audit
+                  </h3>
+                  <p className="text-[10px] text-text-muted">Summary of unprotected endpoints and legacy unassigned entities</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                <span className="text-[9px] font-bold text-text-muted uppercase block">Unprotected Services</span>
+                <p className="text-lg font-extrabold text-amber-600 mt-0.5">{unprotectedServices.length}</p>
+                <span className="text-[9px] text-text-muted">0 plugins attached</span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                <span className="text-[9px] font-bold text-text-muted uppercase block">Unprotected Routes</span>
+                <p className="text-lg font-extrabold text-amber-600 mt-0.5">{unprotectedRoutes.length}</p>
+                <span className="text-[9px] text-text-muted">0 plugins attached</span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                <span className="text-[9px] font-bold text-text-muted uppercase block">Legacy / Empty Author Services</span>
+                <p className="text-lg font-extrabold text-slate-700 mt-0.5">{unattributedServices.length}</p>
+                <span className="text-[9px] text-text-muted">No creator metadata</span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
+                <span className="text-[9px] font-bold text-text-muted uppercase block">Legacy / Empty Author Routes</span>
+                <p className="text-lg font-extrabold text-slate-700 mt-0.5">{unattributedRoutes.length}</p>
+                <span className="text-[9px] text-text-muted">No creator metadata</span>
+              </div>
+            </div>
           </div>
         );
       })()}

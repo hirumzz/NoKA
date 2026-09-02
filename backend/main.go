@@ -109,6 +109,7 @@ func main() {
 	services.StartConnectionHealthChecker()
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
+	services.SyncEntityAuthorsFromAuditLogs()
 	go kongHandler.StartPrometheusMetricsCollector()
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
@@ -211,6 +212,7 @@ func main() {
 
 		api.GET("/reachability", kongHandler.GetReachabilityStatuses)
 		api.POST("/reachability/refresh", kongHandler.TriggerReachabilityCheck)
+		api.GET("/entity-authors", kongHandler.GetEntityAuthors)
 
 		// Snapshots (Admin only)
 		api.GET("/snapshots", middleware.AdminRequired(), handlers.GetSnapshots)

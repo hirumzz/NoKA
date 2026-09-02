@@ -919,6 +919,25 @@ func (h *KongHandler) GetReachabilityStatuses(c *gin.Context) {
 	})
 }
 
+// GetEntityAuthors returns all entity authors as a map[string]EntityAuthor for instant lookup
+func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
+	var authors []models.EntityAuthor
+	if err := db.DB.Find(&authors).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to query entity authors"})
+		return
+	}
+
+	authorMap := make(map[string]models.EntityAuthor)
+	for _, a := range authors {
+		authorMap[a.EntityID] = a
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"data": authorMap,
+		"list": authors,
+	})
+}
+
 // GetEnrichedPlugins returns all plugins along with their resolved services and routes in a single ultra-fast response
 func (h *KongHandler) GetEnrichedPlugins(c *gin.Context) {
 	nodeVal, exists := c.Get("kongNode")

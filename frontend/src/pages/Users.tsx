@@ -10,6 +10,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface UserData {
   id: number;
@@ -25,6 +26,7 @@ interface UserData {
 
 export const Users: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const { confirm } = useConfirm();
   const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin' || currentUser?.role === 'superadmin');
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,14 @@ export const Users: React.FC = () => {
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this administrative user?')) return;
+    const ok = await confirm({
+      title: 'Delete User',
+      message: 'Are you sure you want to delete this administrative user? This account will permanently lose access.',
+      confirmText: 'Delete User',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/users/${id}`);

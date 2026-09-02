@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface Consumer {
@@ -42,6 +43,7 @@ const getTagStyle = (tag: string) => {
 export const Consumers: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [consumers, setConsumers] = useState<Consumer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,7 @@ export const Consumers: React.FC = () => {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,8 +84,17 @@ export const Consumers: React.FC = () => {
   const fetchConsumers = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/kong/consumers?size=1000');
-      setConsumers(response.data?.data || []);
+      const [response, authorResp] = await Promise.allSettled([
+        axios.get('/api/kong/consumers?size=1000'),
+        axios.get('/api/entity-authors')
+      ]);
+
+      if (response.status === 'fulfilled') {
+        setConsumers(response.value.data?.data || []);
+      }
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
+      }
     } catch (err: any) {
       addToast('error', err.response?.data?.message || 'Failed to fetch consumers', 'Fetch Error');
       console.error(err);
@@ -121,7 +133,14 @@ export const Consumers: React.FC = () => {
   };
 
   const handleDeleteConsumer = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this consumer?')) return;
+    const ok = await confirm({
+      title: 'Delete Consumer',
+      message: 'Are you sure you want to delete this consumer? All associated credentials and ACL groups will also be deleted.',
+      confirmText: 'Delete Consumer',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/kong/consumers/${id}`);
       addToast('success', 'Consumer deleted successfully', 'Success');
@@ -153,7 +172,7 @@ export const Consumers: React.FC = () => {
       const matchesTag = selectedTag ? consumer.tags?.includes(selectedTag) : true;
       
       return matchesSearch && matchesTag;
-    });
+    }).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
   }, [consumers, searchTerm, selectedTag]);
 
   const paginatedConsumers = React.useMemo(() => {
@@ -312,64 +331,94 @@ export const Consumers: React.FC = () => {
                   <th className="px-6 py-3.5">Consumer</th>
                   <th className="px-6 py-3.5">Username</th>
                   <th className="px-6 py-3.5">Custom ID</th>
+                  <th className="px-6 py-3.5">Created By</th>
                   <th className="px-6 py-3.5">Created At</th>
+                  <th className="px-6 py-3.5">Updated By</th>
+                  <th className="px-6 py-3.5">Updated At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                {paginatedConsumers.map((c) => (
-                  <tr 
-                    key={c.id} 
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/consumers/${c.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded bg-amber-50 text-amber-600">
-                          <User className="w-4 h-4" />
+                {paginatedConsumers.map((c) => {
+                  const authorInfo = entityAuthors[c.id];
+                  const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
+                    ? authorInfo.created_by_username
+                    : null;
+                  const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
+                    ? authorInfo.updated_by_username
+                    : null;
+                  const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+
+                  const normalTags = (c.tags || []).filter((t: string) =>
+                    !t.startsWith('noka-desc:') &&
+                    !t.startsWith('noka-creator:') &&
+                    !t.startsWith('noka-updated-by:') &&
+                    !t.startsWith('noka-updated-at:')
+                  );
+
+                  return (
+                    <tr 
+                      key={c.id} 
+                      className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/consumers/${c.id}`)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded bg-amber-50 text-amber-600">
+                            <User className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <Link to={`/consumers/${c.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                              {c.username || c.custom_id || 'Unnamed'}
+                            </Link>
+                            <span className="text-[10px] text-text-muted font-mono block select-all">{c.id}</span>
+                            {normalTags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {normalTags.map((tag, idx) => {
+                                  const style = getTagStyle(tag);
+                                  return (
+                                    <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
+                                      {tag}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <Link to={`/consumers/${c.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
-                            {c.username || c.custom_id || 'Unnamed'}
-                          </Link>
-                          <span className="text-[10px] text-text-muted font-mono block select-all">{c.id}</span>
-                          {c.tags && c.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {c.tags.map((tag, idx) => {
-                                const style = getTagStyle(tag);
-                                return (
-                                  <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
-                                    {tag}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
+                      </td>
+                      <td className="px-6 py-4 font-mono font-medium text-text-secondary">
+                        {c.username || <span className="text-text-muted italic">not set</span>}
+                      </td>
+                      <td className="px-6 py-4 font-mono font-medium text-text-secondary">
+                        {c.custom_id || <span className="text-text-muted italic">not set</span>}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                        {creator || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                        {new Date(c.created_at * 1000).toLocaleDateString()} {new Date(c.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                        {updater || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                        {updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteConsumer(c.id); }}
+                            className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
+                            title="Delete Consumer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-mono font-medium text-text-secondary">
-                      {c.username || <span className="text-text-muted italic">not set</span>}
-                    </td>
-                    <td className="px-6 py-4 font-mono font-medium text-text-secondary">
-                      {c.custom_id || <span className="text-text-muted italic">not set</span>}
-                    </td>
-                    <td className="px-6 py-4 text-text-secondary font-medium">
-                      {new Date(c.created_at * 1000).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteConsumer(c.id); }}
-                          className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
-                          title="Delete Consumer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <Pagination

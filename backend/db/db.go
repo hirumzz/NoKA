@@ -84,6 +84,10 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		log.Printf("Failed to auto-migrate Snapshot: %v", err)
 	}
+	err = DB.AutoMigrate(&models.EntityAuthor{})
+	if err != nil {
+		log.Printf("Failed to auto-migrate EntityAuthor: %v", err)
+	}
 
 	return DB
 }
