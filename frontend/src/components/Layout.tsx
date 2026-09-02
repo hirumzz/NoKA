@@ -137,18 +137,39 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (!user) return;
     try {
       const response = await axios.get('/api/connections');
-      setConnections(response.data);
-      const active = response.data.find((c: ConnectionNode) => c.active === true);
-      if (active) {
-        setActiveNode(active);
+      const conns: ConnectionNode[] = response.data || [];
+      setConnections(conns);
+      
+      // Determine active node: prioritize user.node, then conn.active
+      let active: ConnectionNode | undefined;
+      if (user.node) {
+        active = conns.find((c) => c.id === Number(user.node));
       }
+      if (!active) {
+        active = conns.find((c) => c.active === true);
+      }
+      setActiveNode(active || null);
     } catch (err) {
       console.error('Failed to fetch connections:', err);
     }
   };
 
-  const handleSwitchNode = async (nodeId: number) => {
+  const handleSwitchNode = async (nodeIdStr: string) => {
+    if (!nodeIdStr || nodeIdStr === 'none') {
+      try {
+        await axios.post('/api/connections/deactivate');
+        const userResp = await axios.get('/api/me');
+        setUser(userResp.data);
+        setActiveNode(null);
+        fetchConnections();
+      } catch (err) {
+        console.error('Failed to deactivate node:', err);
+      }
+      return;
+    }
+
     try {
+      const nodeId = Number(nodeIdStr);
       await axios.post(`/api/connections/${nodeId}/activate`);
       // Reload user profile to update active node ID
       const userResp = await axios.get('/api/me');
@@ -167,7 +188,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isAdmin = user?.admin || user?.role === 'admin' || user?.role === 'superadmin';
 
-  const hasActiveNode = Boolean(user?.node && activeNode);
+  const hasActiveNode = Boolean(activeNode || user?.node);
 
   interface SidebarItem {
     path: string;
@@ -315,7 +336,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.9.4</span>
+          <span className="text-brand-primary">NOKA v2.9.5</span>
         </div>
       </aside>
 
@@ -337,11 +358,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-text-secondary hidden sm:inline">Gateway Node:</span>
                 <select
-                  value={activeNode?.id || ''}
-                  onChange={(e) => handleSwitchNode(Number(e.target.value))}
-                  className="px-2.5 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors max-w-[170px] sm:max-w-xs truncate"
+                  value={activeNode?.id || 'none'}
+                  onChange={(e) => handleSwitchNode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors max-w-[170px] sm:max-w-xs truncate cursor-pointer"
                 >
-                  <option value="" disabled>Select Connection</option>
+                  <option value="none">-- Disconnected (No Gateway) --</option>
                   {connections.map((conn) => (
                     <option key={conn.id} value={conn.id}>
                       {conn.name} ({conn.kong_admin_url})

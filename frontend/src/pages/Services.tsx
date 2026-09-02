@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
+import { AuthorBadge } from '../components/AuthorBadge';
 
 interface Service {
   id: string;
@@ -714,10 +715,14 @@ export const Services: React.FC = () => {
                     <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
                       {(() => {
                         const authorInfo = entityAuthors[svc.id];
-                        const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-' 
-                          ? authorInfo.created_by_username 
-                          : null;
-                        return creator || '-';
+                        return (
+                          <AuthorBadge
+                            username={authorInfo?.created_by_username}
+                            fullName={authorInfo?.created_by_full_name}
+                            email={authorInfo?.created_by_email}
+                            labelPrefix="Created by"
+                          />
+                        );
                       })()}
                     </td>
                     <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
@@ -726,10 +731,14 @@ export const Services: React.FC = () => {
                     <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
                       {(() => {
                         const authorInfo = entityAuthors[svc.id];
-                        const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-' 
-                          ? authorInfo.updated_by_username 
-                          : null;
-                        return updater || '-';
+                        return (
+                          <AuthorBadge
+                            username={authorInfo?.updated_by_username}
+                            fullName={authorInfo?.updated_by_full_name}
+                            email={authorInfo?.updated_by_email}
+                            labelPrefix="Updated by"
+                          />
+                        );
                       })()}
                     </td>
                     <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
