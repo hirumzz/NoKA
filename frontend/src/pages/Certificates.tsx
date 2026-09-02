@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface Certificate {
@@ -42,6 +43,7 @@ const getTagColor = (tag: string) => {
 
 export const Certificates: React.FC = () => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ export const Certificates: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,8 +86,17 @@ export const Certificates: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('/api/kong/certificates?size=1000');
-      setCertificates(response.data?.data || []);
+      const [response, authorResp] = await Promise.allSettled([
+        axios.get('/api/kong/certificates?size=1000'),
+        axios.get('/api/entity-authors')
+      ]);
+
+      if (response.status === 'fulfilled') {
+        setCertificates(response.value.data?.data || []);
+      }
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch certificates');
       console.error(err);
@@ -124,7 +136,14 @@ export const Certificates: React.FC = () => {
   };
 
   const handleDeleteCertificate = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this SSL certificate?')) return;
+    const ok = await confirm({
+      title: 'Delete SSL Certificate',
+      message: 'Are you sure you want to delete this SSL certificate? Any SNI domain mappings linked to this certificate will also be removed.',
+      confirmText: 'Delete Certificate',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/certificates/${id}`);
@@ -148,7 +167,7 @@ export const Certificates: React.FC = () => {
     const matchesTag = selectedTag ? cert.tags?.includes(selectedTag) : true;
     
     return matchesSearch && matchesTag;
-  });
+  }).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   const paginatedCertificates = React.useMemo(() => {
     return filteredCertificates.slice(
@@ -323,71 +342,101 @@ export const Certificates: React.FC = () => {
                   <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
                     <th className="px-6 py-3.5">Certificate ID</th>
                     <th className="px-6 py-3.5">SNIs</th>
+                    <th className="px-6 py-3.5">Created By</th>
                     <th className="px-6 py-3.5">Created At</th>
+                    <th className="px-6 py-3.5">Updated By</th>
+                    <th className="px-6 py-3.5">Updated At</th>
                     <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                  {paginatedCertificates.map((cert) => (
-                    <tr 
-                      key={cert.id} 
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/certificates/${cert.id}`)}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded bg-purple-50 text-purple-600">
-                            <Award className="w-4 h-4" />
+                  {paginatedCertificates.map((cert) => {
+                    const authorInfo = entityAuthors[cert.id];
+                    const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
+                      ? authorInfo.created_by_username
+                      : null;
+                    const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
+                      ? authorInfo.updated_by_username
+                      : null;
+                    const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+
+                    const normalTags = (cert.tags || []).filter((t: string) =>
+                      !t.startsWith('noka-desc:') &&
+                      !t.startsWith('noka-creator:') &&
+                      !t.startsWith('noka-updated-by:') &&
+                      !t.startsWith('noka-updated-at:')
+                    );
+
+                    return (
+                      <tr 
+                        key={cert.id} 
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/certificates/${cert.id}`)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded bg-purple-50 text-purple-600">
+                              <Award className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <Link to={`/certificates/${cert.id}`} className="font-bold text-sm block font-mono text-blue-600 hover:underline select-all">
+                                {cert.id.substring(0, 16)}...
+                              </Link>
+                              <span className="text-[10px] text-text-muted font-mono block select-all">{cert.id}</span>
+                              {normalTags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
+                                  {normalTags.map(t => {
+                                    const cColor = getTagColor(t);
+                                    return (
+                                      <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${cColor.bg} ${cColor.text} ${cColor.border}`}>
+                                        {t}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <Link to={`/certificates/${cert.id}`} className="font-bold text-sm block font-mono text-blue-600 hover:underline select-all">
-                              {cert.id.substring(0, 16)}...
-                            </Link>
-                            <span className="text-[10px] text-text-muted font-mono block select-all">{cert.id}</span>
-                            {cert.tags && cert.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
-                                {cert.tags.map(t => {
-                                  const cColor = getTagColor(t);
-                                  return (
-                                    <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${cColor.bg} ${cColor.text} ${cColor.border}`}>
-                                      {t}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+                        </td>
+                        <td className="px-6 py-4 space-y-1 font-medium">
+                          {cert.snis && cert.snis.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {cert.snis.map((sni, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-mono text-[10px] border border-blue-100">
+                                  {sni}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-text-muted italic">no SNIs associated</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                          {creator || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                          {new Date(cert.created_at * 1000).toLocaleDateString()} {new Date(cert.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                          {updater || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                          {updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCertificate(cert.id); }}
+                              className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
+                              title="Delete Certificate"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 space-y-1 font-medium">
-                        {cert.snis && cert.snis.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {cert.snis.map((sni, idx) => (
-                              <span key={idx} className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-mono text-[10px] border border-blue-100">
-                                {sni}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-text-muted italic">no SNIs associated</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary font-medium">
-                        {new Date(cert.created_at * 1000).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteCertificate(cert.id); }}
-                            className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
-                            title="Delete Certificate"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

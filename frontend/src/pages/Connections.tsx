@@ -15,6 +15,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface Connection {
   id: number;
@@ -36,6 +37,7 @@ interface Connection {
 
 export const Connections: React.FC = () => {
   const { user: currentUser, setUser } = useAuth();
+  const { confirm } = useConfirm();
   const isAdmin = !!(currentUser?.admin || currentUser?.role === 'admin');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,7 +209,14 @@ export const Connections: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this connection node?')) return;
+    const ok = await confirm({
+      title: 'Delete Connection',
+      message: 'Are you sure you want to delete this Kong connection node? If active, you will need to select another connection.',
+      confirmText: 'Delete Node',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/connections/${id}`);

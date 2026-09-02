@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface Upstream {
@@ -41,6 +42,7 @@ const getTagColor = (tag: string) => {
 
 export const Upstreams: React.FC = () => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [upstreams, setUpstreams] = useState<Upstream[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,7 @@ export const Upstreams: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,8 +91,17 @@ export const Upstreams: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.get('/api/kong/upstreams?size=1000');
-      setUpstreams(response.data?.data || []);
+      const [response, authorResp] = await Promise.allSettled([
+        axios.get('/api/kong/upstreams?size=1000'),
+        axios.get('/api/entity-authors')
+      ]);
+
+      if (response.status === 'fulfilled') {
+        setUpstreams(response.value.data?.data || []);
+      }
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch upstreams');
       console.error(err);
@@ -139,7 +151,14 @@ export const Upstreams: React.FC = () => {
   };
 
   const handleDeleteUpstream = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this upstream?')) return;
+    const ok = await confirm({
+      title: 'Delete Upstream',
+      message: 'Are you sure you want to delete this upstream? All attached targets and ring balancer configurations will be removed.',
+      confirmText: 'Delete Upstream',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/upstreams/${id}`);
@@ -163,7 +182,7 @@ export const Upstreams: React.FC = () => {
     const matchesTag = selectedTag ? upstream.tags?.includes(selectedTag) : true;
     
     return matchesSearch && matchesTag;
-  });
+  }).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   const paginatedUpstreams = React.useMemo(() => {
     return filteredUpstreams.slice(
@@ -412,63 +431,93 @@ export const Upstreams: React.FC = () => {
                   <tr className="bg-slate-50/75 border-b border-border-light text-[10px] font-bold text-text-secondary uppercase tracking-wider">
                     <th className="px-6 py-3.5">Name</th>
                     <th className="px-6 py-3.5">Algorithm</th>
+                    <th className="px-6 py-3.5">Created By</th>
                     <th className="px-6 py-3.5">Created At</th>
+                    <th className="px-6 py-3.5">Updated By</th>
+                    <th className="px-6 py-3.5">Updated At</th>
                     <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
-                  {paginatedUpstreams.map((upstream) => (
-                  <tr 
-                    key={upstream.id} 
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/upstreams/${upstream.id}`)}
-                  >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded bg-sky-50 text-sky-600">
-                            <Share2 className="w-4 h-4" />
+                  {paginatedUpstreams.map((upstream) => {
+                    const authorInfo = entityAuthors[upstream.id];
+                    const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
+                      ? authorInfo.created_by_username
+                      : null;
+                    const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
+                      ? authorInfo.updated_by_username
+                      : null;
+                    const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+
+                    const normalTags = (upstream.tags || []).filter((t: string) =>
+                      !t.startsWith('noka-desc:') &&
+                      !t.startsWith('noka-creator:') &&
+                      !t.startsWith('noka-updated-by:') &&
+                      !t.startsWith('noka-updated-at:')
+                    );
+
+                    return (
+                      <tr 
+                        key={upstream.id} 
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/upstreams/${upstream.id}`)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded bg-sky-50 text-sky-600">
+                              <Share2 className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <Link to={`/upstreams/${upstream.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
+                                {upstream.name}
+                              </Link>
+                              <span className="text-[10px] text-text-muted font-mono block select-all">{upstream.id}</span>
+                              {normalTags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
+                                  {normalTags.map(t => {
+                                    const c = getTagColor(t);
+                                    return (
+                                      <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${c.bg} ${c.text} ${c.border}`}>
+                                        {t}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <Link to={`/upstreams/${upstream.id}`} className="font-bold text-sm block text-blue-600 hover:underline">
-                              {upstream.name}
-                            </Link>
-                            <span className="text-[10px] text-text-muted font-mono block select-all">{upstream.id}</span>
-                            {upstream.tags && upstream.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5 max-w-xs">
-                                {upstream.tags.map(t => {
-                                  const c = getTagColor(t);
-                                  return (
-                                    <span key={t} className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${c.bg} ${c.text} ${c.border}`}>
-                                      {t}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/5 text-indigo-600 text-[10px] font-bold uppercase">
+                            {upstream.algorithm}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                          {creator || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                          {new Date(upstream.created_at * 1000).toLocaleDateString()} {new Date(upstream.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                          {updater || '-'}
+                        </td>
+                        <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                          {updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteUpstream(upstream.id); }}
+                              className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
+                              title="Delete Upstream"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/5 text-indigo-600 text-[10px] font-bold uppercase">
-                          {upstream.algorithm}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary font-medium">
-                        {new Date(upstream.created_at * 1000).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteUpstream(upstream.id); }}
-                            className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
-                            title="Delete Upstream"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (

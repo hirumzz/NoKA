@@ -272,7 +272,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.6.1</span>
+          <span className="text-brand-primary">NOKA v2.8.1</span>
         </div>
       </aside>
 
@@ -402,8 +402,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               {showProfileDropdown && (
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-border-light rounded-lg shadow-lg py-1 z-30">
                   <div className="px-4 py-2 border-b border-border-light">
-                    <p className="text-xs font-bold text-text-primary truncate">{user?.username}</p>
-                    <p className="text-[10px] text-text-muted truncate capitalize">{user?.role}</p>
+                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">NOKA Engine</span>
+                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.8.1 • Enterprise Ready</span>
                   </div>
                   <button
                     onClick={handleLogout}

@@ -202,6 +202,195 @@ const RecordArrayInput = ({ value, fieldMeta, onChange, renderInputFn }: { value
   );
 };
 
+const LuaScriptListInput = ({ value, onChange }: { value: any, onChange: (v: string[]) => void }) => {
+  const scripts: string[] = Array.isArray(value) ? value : (typeof value === 'string' && value.trim() ? [value] : []);
+
+  const handleScriptChange = (idx: number, text: string) => {
+    const newScripts = [...scripts];
+    newScripts[idx] = text;
+    onChange(newScripts);
+  };
+
+  const handleAdd = () => {
+    onChange([...scripts, '']);
+  };
+
+  const handleRemove = (idx: number) => {
+    onChange(scripts.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-3">
+      {scripts.length === 0 ? (
+        <div className="p-3 bg-slate-50 border border-dashed border-border-light rounded text-center">
+          <p className="text-[11px] text-text-muted italic mb-2">No Lua functions configured for this phase</p>
+          <button
+            type="button"
+            onClick={handleAdd}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-primary hover:text-brand-primary-dark transition-colors px-2.5 py-1 rounded bg-brand-primary/10 hover:bg-brand-primary/20"
+          >
+            <Plus className="w-3.5 h-3.5" /> ADD LUA SCRIPT
+          </button>
+        </div>
+      ) : (
+        scripts.map((script, idx) => (
+          <div key={idx} className="relative rounded-lg border border-border-light bg-slate-900 overflow-hidden group shadow-sm">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800/80 border-b border-slate-700/60 text-[10px] font-mono text-slate-400">
+              <span>-- Lua Function #{idx + 1}</span>
+              <button
+                type="button"
+                onClick={() => handleRemove(idx)}
+                className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                title="Remove Script"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <textarea
+              rows={Math.max(3, script.split('\n').length)}
+              value={script}
+              onChange={(e) => handleScriptChange(idx, e.target.value)}
+              placeholder='kong.response.set_header("X-Custom-Header", "Hello-From-Kong")'
+              className="w-full p-3 bg-slate-950 text-emerald-400 font-mono text-xs leading-relaxed outline-none border-0 resize-y custom-scrollbar focus:ring-1 focus:ring-emerald-500/40"
+              spellCheck="false"
+            />
+          </div>
+        ))
+      )}
+      {scripts.length > 0 && (
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="flex items-center gap-1 text-[10px] font-bold text-brand-primary hover:text-brand-primary-dark transition-colors px-2 py-1 rounded hover:bg-brand-primary/10 w-max"
+        >
+          <Plus className="w-3 h-3" /> ADD ANOTHER LUA SCRIPT
+        </button>
+      )}
+    </div>
+  );
+};
+
+const ChipsArrayInput = ({
+  value,
+  fieldMeta,
+  fieldName,
+  onChange
+}: {
+  value: any,
+  fieldMeta: any,
+  fieldName: string,
+  onChange: (v: string[]) => void
+}) => {
+  const arrValue: string[] = Array.isArray(value) ? value : [];
+  const [inputValue, setInputValue] = useState('');
+
+  const isUppercaseField = fieldName === 'methods' || 
+    (fieldMeta.elements?.one_of && fieldMeta.elements.one_of.every((x: string) => typeof x === 'string' && x === x.toUpperCase()));
+
+  const handleCommitItem = (text: string) => {
+    let trimmed = text.trim();
+    if (!trimmed) return;
+    if (isUppercaseField) {
+      trimmed = trimmed.toUpperCase();
+    }
+    if (!arrValue.includes(trimmed)) {
+      onChange([...arrValue, trimmed]);
+    }
+    setInputValue('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCommitItem(inputValue);
+    }
+  };
+
+  const handleRemoveItem = (idx: number) => {
+    onChange(arrValue.filter((_, i) => i !== idx));
+  };
+
+  const toggleOption = (opt: string) => {
+    if (arrValue.includes(opt)) {
+      onChange(arrValue.filter(x => x !== opt));
+    } else {
+      onChange([...arrValue, opt]);
+    }
+  };
+
+  const options = fieldMeta.elements?.one_of;
+
+  return (
+    <div className="space-y-2">
+      {options && Array.isArray(options) && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {options.map((opt: string) => {
+            const isSelected = arrValue.includes(opt);
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => toggleOption(opt)}
+                className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
+                  isSelected
+                    ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
+                    : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
+                }`}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Chips Container */}
+      <div className="flex flex-wrap gap-1.5 p-2 rounded border border-border-light bg-slate-50 min-h-[42px] items-center focus-within:border-brand-primary focus-within:bg-white transition-all">
+        {arrValue.map((item, idx) => (
+          <span
+            key={idx}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-semibold border border-brand-primary/20 max-w-full break-all"
+          >
+            <span>{item}</span>
+            <button
+              type="button"
+              onClick={() => handleRemoveItem(idx)}
+              className="text-brand-primary hover:text-red-500 p-0.5 rounded-full hover:bg-brand-primary/20 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        <div className="flex items-center gap-1 flex-1 min-w-[140px]">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => {
+              if (inputValue.trim()) {
+                handleCommitItem(inputValue);
+              }
+            }}
+            placeholder={arrValue.length === 0 ? "Type and press Enter to add..." : "Add more..."}
+            className="w-full bg-transparent text-xs text-text-primary outline-none placeholder:text-text-muted font-medium"
+          />
+          {inputValue.trim() && (
+            <button
+              type="button"
+              onClick={() => handleCommitItem(inputValue)}
+              className="px-2 py-0.5 rounded bg-brand-primary text-white text-[10px] font-bold hover:bg-brand-primary-dark transition-colors shrink-0"
+            >
+              ADD
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-[10px] text-text-muted italic">Tip: Press <code>Enter</code> or click Add to accept each value.</p>
+    </div>
+  );
+};
+
 export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
   pluginName,
   initialConfig = {},
@@ -354,73 +543,21 @@ export const PluginDynamicForm: React.FC<PluginDynamicFormProps> = ({
         return <RecordArrayInput value={value} fieldMeta={fieldMeta} onChange={(v) => onValueChange(fieldName, v)} renderInputFn={renderInput} />;
       }
       
-      const arrValue = Array.isArray(value) ? value : [];
-      const textValue = arrValue.join(', ');
-      
-      const isUppercaseField = fieldName === 'methods' || 
-        (fieldMeta.elements?.one_of && fieldMeta.elements.one_of.every((x: string) => typeof x === 'string' && x === x.toUpperCase()));
+      // Khusus plugin pre-function / post-function atau phase functions: gunakan Lua Code Editor
+      const isLuaScriptPlugin = pluginName === 'pre-function' || pluginName === 'post-function' ||
+        ['certificate', 'rewrite', 'access', 'header_filter', 'body_filter', 'log', 'functions'].includes(fieldName);
 
-      const handleArrayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let val = e.target.value;
-        if (isUppercaseField) {
-          val = val.toUpperCase();
-        }
-        const parsed = val.split(',').map(s => s.trim()).filter(s => s !== '');
-        onValueChange(fieldName, parsed);
-      };
-
-      const toggleOption = (opt: string) => {
-        let newArr = [...arrValue];
-        if (newArr.includes(opt)) {
-          newArr = newArr.filter(x => x !== opt);
-        } else {
-          newArr.push(opt);
-        }
-        onValueChange(fieldName, newArr);
-      };
-
-      const options = fieldMeta.elements?.one_of;
+      if (isLuaScriptPlugin) {
+        return <LuaScriptListInput value={value} onChange={(v) => onValueChange(fieldName, v)} />;
+      }
 
       return (
-        <div className="space-y-2">
-          {options && Array.isArray(options) && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {options.map((opt: string) => {
-                const isSelected = arrValue.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => toggleOption(opt)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
-                      isSelected
-                        ? 'bg-brand-primary border-brand-primary text-white shadow-sm'
-                        : 'bg-white border-border-light text-text-secondary hover:bg-slate-50'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <input
-            type="text"
-            value={textValue}
-            onChange={handleArrayChange}
-            placeholder="Comma separated values"
-            className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-          />
-          {!options && arrValue.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {arrValue.map((item: string, i: number) => (
-                <span key={i} className="px-2 py-0.5 rounded bg-brand-primary/10 text-brand-primary text-[10px] font-bold border border-brand-primary/20">
-                  {item}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <ChipsArrayInput
+          value={value}
+          fieldMeta={fieldMeta}
+          fieldName={fieldName}
+          onChange={(v) => onValueChange(fieldName, v)}
+        />
       );
     }
 

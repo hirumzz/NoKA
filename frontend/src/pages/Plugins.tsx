@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useKongData } from '../context/KongDataContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { 
   Plus, 
   Trash2, 
@@ -68,6 +69,7 @@ const getTagColor = (tag: string) => {
 export const Plugins: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const { 
     plugins: cachedPlugins, 
     services: cachedServices, 
@@ -118,6 +120,7 @@ export const Plugins: React.FC = () => {
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   // Initial and reactive background fetch without blocking page render
   useEffect(() => {
@@ -144,12 +147,16 @@ export const Plugins: React.FC = () => {
       setIsSyncing(true);
     }
     try {
-      // Use single aggregated endpoint that returns plugins, services, and routes together
-      const resp = await axios.get('/api/kong/enriched-plugins');
-      if (resp.data) {
-        const p = resp.data.plugins || [];
-        const s = resp.data.services || [];
-        const r = resp.data.routes || [];
+      // Fetch enriched-plugins and entity-authors concurrently
+      const [resp, authorResp] = await Promise.allSettled([
+        axios.get('/api/kong/enriched-plugins'),
+        axios.get('/api/entity-authors')
+      ]);
+
+      if (resp.status === 'fulfilled' && resp.value.data) {
+        const p = resp.value.data.plugins || [];
+        const s = resp.value.data.services || [];
+        const r = resp.value.data.routes || [];
 
         setPlugins(p);
         setServices(s);
@@ -161,6 +168,10 @@ export const Plugins: React.FC = () => {
           localStorage.setItem('noka_cache_services', JSON.stringify(s));
           localStorage.setItem('noka_cache_routes', JSON.stringify(r));
         } catch (e) {}
+      }
+
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
       }
       
       // Also update background context
@@ -215,7 +226,14 @@ export const Plugins: React.FC = () => {
   };
 
   const handleDeletePlugin = async (id: string) => {
-    if (!window.confirm('Are you sure you want to disable and delete this plugin?')) return;
+    const ok = await confirm({
+      title: 'Delete Plugin',
+      message: 'Are you sure you want to disable and delete this plugin? This action cannot be undone.',
+      confirmText: 'Delete Plugin',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/kong/plugins/${id}`);
       addToast('success', 'Plugin successfully deleted', 'Success');
@@ -276,7 +294,7 @@ export const Plugins: React.FC = () => {
       (plugin.tags && plugin.tags.includes(selectedTag));
     
     return matchesSearch && matchesTag;
-  });
+  }).sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
   const paginatedPlugins = React.useMemo(() => {
     return filteredPlugins.slice(
@@ -740,7 +758,10 @@ export const Plugins: React.FC = () => {
                       <th className="px-6 py-3.5">Scope</th>
                       <th className="px-6 py-3.5">Apply To</th>
                       <th className="px-6 py-3.5">Consumer</th>
-                      <th className="px-6 py-3.5">Created</th>
+                      <th className="px-6 py-3.5">Created By</th>
+                      <th className="px-6 py-3.5">Created At</th>
+                      <th className="px-6 py-3.5">Updated By</th>
+                      <th className="px-6 py-3.5">Updated At</th>
                       <th className="px-6 py-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -780,7 +801,6 @@ export const Plugins: React.FC = () => {
                                 />
                               </div>
                               <div>
-                                {/* Clickable name opens edit modal */}
                                 <span 
                                   onClick={() => openEditModal(plugin)}
                                   className="font-bold text-sm text-blue-600 block cursor-pointer hover:underline flex items-center gap-1.5"
@@ -831,8 +851,33 @@ export const Plugins: React.FC = () => {
                               <span className="text-text-secondary font-medium">{consumerName}</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-text-secondary font-medium">
-                            {new Date(plugin.created_at * 1000).toLocaleDateString()}
+                          <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                            {(() => {
+                              const authorInfo = entityAuthors[plugin.id];
+                              const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
+                                ? authorInfo.created_by_username
+                                : null;
+                              return creator || '-';
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                            {new Date(plugin.created_at * 1000).toLocaleDateString()} {new Date(plugin.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                            {(() => {
+                              const authorInfo = entityAuthors[plugin.id];
+                              const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
+                                ? authorInfo.updated_by_username
+                                : null;
+                              return updater || '-';
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                            {(() => {
+                              const authorInfo = entityAuthors[plugin.id];
+                              const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+                              return updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-';
+                            })()}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">

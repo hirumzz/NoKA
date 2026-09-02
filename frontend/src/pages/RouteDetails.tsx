@@ -21,6 +21,7 @@ import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { RawViewModal } from '../components/RawViewModal';
+import { useConfirm } from '../context/ConfirmContext';
 
 
 interface KongRoute {
@@ -52,6 +53,7 @@ interface KongPlugin {
 
 export const RouteDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { confirm } = useConfirm();
   const [route, setRoute] = useState<KongRoute | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'plugins'>('details');
   const [loading, setLoading] = useState(true);
@@ -322,7 +324,14 @@ export const RouteDetails: React.FC = () => {
   };
 
   const handleDeletePlugin = async (pluginId: string) => {
-    if (!window.confirm('Are you sure you want to disable this plugin?')) return;
+    const ok = await confirm({
+      title: 'Disable Plugin',
+      message: 'Are you sure you want to disable and delete this plugin from this route?',
+      confirmText: 'Delete Plugin',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/plugins/${pluginId}`);
@@ -397,10 +406,10 @@ export const RouteDetails: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-                  Semua matching request yang mengarah ke route ini saat ini <strong>diterminasi/diblokir</strong> dengan pesan: <em>"{msg}"</em>.
+                  All matching requests routed to this path are currently <strong>terminated/blocked</strong> with response message: <em>"{msg}"</em>.
                 </p>
                 <span className="text-[10px] text-rose-600 font-medium block mt-1">
-                  Untuk mengalirkan kembali traffic normal, nonaktifkan (Disable) atau hapus plugin request-termination pada tab <strong>Plugins</strong> di bawah.
+                  To restore normal traffic flow, disable or delete the request-termination plugin in the <strong>Plugins</strong> tab below.
                 </span>
               </div>
             </div>
@@ -455,13 +464,13 @@ export const RouteDetails: React.FC = () => {
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Route Rules</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {reachabilityStatus.status !== 'idle' && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold mr-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
                     {reachabilityStatus.status === 'checking' && (
                       <span className="flex items-center gap-1 text-slate-500">
                         <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin" />
@@ -609,9 +618,9 @@ export const RouteDetails: React.FC = () => {
                 </div>
 
                 {/* Protocols */}
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] font-bold text-text-secondary uppercase block">Protocols</label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {['http', 'https', 'grpc', 'grpcs', 'tcp', 'tls'].map(p => (
                       <label key={p} className="flex items-center gap-1.5 text-xs text-text-primary font-semibold select-none cursor-pointer">
                         <input
@@ -629,7 +638,7 @@ export const RouteDetails: React.FC = () => {
                 {/* HTTP Methods */}
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] font-bold text-text-secondary uppercase block">HTTP Methods (leave empty for any)</label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'].map(m => (
                       <label key={m} className="flex items-center gap-1.5 text-xs text-text-primary font-semibold select-none cursor-pointer">
                         <input
@@ -645,7 +654,7 @@ export const RouteDetails: React.FC = () => {
                 </div>
 
                 {/* Toggles */}
-                <div className="flex items-center gap-6 pt-2 md:col-span-2 text-xs font-semibold text-text-primary">
+                <div className="flex flex-wrap items-center gap-6 pt-2 md:col-span-2 text-xs font-semibold text-text-primary">
                   <label className="flex items-center gap-2 select-none cursor-pointer">
                     <input
                       type="checkbox"

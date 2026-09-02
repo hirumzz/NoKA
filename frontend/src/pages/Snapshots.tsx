@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface SnapshotHistory {
   id: number;
@@ -23,6 +24,7 @@ interface SnapshotHistory {
 export const Snapshots: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   
   const [fileContent, setFileContent] = useState<any>(null);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -116,7 +118,14 @@ export const Snapshots: React.FC = () => {
       return;
     }
 
-    if (!window.confirm('Are you sure you want to restore from this snapshot? This will attempt to recreate all entities.')) {
+    const ok = await confirm({
+      title: 'Restore Snapshot',
+      message: 'Are you sure you want to restore from this snapshot? This will attempt to recreate all services, routes, consumers, upstreams, and plugins on the gateway.',
+      confirmText: 'Restore Snapshot',
+      cancelText: 'Cancel',
+      type: 'warning'
+    });
+    if (!ok) {
       return;
     }
 
@@ -151,7 +160,14 @@ export const Snapshots: React.FC = () => {
   };
 
   const handleDeleteHistory = async (id: number) => {
-    if (!window.confirm('Delete this snapshot from history?')) return;
+    const ok = await confirm({
+      title: 'Delete Snapshot History',
+      message: 'Are you sure you want to delete this snapshot backup from history? This file cannot be recovered.',
+      confirmText: 'Delete Snapshot',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/snapshots/${id}`);
       addToast('success', 'Snapshot deleted', 'Deleted');

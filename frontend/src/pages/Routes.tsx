@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface RouteItem {
@@ -56,6 +57,7 @@ const getTagStyle = (tag: string) => {
 export const Routes: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -85,6 +87,7 @@ export const Routes: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [terminatedRouteIds, setTerminatedRouteIds] = useState<Set<string>>(new Set());
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
   const protocolOptions = ['http', 'https', 'grpc', 'grpcs', 'tcp', 'tls', 'udp'];
@@ -116,13 +119,17 @@ export const Routes: React.FC = () => {
   const fetchRoutesAndServices = async () => {
     setLoading(true);
     try {
-      const [routesResp, pluginsResp] = await Promise.allSettled([
+      const [routesResp, pluginsResp, authorResp] = await Promise.allSettled([
         axios.get('/api/kong/routes?size=1000'),
-        axios.get('/api/kong/plugins?size=1000')
+        axios.get('/api/kong/plugins?size=1000'),
+        axios.get('/api/entity-authors')
       ]);
 
       if (routesResp.status === 'fulfilled') {
         setRoutes(routesResp.value.data?.data || []);
+      }
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
       }
       if (pluginsResp.status === 'fulfilled') {
         const pList = pluginsResp.value.data?.data || [];
@@ -304,7 +311,14 @@ export const Routes: React.FC = () => {
   };
 
   const handleDeleteRoute = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this route?')) return;
+    const ok = await confirm({
+      title: 'Delete Route',
+      message: 'Are you sure you want to delete this route? Traffic directed to this path will no longer match this rule.',
+      confirmText: 'Delete Route',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/kong/routes/${id}`);
       addToast('success', 'Route deleted successfully', 'Success');
@@ -693,13 +707,32 @@ export const Routes: React.FC = () => {
                   <th className="px-6 py-3.5">Linked Service</th>
                   <th className="px-6 py-3.5">Matching Rules</th>
                   <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Created By</th>
                   <th className="px-6 py-3.5">Created At</th>
+                  <th className="px-6 py-3.5">Updated By</th>
+                  <th className="px-6 py-3.5">Updated At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-light text-xs font-semibold text-text-primary">
                 {paginatedRoutes.map((route) => {
                   const linkedSvc = services.find(s => s.id === route.service.id);
+                  const authorInfo = entityAuthors[route.id];
+                  const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
+                    ? authorInfo.created_by_username
+                    : null;
+                  const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
+                    ? authorInfo.updated_by_username
+                    : null;
+                  const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+
+                  const normalTags = (route.tags || []).filter((t: string) =>
+                    !t.startsWith('noka-desc:') &&
+                    !t.startsWith('noka-creator:') &&
+                    !t.startsWith('noka-updated-by:') &&
+                    !t.startsWith('noka-updated-at:')
+                  );
+
                   return (
                     <tr 
                     key={route.id} 
@@ -723,9 +756,9 @@ export const Routes: React.FC = () => {
                               )}
                             </div>
                             <span className="text-[10px] text-text-muted font-mono block select-all">{route.id}</span>
-                            {route.tags && route.tags.length > 0 && (
+                            {normalTags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1.5">
-                                {route.tags.map((tag, idx) => {
+                                {normalTags.map((tag, idx) => {
                                   const style = getTagStyle(tag);
                                   return (
                                     <span key={`${tag}-${idx}`} className={`px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} text-[10px] font-semibold`}>
@@ -804,8 +837,17 @@ export const Routes: React.FC = () => {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-text-secondary font-medium">
-                        {new Date(route.created_at * 1000).toLocaleDateString()}
+                      <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                        {creator || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                        {new Date(route.created_at * 1000).toLocaleDateString()} {new Date(route.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                        {updater || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                        {updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">

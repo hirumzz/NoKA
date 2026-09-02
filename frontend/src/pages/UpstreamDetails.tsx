@@ -11,6 +11,7 @@ import {
   Server
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useConfirm } from '../context/ConfirmContext';
 
 
 interface KongUpstream {
@@ -36,6 +37,7 @@ interface KongTarget {
 
 export const UpstreamDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { confirm } = useConfirm();
   const [upstream, setUpstream] = useState<KongUpstream | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'targets'>('details');
   const [loading, setLoading] = useState(true);
@@ -167,7 +169,14 @@ export const UpstreamDetails: React.FC = () => {
   };
 
   const handleDeleteTarget = async (targetId: string) => {
-    if (!window.confirm('Are you sure you want to remove this target backend?')) return;
+    const ok = await confirm({
+      title: 'Remove Target Backend',
+      message: 'Are you sure you want to remove this target backend from this upstream pool?',
+      confirmText: 'Remove Target',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       // In Kong, to delete a target we hit DELETE /upstreams/:id/targets/:target_id
@@ -252,8 +261,8 @@ export const UpstreamDetails: React.FC = () => {
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update Upstream Load-Balancer Properties</h3>
             <form onSubmit={handleUpdateDetails} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

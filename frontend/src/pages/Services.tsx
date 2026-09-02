@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface Service {
@@ -48,6 +49,7 @@ const getTagStyle = (tag: string) => {
 export const Services: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +78,7 @@ export const Services: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [terminatedServiceIds, setTerminatedServiceIds] = useState<Set<string>>(new Set());
+  const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,18 +102,20 @@ export const Services: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showAddForm]);
 
-
-
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const [svcResp, pluginResp] = await Promise.allSettled([
+      const [svcResp, pluginResp, authorResp] = await Promise.allSettled([
         axios.get('/api/kong/services?size=1000'),
-        axios.get('/api/kong/plugins?size=1000')
+        axios.get('/api/kong/plugins?size=1000'),
+        axios.get('/api/entity-authors')
       ]);
 
       if (svcResp.status === 'fulfilled') {
         setServices(svcResp.value.data?.data || []);
+      }
+      if (authorResp.status === 'fulfilled') {
+        setEntityAuthors(authorResp.value.data?.data || {});
       }
       if (pluginResp.status === 'fulfilled') {
         const pList = pluginResp.value.data?.data || [];
@@ -227,7 +232,14 @@ export const Services: React.FC = () => {
   };
 
   const handleDeleteService = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this service?')) return;
+    const ok = await confirm({
+      title: 'Delete Service',
+      message: 'Are you sure you want to delete this service? All attached routes and plugins will also be affected.',
+      confirmText: 'Delete Service',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await axios.delete(`/api/kong/services/${id}`);
       addToast('success', 'Service deleted successfully', 'Success');
@@ -589,7 +601,10 @@ export const Services: React.FC = () => {
                   <th className="px-6 py-3.5">Target Upstream</th>
                   <th className="px-6 py-3.5">Protocol</th>
                   <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5">Created By</th>
                   <th className="px-6 py-3.5">Created At</th>
+                  <th className="px-6 py-3.5">Updated By</th>
+                  <th className="px-6 py-3.5">Updated At</th>
                   <th className="px-6 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -623,7 +638,12 @@ export const Services: React.FC = () => {
                             if (svc.tags) {
                               const descTag = svc.tags.find((t: string) => t.startsWith('noka-desc:'));
                               if (descTag) description = descTag.substring('noka-desc:'.length);
-                              normalTags = svc.tags.filter((t: string) => !t.startsWith('noka-desc:'));
+                              normalTags = svc.tags.filter((t: string) => 
+                                !t.startsWith('noka-desc:') && 
+                                !t.startsWith('noka-creator:') && 
+                                !t.startsWith('noka-updated-by:') && 
+                                !t.startsWith('noka-updated-at:')
+                              );
                             }
                             return (
                               <>
@@ -691,8 +711,33 @@ export const Services: React.FC = () => {
                         </button>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-text-secondary font-medium">
-                      {new Date(svc.created_at * 1000).toLocaleDateString()}
+                    <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                      {(() => {
+                        const authorInfo = entityAuthors[svc.id];
+                        const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-' 
+                          ? authorInfo.created_by_username 
+                          : null;
+                        return creator || '-';
+                      })()}
+                    </td>
+                    <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                      {new Date(svc.created_at * 1000).toLocaleDateString()} {new Date(svc.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
+                      {(() => {
+                        const authorInfo = entityAuthors[svc.id];
+                        const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-' 
+                          ? authorInfo.updated_by_username 
+                          : null;
+                        return updater || '-';
+                      })()}
+                    </td>
+                    <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
+                      {(() => {
+                        const authorInfo = entityAuthors[svc.id];
+                        const updatedAt = authorInfo?.updatedAt ? new Date(authorInfo.updatedAt).getTime() / 1000 : null;
+                        return updatedAt ? `${new Date(updatedAt * 1000).toLocaleDateString()} ${new Date(updatedAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '-';
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">

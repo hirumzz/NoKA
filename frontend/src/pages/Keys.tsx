@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 
 interface KeyItem {
@@ -40,6 +41,7 @@ const getTagBadgeStyle = (tag: string) => {
 
 export const Keys: React.FC = () => {
   const { user } = useAuth();
+  const { confirm } = useConfirm();
   const [keys, setKeys] = useState<KeyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,7 +114,14 @@ export const Keys: React.FC = () => {
   };
 
   const handleDeleteKey = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this key?')) return;
+    const ok = await confirm({
+      title: 'Delete Key',
+      message: 'Are you sure you want to delete this cryptographic key?',
+      confirmText: 'Delete Key',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/keys/${id}`);

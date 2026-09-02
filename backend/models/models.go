@@ -238,3 +238,20 @@ type Snapshot struct {
 func (Snapshot) TableName() string {
 	return "konga_snapshots"
 }
+
+// EntityAuthor represents the konga_entity_authors table
+type EntityAuthor struct {
+	ID                uint      `gorm:"primaryKey;column:id" json:"id"`
+	EntityID          string    `gorm:"uniqueIndex:idx_entity_author;column:entity_id;not null" json:"entity_id"`
+	EntityType        string    `gorm:"uniqueIndex:idx_entity_author;column:entity_type;not null" json:"entity_type"`
+	CreatedByUserID   *uint     `gorm:"column:created_by_user_id" json:"created_by_user_id"`
+	CreatedByUsername string    `gorm:"column:created_by_username" json:"created_by_username"`
+	UpdatedByUserID   *uint     `gorm:"column:updated_by_user_id" json:"updated_by_user_id"`
+	UpdatedByUsername string    `gorm:"column:updated_by_username" json:"updated_by_username"`
+	CreatedAt         time.Time `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt         time.Time `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (EntityAuthor) TableName() string {
+	return "konga_entity_authors"
+}

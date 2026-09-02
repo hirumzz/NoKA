@@ -11,6 +11,7 @@ import {
   Globe
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
+import { useConfirm } from '../context/ConfirmContext';
 
 
 interface KongCertificate {
@@ -29,6 +30,7 @@ interface KongSNI {
 
 export const CertificateDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { confirm } = useConfirm();
   const [cert, setCert] = useState<KongCertificate | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'snis'>('details');
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,14 @@ export const CertificateDetails: React.FC = () => {
   };
 
   const handleDeleteSNI = async (sniId: string) => {
-    if (!window.confirm('Are you sure you want to delete this SNI mapping?')) return;
+    const ok = await confirm({
+      title: 'Delete SNI Mapping',
+      message: 'Are you sure you want to delete this SNI domain mapping from this certificate?',
+      confirmText: 'Delete SNI',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     setError('');
     try {
       await axios.delete(`/api/kong/snis/${sniId}`);
@@ -220,8 +229,8 @@ export const CertificateDetails: React.FC = () => {
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white p-6 rounded-lg border border-border-light shadow-sm space-y-6">
             <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Update SSL Certificate & Key</h3>
             <form onSubmit={handleUpdateDetails} className="space-y-4">
               <div className="space-y-1">
