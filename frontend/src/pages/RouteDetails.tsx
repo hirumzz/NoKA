@@ -77,6 +77,7 @@ export const RouteDetails: React.FC = () => {
   const [snis, setSnis] = useState('');
   const [sources, setSources] = useState('');
   const [destinations, setDestinations] = useState('');
+  const [healthcheckPath, setHealthcheckPath] = useState('');
   const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
@@ -130,7 +131,20 @@ export const RouteDetails: React.FC = () => {
       setSnis(data.snis ? data.snis.join(', ') : '');
       setSources(data.sources ? JSON.stringify(data.sources) : '');
       setDestinations(data.destinations ? JSON.stringify(data.destinations) : '');
-      setTagsInput(data.tags ? data.tags.join(', ') : '');
+      
+      let fetchedHealthPath = '';
+      const normalTags: string[] = [];
+      if (data.tags) {
+        data.tags.forEach((t: string) => {
+          if (t.startsWith('noka-health-path:')) {
+            fetchedHealthPath = t.substring('noka-health-path:'.length);
+          } else if (!t.startsWith('noka-creator:') && !t.startsWith('noka-updated-by:') && !t.startsWith('noka-updated-at:')) {
+            normalTags.push(t);
+          }
+        });
+      }
+      setHealthcheckPath(fetchedHealthPath);
+      setTagsInput(normalTags.join(', '));
 
       // Fetch plugins
       fetchSubResources();
@@ -193,6 +207,9 @@ export const RouteDetails: React.FC = () => {
     const parsedDestinations = destinations.trim() ? JSON.parse(destinations) : undefined;
     const parsedSnis = snis ? snis.split(',').map(s => s.trim()).filter(Boolean) : null;
     const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+    if (healthcheckPath.trim()) {
+      parsedTags.push(`noka-health-path:${healthcheckPath.trim()}`);
+    }
 
     try {
       const payload: any = {};
@@ -606,6 +623,18 @@ export const RouteDetails: React.FC = () => {
                   />
                 </div>
                 
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Path (Optional)</label>
+                  <input
+                    type="text"
+                    value={healthcheckPath}
+                    onChange={(e) => setHealthcheckPath(e.target.value)}
+                    placeholder="e.g. /healthz or /actuator/health (leave blank to test root /)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <span className="text-[10px] text-text-muted">Custom endpoint for route status health checks. Not sent to Kong route rules.</span>
+                </div>
+
                 <div className="space-y-1 md:col-span-2">
                   <label className="text-[10px] font-bold text-text-secondary uppercase">Tags</label>
                   <input

@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -101,6 +102,7 @@ type KongEntity struct {
 	Path      string   `json:"path"`
 	Paths     []string `json:"paths"`
 	Protocols []string `json:"protocols"`
+	Tags      []string `json:"tags"`
 }
 
 func fetchKongEntities(client *http.Client, node models.KongNode, endpoint string) ([]KongEntity, error) {
@@ -184,15 +186,27 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	if proxyURL == "" {
 		return "unreachable", "Kong Proxy URL not configured for this node", 0
 	}
-	if len(route.Paths) == 0 {
-		return "unreachable", "Route has no paths configured", 0
-	}
 	if len(route.Protocols) > 0 && route.Protocols[0] != "http" && route.Protocols[0] != "https" {
 		return "unreachable", "Reachability check only supports http/https protocols", 0
 	}
 
 	targetURL := strings.TrimSuffix(proxyURL, "/")
-	path := route.Paths[0]
+	var path string
+	for _, t := range route.Tags {
+		if strings.HasPrefix(t, "noka-health-path:") {
+			path = strings.TrimPrefix(t, "noka-health-path:")
+			break
+		}
+	}
+
+	if path == "" {
+		if len(route.Paths) > 0 {
+			path = route.Paths[0]
+		} else {
+			path = "/"
+		}
+	}
+
 	if !strings.HasPrefix(path, "/") {
 		targetURL += "/"
 	}
@@ -209,7 +223,16 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	}
 	defer resp.Body.Close()
 
-	// Any HTTP response means the proxy is reachable
+	if resp.StatusCode >= 500 {
+		errMsg := fmt.Sprintf("Service Error (HTTP %d)", resp.StatusCode)
+		if resp.StatusCode == http.StatusBadGateway {
+			errMsg = "Bad Gateway (HTTP 502)"
+		} else if resp.StatusCode == http.StatusGatewayTimeout {
+			errMsg = "Gateway Timeout (HTTP 504)"
+		}
+		return "unreachable", errMsg, resp.StatusCode
+	}
+
 	return "reachable", "Route is reachable", resp.StatusCode
 }
 
