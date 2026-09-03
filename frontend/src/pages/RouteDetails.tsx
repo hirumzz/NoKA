@@ -15,13 +15,15 @@ import {
   Settings,
   X,
   Eye,
-  Ban
+  Ban,
+  Copy
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { RawViewModal } from '../components/RawViewModal';
 import { useConfirm } from '../context/ConfirmContext';
+import { ClonePluginModal } from '../components/ClonePluginModal';
 
 
 interface KongRoute {
@@ -94,6 +96,7 @@ export const RouteDetails: React.FC = () => {
 
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<any>(null);
+  const [cloningPlugin, setCloningPlugin] = useState<any>(null);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
 
   useEffect(() => {
@@ -821,6 +824,13 @@ export const RouteDetails: React.FC = () => {
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button
+                                onClick={() => setCloningPlugin(plugin)}
+                                className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                                title="Clone / Copy Plugin"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() => setViewingRawPlugin(plugin)}
                                 className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
                                 title="View Raw JSON Config"
@@ -942,6 +952,17 @@ export const RouteDetails: React.FC = () => {
         subtitle={`ID: ${viewingRawPlugin?.id}`}
         data={viewingRawPlugin}
       />
+
+      {/* Clone Plugin Modal */}
+      {cloningPlugin && (
+        <ClonePluginModal
+          plugin={cloningPlugin}
+          initialScope="route"
+          initialTargetId={route?.id}
+          onClose={() => setCloningPlugin(null)}
+          onSuccess={fetchSubResources}
+        />
+      )}
     </div>
   );
 };

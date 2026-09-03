@@ -16,13 +16,16 @@ import {
   Settings,
   X,
   Eye,
-  Ban
+  Ban,
+  Copy
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { RawViewModal } from '../components/RawViewModal';
 import { useConfirm } from '../context/ConfirmContext';
+import { ClonePluginModal } from '../components/ClonePluginModal';
+import { CloneServiceModal } from '../components/CloneServiceModal';
 
 
 interface KongService {
@@ -121,6 +124,8 @@ export const ServiceDetails: React.FC = () => {
 
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<any>(null);
+  const [cloningPlugin, setCloningPlugin] = useState<any>(null);
+  const [showCloneService, setShowCloneService] = useState(false);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
 
   useEffect(() => {
@@ -488,17 +493,28 @@ export const ServiceDetails: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex items-center gap-4 bg-white p-6 rounded-lg border border-border-light shadow-sm">
-        <Link to="/services" className="p-2 rounded border border-border-light hover:bg-slate-50 transition-colors">
-          <ArrowLeft className="w-4 h-4 text-text-secondary" />
-        </Link>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
-            <Layers className="w-5 h-5 text-brand-primary" /> 
-            {service.name || 'Unnamed Service'}
-          </h2>
-          <span className="text-[10px] text-text-muted font-mono font-medium block mt-0.5">Service ID: {service.id}</span>
+      <div className="flex items-center justify-between bg-white p-6 rounded-lg border border-border-light shadow-sm">
+        <div className="flex items-center gap-4">
+          <Link to="/services" className="p-2 rounded border border-border-light hover:bg-slate-50 transition-colors">
+            <ArrowLeft className="w-4 h-4 text-text-secondary" />
+          </Link>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
+              <Layers className="w-5 h-5 text-brand-primary" /> 
+              {service.name || 'Unnamed Service'}
+            </h2>
+            <span className="text-[10px] text-text-muted font-mono font-medium block mt-0.5">Service ID: {service.id}</span>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCloneService(true)}
+          className="px-3.5 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+          title="Clone Service"
+        >
+          <Copy className="w-3.5 h-3.5" /> Clone Service
+        </button>
       </div>
 
       {/* Request Termination Alert Banner (Conditional) */}
@@ -936,6 +952,13 @@ export const ServiceDetails: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setCloningPlugin(plugin)}
+                              className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                              title="Clone / Copy Plugin"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => setViewingRawPlugin(plugin)}
                               className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
@@ -1406,6 +1429,26 @@ export const ServiceDetails: React.FC = () => {
         subtitle={`ID: ${viewingRawPlugin?.id}`}
         data={viewingRawPlugin}
       />
+
+      {/* Clone Plugin Modal */}
+      {cloningPlugin && (
+        <ClonePluginModal
+          plugin={cloningPlugin}
+          initialScope="service"
+          initialTargetId={service?.id}
+          onClose={() => setCloningPlugin(null)}
+          onSuccess={fetchSubResources}
+        />
+      )}
+
+      {/* Clone Service Modal */}
+      {showCloneService && service && (
+        <CloneServiceModal
+          service={service}
+          onClose={() => setShowCloneService(false)}
+          onSuccess={fetchServiceDetails}
+        />
+      )}
     </div>
   );
 };
