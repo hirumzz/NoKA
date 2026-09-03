@@ -96,6 +96,7 @@ export const ServiceDetails: React.FC = () => {
   const [routeProtocols, setRouteProtocols] = useState<string[]>(['http', 'https']);
   const [routeTags, setRouteTags] = useState('');
   const [routeHealthcheckPath, setRouteHealthcheckPath] = useState('');
+  const [routeHealthcheckMethod, setRouteHealthcheckMethod] = useState<'GET' | 'POST' | 'HEAD'>('GET');
   const [routeStripPath, setRouteStripPath] = useState(true);
   const [routePreserveHost, setRoutePreserveHost] = useState(false);
   const [routeRegexPriority, setRouteRegexPriority] = useState<number>(0);
@@ -339,7 +340,11 @@ export const ServiceDetails: React.FC = () => {
       ? routeTags.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
     if (routeHealthcheckPath.trim()) {
-      parsedTags.push(`noka-health-path:${routeHealthcheckPath.trim()}`);
+      const safeHp = routeHealthcheckPath.trim().replace(/\//g, '~');
+      parsedTags.push(`noka-hp:${safeHp}`);
+    }
+    if (routeHealthcheckMethod && routeHealthcheckMethod !== 'GET') {
+      parsedTags.push(`noka-hm:${routeHealthcheckMethod}`);
     }
 
     let parsedHeaders = undefined;
@@ -1110,20 +1115,31 @@ export const ServiceDetails: React.FC = () => {
                   <p className="text-[9px] text-text-muted">Optionally add tags to the route.</p>
                 </div>
 
-                {/* Healthcheck Path */}
+                {/* Healthcheck Endpoint & Method */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Path</label>
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Endpoint & Method</label>
                     <span className="text-[9px] text-text-muted italic">(optional)</span>
                   </div>
-                  <input
-                    type="text"
-                    value={routeHealthcheckPath}
-                    onChange={(e) => setRouteHealthcheckPath(e.target.value)}
-                    placeholder="e.g. /healthz or /actuator/health (leave blank for root /)"
-                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                  />
-                  <p className="text-[9px] text-text-muted">Custom endpoint for route status health checks. Not sent to Kong route rules.</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={routeHealthcheckMethod}
+                      onChange={(e) => setRouteHealthcheckMethod(e.target.value as any)}
+                      className="w-24 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-bold text-text-primary"
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="HEAD">HEAD</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={routeHealthcheckPath}
+                      onChange={(e) => setRouteHealthcheckPath(e.target.value)}
+                      placeholder="e.g. ping, /healthz (appended to route path)"
+                      className="flex-1 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+                  <p className="text-[9px] text-text-muted">Custom endpoint for reachability status tests. Not sent to Kong routing rules.</p>
                 </div>
 
                 {/* Hosts */}

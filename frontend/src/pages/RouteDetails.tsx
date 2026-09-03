@@ -78,6 +78,7 @@ export const RouteDetails: React.FC = () => {
   const [sources, setSources] = useState('');
   const [destinations, setDestinations] = useState('');
   const [healthcheckPath, setHealthcheckPath] = useState('');
+  const [healthcheckMethod, setHealthcheckMethod] = useState<'GET' | 'POST' | 'HEAD'>('GET');
   const [tagsInput, setTagsInput] = useState('');
 
   // Sub-resource list states
@@ -133,17 +134,27 @@ export const RouteDetails: React.FC = () => {
       setDestinations(data.destinations ? JSON.stringify(data.destinations) : '');
       
       let fetchedHealthPath = '';
+      let fetchedHealthMethod: 'GET' | 'POST' | 'HEAD' = 'GET';
       const normalTags: string[] = [];
       if (data.tags) {
         data.tags.forEach((t: string) => {
-          if (t.startsWith('noka-health-path:')) {
+          if (t.startsWith('noka-hp:')) {
+            const enc = t.substring('noka-hp:'.length);
+            fetchedHealthPath = enc.replace(/~/g, '/');
+          } else if (t.startsWith('noka-health-path:')) {
             fetchedHealthPath = t.substring('noka-health-path:'.length);
+          } else if (t.startsWith('noka-hm:')) {
+            const m = t.substring('noka-hm:'.length).toUpperCase();
+            if (m === 'POST' || m === 'HEAD' || m === 'GET') {
+              fetchedHealthMethod = m;
+            }
           } else if (!t.startsWith('noka-creator:') && !t.startsWith('noka-updated-by:') && !t.startsWith('noka-updated-at:')) {
             normalTags.push(t);
           }
         });
       }
       setHealthcheckPath(fetchedHealthPath);
+      setHealthcheckMethod(fetchedHealthMethod);
       setTagsInput(normalTags.join(', '));
 
       // Fetch plugins
@@ -208,7 +219,11 @@ export const RouteDetails: React.FC = () => {
     const parsedSnis = snis ? snis.split(',').map(s => s.trim()).filter(Boolean) : null;
     const parsedTags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
     if (healthcheckPath.trim()) {
-      parsedTags.push(`noka-health-path:${healthcheckPath.trim()}`);
+      const safeHp = healthcheckPath.trim().replace(/\//g, '~');
+      parsedTags.push(`noka-hp:${safeHp}`);
+    }
+    if (healthcheckMethod && healthcheckMethod !== 'GET') {
+      parsedTags.push(`noka-hm:${healthcheckMethod}`);
     }
 
     try {
@@ -624,15 +639,29 @@ export const RouteDetails: React.FC = () => {
                 </div>
                 
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Path (Optional)</label>
-                  <input
-                    type="text"
-                    value={healthcheckPath}
-                    onChange={(e) => setHealthcheckPath(e.target.value)}
-                    placeholder="e.g. /healthz or /actuator/health (leave blank to test root /)"
-                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
-                  />
-                  <span className="text-[10px] text-text-muted">Custom endpoint for route status health checks. Not sent to Kong route rules.</span>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Endpoint & Method (Optional)</label>
+                    <span className="text-[9px] text-text-muted italic">Used for reachability tests</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      value={healthcheckMethod}
+                      onChange={(e) => setHealthcheckMethod(e.target.value as any)}
+                      className="w-28 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-bold text-text-primary"
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="HEAD">HEAD</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={healthcheckPath}
+                      onChange={(e) => setHealthcheckPath(e.target.value)}
+                      placeholder="e.g. ping, /healthz, /ping (appended to route path)"
+                      className="flex-1 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+                  <span className="text-[10px] text-text-muted">Relative subpaths (e.g. <code>ping</code>) are automatically combined with the route base path.</span>
                 </div>
 
                 <div className="space-y-1 md:col-span-2">

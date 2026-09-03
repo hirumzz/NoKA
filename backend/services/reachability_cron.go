@@ -191,31 +191,61 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	}
 
 	targetURL := strings.TrimSuffix(proxyURL, "/")
-	var path string
+	var customHealthPath string
+	healthMethod := "GET"
+
+	// Parse tags for noka-hp (health path) and noka-hm (health method)
 	for _, t := range route.Tags {
-		if strings.HasPrefix(t, "noka-health-path:") {
-			path = strings.TrimPrefix(t, "noka-health-path:")
-			break
+		if strings.HasPrefix(t, "noka-hp:") {
+			encoded := strings.TrimPrefix(t, "noka-hp:")
+			customHealthPath = strings.ReplaceAll(encoded, "~", "/")
+		} else if strings.HasPrefix(t, "noka-health-path:") {
+			customHealthPath = strings.TrimPrefix(t, "noka-health-path:")
+		} else if strings.HasPrefix(t, "noka-hm:") {
+			healthMethod = strings.ToUpper(strings.TrimPrefix(t, "noka-hm:"))
 		}
 	}
 
-	if path == "" {
-		if len(route.Paths) > 0 {
-			path = route.Paths[0]
+	baseRoutePath := ""
+	if len(route.Paths) > 0 {
+		baseRoutePath = route.Paths[0]
+	}
+
+	var finalPath string
+	if customHealthPath != "" {
+		if baseRoutePath != "" && (strings.HasPrefix(customHealthPath, baseRoutePath) || customHealthPath == baseRoutePath) {
+			finalPath = customHealthPath
+		} else if baseRoutePath != "" && baseRoutePath != "/" {
+			finalPath = strings.TrimSuffix(baseRoutePath, "/") + "/" + strings.TrimPrefix(customHealthPath, "/")
 		} else {
-			path = "/"
+			finalPath = customHealthPath
 		}
+	} else if baseRoutePath != "" {
+		finalPath = baseRoutePath
+	} else {
+		finalPath = "/"
 	}
 
-	if !strings.HasPrefix(path, "/") {
+	if !strings.HasPrefix(finalPath, "/") {
 		targetURL += "/"
 	}
-	targetURL += path
+	targetURL += finalPath
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Head(targetURL)
-	if err != nil {
-		resp, err = client.Get(targetURL)
+	var req *http.Request
+	if healthMethod == "POST" {
+		req, _ = http.NewRequest("POST", targetURL, strings.NewReader("{}"))
+		req.Header.Set("Content-Type", "application/json")
+	} else if healthMethod == "HEAD" {
+		req, _ = http.NewRequest("HEAD", targetURL, nil)
+	} else {
+		req, _ = http.NewRequest("GET", targetURL, nil)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil && healthMethod == "HEAD" {
+		reqGet, _ := http.NewRequest("GET", targetURL, nil)
+		resp, err = client.Do(reqGet)
 	}
 
 	if err != nil {
