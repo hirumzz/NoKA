@@ -1,7 +1,7 @@
 {
   "name": "noka-frontend",
   "private": true,
-  "version": "2.9.2",
+  "version": "2.9.6",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -189,6 +189,7 @@ func main() {
 		api.PUT("/connections/:id", middleware.AdminRequired(), handlers.UpdateConnection)
 		api.DELETE("/connections/:id", middleware.AdminRequired(), handlers.DeleteConnection)
 		api.POST("/connections/:id/activate", middleware.AdminRequired(), handlers.ActivateConnection)
+		api.POST("/connections/deactivate", middleware.AdminRequired(), handlers.DeactivateConnection)
 
 		// System Settings & Resource Metrics
 		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)

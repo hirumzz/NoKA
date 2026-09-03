@@ -208,6 +208,20 @@ export const Connections: React.FC = () => {
     }
   };
 
+  const handleDeactivate = async () => {
+    setError('');
+    try {
+      await axios.post('/api/connections/deactivate');
+      // Reload current user state to refresh node ID
+      const userResp = await axios.get('/api/me');
+      setUser(userResp.data);
+      // Reload connections list
+      fetchConnections();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to deactivate connection');
+    }
+  };
+
   const handleDelete = async (id: number) => {
     const ok = await confirm({
       title: 'Delete Connection',
@@ -595,7 +609,15 @@ export const Connections: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {!conn.active && (
+                    {conn.active ? (
+                      <button
+                        onClick={handleDeactivate}
+                        className="px-4 py-2 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold text-amber-700 transition-all shadow-sm cursor-pointer"
+                        title="Disconnect this active node"
+                      >
+                        DEACTIVATE
+                      </button>
+                    ) : (
                       <button
                         onClick={() => handleActivate(conn.id)}
                         className="px-4 py-2 rounded bg-white hover:bg-slate-50 border border-border-light text-xs font-bold text-text-primary transition-all shadow-sm cursor-pointer"

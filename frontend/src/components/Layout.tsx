@@ -137,18 +137,39 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (!user) return;
     try {
       const response = await axios.get('/api/connections');
-      setConnections(response.data);
-      const active = response.data.find((c: ConnectionNode) => c.active === true);
-      if (active) {
-        setActiveNode(active);
+      const conns: ConnectionNode[] = response.data || [];
+      setConnections(conns);
+      
+      // Determine active node: prioritize user.node, then conn.active
+      let active: ConnectionNode | undefined;
+      if (user.node) {
+        active = conns.find((c) => c.id === Number(user.node));
       }
+      if (!active) {
+        active = conns.find((c) => c.active === true);
+      }
+      setActiveNode(active || null);
     } catch (err) {
       console.error('Failed to fetch connections:', err);
     }
   };
 
-  const handleSwitchNode = async (nodeId: number) => {
+  const handleSwitchNode = async (nodeIdStr: string) => {
+    if (!nodeIdStr || nodeIdStr === 'none') {
+      try {
+        await axios.post('/api/connections/deactivate');
+        const userResp = await axios.get('/api/me');
+        setUser(userResp.data);
+        setActiveNode(null);
+        fetchConnections();
+      } catch (err) {
+        console.error('Failed to deactivate node:', err);
+      }
+      return;
+    }
+
     try {
+      const nodeId = Number(nodeIdStr);
       await axios.post(`/api/connections/${nodeId}/activate`);
       // Reload user profile to update active node ID
       const userResp = await axios.get('/api/me');
@@ -167,26 +188,43 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const isAdmin = user?.admin || user?.role === 'admin' || user?.role === 'superadmin';
 
-  const sidebarGroups = [
+  const hasActiveNode = Boolean(activeNode || user?.node);
+
+  interface SidebarItem {
+    path: string;
+    label: string;
+    icon: React.ElementType;
+    adminOnly?: boolean;
+    requiresNode?: boolean;
+  }
+
+  interface SidebarGroup {
+    title?: string;
+    requiresNode?: boolean;
+    items: SidebarItem[];
+  }
+
+  const sidebarGroups: SidebarGroup[] = [
     {
       items: [
         { path: '/dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-        { path: '/info', label: 'INFO', icon: Info, adminOnly: true }
+        { path: '/info', label: 'INFO', icon: Info, adminOnly: true, requiresNode: true }
       ]
     },
     {
       title: 'API GATEWAY',
+      requiresNode: true,
       items: [
-        { path: '/services', label: 'SERVICES', icon: Cloud },
-        { path: '/routes', label: 'ROUTES', icon: GitBranch },
-        { path: '/consumers', label: 'CONSUMERS', icon: Users },
-        { path: '/plugins', label: 'PLUGINS', icon: Plug },
-        { path: '/upstreams', label: 'UPSTREAMS', icon: Share2 },
-        { path: '/certificates', label: 'CERTIFICATES', icon: Award },
-        { path: '/vaults', label: 'VAULTS', icon: Lock },
-        { path: '/keys', label: 'KEYS', icon: Key },
-        { path: '/key-sets', label: 'KEY SETS', icon: Layers },
-        { path: '/snapshots', label: 'SNAPSHOTS', icon: Camera, adminOnly: true }
+        { path: '/services', label: 'SERVICES', icon: Cloud, requiresNode: true },
+        { path: '/routes', label: 'ROUTES', icon: GitBranch, requiresNode: true },
+        { path: '/consumers', label: 'CONSUMERS', icon: Users, requiresNode: true },
+        { path: '/plugins', label: 'PLUGINS', icon: Plug, requiresNode: true },
+        { path: '/upstreams', label: 'UPSTREAMS', icon: Share2, requiresNode: true },
+        { path: '/certificates', label: 'CERTIFICATES', icon: Award, requiresNode: true },
+        { path: '/vaults', label: 'VAULTS', icon: Lock, requiresNode: true },
+        { path: '/keys', label: 'KEYS', icon: Key, requiresNode: true },
+        { path: '/key-sets', label: 'KEY SETS', icon: Layers, requiresNode: true },
+        { path: '/snapshots', label: 'SNAPSHOTS', icon: Camera, adminOnly: true, requiresNode: true }
       ]
     },
     {
@@ -201,7 +239,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   ].map(group => ({
     ...group,
-    items: group.items.filter(item => !('adminOnly' in item && item.adminOnly) || isAdmin)
+    items: group.items.filter(item => !item.adminOnly || isAdmin)
   }));
 
   return (
@@ -240,39 +278,65 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Navigation Groups */}
         <nav className="flex-grow py-4 overflow-y-auto px-3 space-y-4">
-          {sidebarGroups.map((group, groupIdx) => (
-            <div key={groupIdx} className="space-y-1">
-              {group.title && (
-                <div className="px-3 pt-3 pb-1 text-[10px] font-semibold text-white/30 tracking-widest uppercase">
-                  {group.title}
-                </div>
-              )}
-              {group.items.map((item) => {
-                const isActive = location.pathname === item.path;
-                const Icon = item.icon;
+          {sidebarGroups.map((group, groupIdx) => {
+            const isGroupDisabled = Boolean(group.requiresNode && !hasActiveNode);
 
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-3 py-2 rounded transition-colors duration-150 text-xs font-semibold ${isActive
-                        ? 'bg-brand-royal-light text-white border-l-2 border-brand-primary'
-                        : 'text-brand-mint hover:text-white hover:bg-white/5'
-                      }`}
-                  >
-                    <Icon className={`w-4 h-4 mr-3 ${isActive ? 'text-brand-primary' : 'text-brand-mint/65'}`} />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+            return (
+              <div key={groupIdx} className="space-y-1">
+                {group.title && (
+                  <div className="flex items-center justify-between px-3 pt-3 pb-1 text-[10px] font-semibold text-white/30 tracking-widest uppercase">
+                    <span>{group.title}</span>
+                    {isGroupDisabled && (
+                      <span className="text-[8px] tracking-normal lowercase text-amber-400/80 font-normal italic">
+                        (node required)
+                      </span>
+                    )}
+                  </div>
+                )}
+                {group.items.map((item) => {
+                  const isItemDisabled = Boolean(item.requiresNode && !hasActiveNode);
+                  const isActive = !isItemDisabled && location.pathname === item.path;
+                  const Icon = item.icon;
+
+                  if (isItemDisabled) {
+                    return (
+                      <div
+                        key={item.path}
+                        title="Requires an active Kong connection. Please go to Connections to activate a node."
+                        className="flex items-center justify-between px-3 py-2 rounded text-xs font-semibold opacity-30 text-white/30 cursor-not-allowed select-none transition-opacity"
+                      >
+                        <div className="flex items-center">
+                          <Icon className="w-4 h-4 mr-3 text-white/20" />
+                          <span>{item.label}</span>
+                        </div>
+                        <Lock className="w-3 h-3 text-white/20" />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center px-3 py-2 rounded transition-colors duration-150 text-xs font-semibold ${isActive
+                          ? 'bg-brand-royal-light text-white border-l-2 border-brand-primary'
+                          : 'text-brand-mint hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                      <Icon className={`w-4 h-4 mr-3 ${isActive ? 'text-brand-primary' : 'text-brand-mint/65'}`} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.9.2</span>
+          <span className="text-brand-primary">NOKA v2.9.6</span>
         </div>
       </aside>
 
@@ -294,11 +358,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-text-secondary hidden sm:inline">Gateway Node:</span>
                 <select
-                  value={activeNode?.id || ''}
-                  onChange={(e) => handleSwitchNode(Number(e.target.value))}
-                  className="px-2.5 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors max-w-[170px] sm:max-w-xs truncate"
+                  value={activeNode?.id || 'none'}
+                  onChange={(e) => handleSwitchNode(e.target.value)}
+                  className="px-2.5 py-1.5 rounded border border-border-light bg-slate-50 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary transition-colors max-w-[170px] sm:max-w-xs truncate cursor-pointer"
                 >
-                  <option value="" disabled>Select Connection</option>
+                  <option value="none">-- Disconnected (No Gateway) --</option>
                   {connections.map((conn) => (
                     <option key={conn.id} value={conn.id}>
                       {conn.name} ({conn.kong_admin_url})
@@ -403,7 +467,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-border-light rounded-lg shadow-lg py-1 z-30">
                   <div className="px-4 py-2 border-b border-border-light">
                     <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">NOKA Engine</span>
-                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.9.2 • Enterprise Ready</span>
+                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.9.4 • Enterprise Ready</span>
                   </div>
                   <button
                     onClick={handleLogout}

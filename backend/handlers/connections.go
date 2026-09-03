@@ -74,6 +74,19 @@ func CreateConnection(c *gin.Context) {
 		return
 	}
 
+	// If the current user does not have an active node, automatically activate this new connection
+	userVal, exists := c.Get("user")
+	if exists {
+		user := userVal.(*models.User)
+		if user.Node == nil || *user.Node == 0 {
+			nodeID := node.ID
+			user.Node = &nodeID
+			db.DB.Model(user).Update("node", nodeID)
+			db.DB.Model(&node).Update("active", true)
+			node.Active = true
+		}
+	}
+
 	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections", node.Name, "Connection created: "+node.Name, "mdi-lan-connect", req)
 
 	c.JSON(http.StatusCreated, node)
@@ -112,6 +125,39 @@ func DeleteConnection(c *gin.Context) {
 	recordConnectionAuditAndNotify(c, "DELETE", "connections", "/api/connections/"+idStr, "unknown", "Connection deleted: ID "+idStr, "mdi-delete-outline", map[string]string{"id": idStr})
 
 	c.JSON(http.StatusOK, gin.H{"message": "Connection deleted successfully"})
+}
+
+// DeactivateConnection clears the user's active node
+func DeactivateConnection(c *gin.Context) {
+	userVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	user := userVal.(*models.User)
+
+	tx := db.DB.Begin()
+	user.Node = nil
+	if err := tx.Model(user).Select("node").Update("node", nil).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to deactivate connection"})
+		return
+	}
+
+	if err := tx.Model(&models.KongNode{}).Where("active = ?", true).Update("active", false).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update connection states", "error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit deactivation"})
+		return
+	}
+
+	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections/deactivate", "none", "Connection deactivated", "mdi-lan-disconnect", map[string]bool{"active": false})
+
+	c.JSON(http.StatusOK, gin.H{"message": "Connection deactivated successfully"})
 }
 
 // ActivateConnection updates user's default node ID

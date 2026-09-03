@@ -23,6 +23,7 @@ import {
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { PluginGallery } from '../components/PluginGallery';
 import { RawViewModal } from '../components/RawViewModal';
+import { AuthorBadge } from '../components/AuthorBadge';
 import { Pagination } from '../components/Pagination';
 
 interface PluginItem {
@@ -854,10 +855,14 @@ export const Plugins: React.FC = () => {
                           <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
                             {(() => {
                               const authorInfo = entityAuthors[plugin.id];
-                              const creator = authorInfo?.created_by_username && authorInfo.created_by_username !== '-'
-                                ? authorInfo.created_by_username
-                                : null;
-                              return creator || '-';
+                              return (
+                                <AuthorBadge
+                                  username={authorInfo?.created_by_username}
+                                  fullName={authorInfo?.created_by_full_name}
+                                  email={authorInfo?.created_by_email}
+                                  labelPrefix="Created by"
+                                />
+                              );
                             })()}
                           </td>
                           <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
@@ -866,10 +871,14 @@ export const Plugins: React.FC = () => {
                           <td className="px-6 py-4 text-xs font-semibold text-text-primary whitespace-nowrap">
                             {(() => {
                               const authorInfo = entityAuthors[plugin.id];
-                              const updater = authorInfo?.updated_by_username && authorInfo.updated_by_username !== '-'
-                                ? authorInfo.updated_by_username
-                                : null;
-                              return updater || '-';
+                              return (
+                                <AuthorBadge
+                                  username={authorInfo?.updated_by_username}
+                                  fullName={authorInfo?.updated_by_full_name}
+                                  email={authorInfo?.updated_by_email}
+                                  labelPrefix="Updated by"
+                                />
+                              );
                             })()}
                           </td>
                           <td className="px-6 py-4 text-[11px] font-medium text-text-muted whitespace-nowrap">
