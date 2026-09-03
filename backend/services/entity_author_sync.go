@@ -47,7 +47,9 @@ func SyncEntityAuthorsFromAuditLogs() {
 		}
 
 		entityType := logEntry.Entity
-		if entityType == "" || entityType == "unknown" {
+		if strings.Contains(logEntry.URL, "/plugins") {
+			entityType = "plugins"
+		} else if entityType == "" || entityType == "unknown" {
 			parts := strings.Split(strings.TrimPrefix(logEntry.URL, "/"), "/")
 			if len(parts) > 0 {
 				entityType = parts[0]
