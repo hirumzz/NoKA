@@ -95,6 +95,7 @@ export const ServiceDetails: React.FC = () => {
   const [routeMethods, setRouteMethods] = useState<string[]>([]);
   const [routeProtocols, setRouteProtocols] = useState<string[]>(['http', 'https']);
   const [routeTags, setRouteTags] = useState('');
+  const [routeHealthcheckPath, setRouteHealthcheckPath] = useState('');
   const [routeStripPath, setRouteStripPath] = useState(true);
   const [routePreserveHost, setRoutePreserveHost] = useState(false);
   const [routeRegexPriority, setRouteRegexPriority] = useState<number>(0);
@@ -337,6 +338,9 @@ export const ServiceDetails: React.FC = () => {
     const parsedTags = routeTags
       ? routeTags.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
+    if (routeHealthcheckPath.trim()) {
+      parsedTags.push(`noka-health-path:${routeHealthcheckPath.trim()}`);
+    }
 
     let parsedHeaders = undefined;
     if (routeHeaders.trim()) {
@@ -382,6 +386,7 @@ export const ServiceDetails: React.FC = () => {
       setRouteMethods([]);
       setRouteProtocols(['http', 'https']);
       setRouteTags('');
+      setRouteHealthcheckPath('');
       setRouteStripPath(true);
       setRoutePreserveHost(false);
       setRouteRegexPriority(0);
@@ -1103,6 +1108,22 @@ export const ServiceDetails: React.FC = () => {
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                   />
                   <p className="text-[9px] text-text-muted">Optionally add tags to the route.</p>
+                </div>
+
+                {/* Healthcheck Path */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Path</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={routeHealthcheckPath}
+                    onChange={(e) => setRouteHealthcheckPath(e.target.value)}
+                    placeholder="e.g. /healthz or /actuator/health (leave blank for root /)"
+                    className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                  />
+                  <p className="text-[9px] text-text-muted">Custom endpoint for route status health checks. Not sent to Kong route rules.</p>
                 </div>
 
                 {/* Hosts */}

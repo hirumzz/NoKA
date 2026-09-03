@@ -74,6 +74,7 @@ export const Routes: React.FC = () => {
   const [methods, setMethods] = useState<string[]>([]);
   const [protocols, setProtocols] = useState<string[]>(['http', 'https']);
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [healthcheckPath, setHealthcheckPath] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [stripPath, setStripPath] = useState(true);
   const [preserveHost, setPreserveHost] = useState(false);
@@ -252,6 +253,9 @@ export const Routes: React.FC = () => {
     const parsedTags = tagsInput
       ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
+    if (healthcheckPath.trim()) {
+      parsedTags.push(`noka-health-path:${healthcheckPath.trim()}`);
+    }
 
     let parsedHeaders = undefined;
     if (headers.trim()) {
@@ -291,6 +295,7 @@ export const Routes: React.FC = () => {
       setName('');
       setPaths('');
       setHosts('');
+      setHealthcheckPath('');
       setMethods([]);
       setProtocols(['http', 'https']);
       setTagsInput('');
@@ -462,6 +467,18 @@ export const Routes: React.FC = () => {
                       placeholder="e.g. api.domain.com"
                       className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                     />
+                  </div>
+
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Path (Optional)</label>
+                    <input
+                      type="text"
+                      value={healthcheckPath}
+                      onChange={(e) => setHealthcheckPath(e.target.value)}
+                      placeholder="e.g. /healthz or /actuator/health (leave blank to test root /)"
+                      className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                    <span className="text-[10px] text-text-muted">Custom endpoint for route status health checks. Not sent to Kong route rules.</span>
                   </div>
 
                   <div className="space-y-1 md:col-span-2">
@@ -723,6 +740,7 @@ export const Routes: React.FC = () => {
 
                   const normalTags = (route.tags || []).filter((t: string) =>
                     !t.startsWith('noka-desc:') &&
+                    !t.startsWith('noka-health-path:') &&
                     !t.startsWith('noka-creator:') &&
                     !t.startsWith('noka-updated-by:') &&
                     !t.startsWith('noka-updated-at:')

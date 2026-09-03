@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -859,19 +860,31 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 
 	var route struct {
 		Paths []string `json:"paths"`
+		Tags  []string `json:"tags"`
 	}
 	if err := json.Unmarshal(respBytes, &route); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to parse route details"})
 		return
 	}
 
-	if len(route.Paths) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Route has no paths configured"})
-		return
+	targetURL := strings.TrimRight(proxyUrl, "/")
+	var path string
+	// Check if custom healthcheck path tag exists (e.g. noka-health-path:/healthz)
+	for _, t := range route.Tags {
+		if strings.HasPrefix(t, "noka-health-path:") {
+			path = strings.TrimPrefix(t, "noka-health-path:")
+			break
+		}
 	}
 
-	targetURL := strings.TrimRight(proxyUrl, "/")
-	path := route.Paths[0]
+	if path == "" {
+		if len(route.Paths) > 0 {
+			path = route.Paths[0]
+		} else {
+			path = "/"
+		}
+	}
+
 	if !strings.HasPrefix(path, "/") {
 		targetURL += "/"
 	}
@@ -896,6 +909,23 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		errMsg := fmt.Sprintf("Service Error (HTTP %d)", resp.StatusCode)
+		if resp.StatusCode == http.StatusBadGateway {
+			errMsg = "Bad Gateway (HTTP 502)"
+		} else if resp.StatusCode == http.StatusGatewayTimeout {
+			errMsg = "Gateway Timeout (HTTP 504)"
+		}
+		services.UpsertReachabilityStatus(routeID, "route", "unreachable", errMsg, resp.StatusCode)
+		c.JSON(http.StatusOK, gin.H{
+			"success":    true,
+			"reachable":  false,
+			"statusCode": resp.StatusCode,
+			"message":    errMsg,
+		})
+		return
+	}
 
 	services.UpsertReachabilityStatus(routeID, "route", "reachable", "Route is reachable", resp.StatusCode)
 	c.JSON(http.StatusOK, gin.H{
