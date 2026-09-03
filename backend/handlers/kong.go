@@ -868,35 +868,67 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 	}
 
 	targetURL := strings.TrimRight(proxyUrl, "/")
-	var path string
-	// Check if custom healthcheck path tag exists (e.g. noka-health-path:/healthz)
+	var customHealthPath string
+	healthMethod := "GET"
+
+	// Parse tags for noka-hp (health path) and noka-hm (health method)
 	for _, t := range route.Tags {
-		if strings.HasPrefix(t, "noka-health-path:") {
-			path = strings.TrimPrefix(t, "noka-health-path:")
-			break
+		if strings.HasPrefix(t, "noka-hp:") {
+			encoded := strings.TrimPrefix(t, "noka-hp:")
+			customHealthPath = strings.ReplaceAll(encoded, "~", "/")
+		} else if strings.HasPrefix(t, "noka-health-path:") {
+			customHealthPath = strings.TrimPrefix(t, "noka-health-path:")
+		} else if strings.HasPrefix(t, "noka-hm:") {
+			healthMethod = strings.ToUpper(strings.TrimPrefix(t, "noka-hm:"))
 		}
 	}
 
-	if path == "" {
-		if len(route.Paths) > 0 {
-			path = route.Paths[0]
+	baseRoutePath := ""
+	if len(route.Paths) > 0 {
+		baseRoutePath = route.Paths[0]
+	}
+
+	var finalPath string
+	if customHealthPath != "" {
+		// If custom health path already starts with the route base path, use it directly
+		if baseRoutePath != "" && (strings.HasPrefix(customHealthPath, baseRoutePath) || customHealthPath == baseRoutePath) {
+			finalPath = customHealthPath
+		} else if baseRoutePath != "" && baseRoutePath != "/" {
+			// Append custom path to base route path: e.g. /jds-carts + ping -> /jds-carts/ping
+			finalPath = strings.TrimSuffix(baseRoutePath, "/") + "/" + strings.TrimPrefix(customHealthPath, "/")
 		} else {
-			path = "/"
+			finalPath = customHealthPath
 		}
+	} else if baseRoutePath != "" {
+		finalPath = baseRoutePath
+	} else {
+		finalPath = "/"
 	}
 
-	if !strings.HasPrefix(path, "/") {
+	if !strings.HasPrefix(finalPath, "/") {
 		targetURL += "/"
 	}
-	targetURL += path
+	targetURL += finalPath
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	
-	resp, err := client.Head(targetURL)
-	if err != nil {
-		resp, err = client.Get(targetURL)
+
+	var req *http.Request
+	if healthMethod == "POST" {
+		req, _ = http.NewRequest("POST", targetURL, strings.NewReader("{}"))
+		req.Header.Set("Content-Type", "application/json")
+	} else if healthMethod == "HEAD" {
+		req, _ = http.NewRequest("HEAD", targetURL, nil)
+	} else {
+		req, _ = http.NewRequest("GET", targetURL, nil)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil && healthMethod == "HEAD" {
+		// Fallback HEAD to GET if HEAD was rejected
+		reqGet, _ := http.NewRequest("GET", targetURL, nil)
+		resp, err = client.Do(reqGet)
 	}
 	
 	if err != nil {

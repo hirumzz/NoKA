@@ -336,7 +336,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.10.0</span>
+          <span className="text-brand-primary">NOKA v2.10.1</span>
         </div>
       </aside>
 
@@ -467,7 +467,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-border-light rounded-lg shadow-lg py-1 z-30">
                   <div className="px-4 py-2 border-b border-border-light">
                     <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">NOKA Engine</span>
-                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.10.0 • Enterprise Ready</span>
+                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.10.1 • Enterprise Ready</span>
                   </div>
                   <button
                     onClick={handleLogout}
