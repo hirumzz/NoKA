@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Lock, ShieldCheck, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
+import { validatePassword } from '../utils/passwordValidation';
 
 export const ChangePassword: React.FC = () => {
   const { user, setUser, logout } = useAuth();
@@ -18,15 +19,16 @@ export const ChangePassword: React.FC = () => {
   const [error, setError] = useState('');
 
   // Password validation checks
-  const hasMinLength = password.length >= 7;
+  const val = validatePassword(password);
   const passwordsMatch = password.length > 0 && password === passwordConfirm;
+  const isFormValid = val.isValid && passwordsMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!hasMinLength) {
-      setError('Password must be at least 7 characters long');
+    if (!val.isValid) {
+      setError('Password must be 8-64 characters and contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.');
       return;
     }
 
@@ -144,24 +146,33 @@ export const ChangePassword: React.FC = () => {
             </div>
 
             {/* Checklist Rules */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-border-light space-y-2 mt-2">
-              <div className="flex items-center gap-2 text-xs">
-                {hasMinLength ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0" />
-                )}
-                <span className={`text-[11px] font-medium ${hasMinLength ? 'text-emerald-800' : 'text-text-secondary'}`}>
-                  At least 7 characters long
+            <div className="p-3 bg-slate-50 rounded-lg border border-border-light space-y-1.5 mt-2">
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                Password Requirements:
+              </span>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600 text-[11px]">
+                <span className={`flex items-center gap-1.5 ${val.hasMinLength && val.hasMaxLength ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {val.hasMinLength && val.hasMaxLength ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                  8–64 Characters
                 </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                {passwordsMatch ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border border-slate-300 shrink-0" />
-                )}
-                <span className={`text-[11px] font-medium ${passwordsMatch ? 'text-emerald-800' : 'text-text-secondary'}`}>
+                <span className={`flex items-center gap-1.5 ${val.hasUpper ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {val.hasUpper ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                  Uppercase [A-Z]
+                </span>
+                <span className={`flex items-center gap-1.5 ${val.hasLower ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {val.hasLower ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                  Lowercase [a-z]
+                </span>
+                <span className={`flex items-center gap-1.5 ${val.hasDigit ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {val.hasDigit ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                  Number [0-9]
+                </span>
+                <span className={`flex items-center gap-1.5 ${val.hasSpecial ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {val.hasSpecial ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                  Special Symbol (!@#$%...)
+                </span>
+                <span className={`flex items-center gap-1.5 ${passwordsMatch ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                  {passwordsMatch ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
                   Passwords match
                 </span>
               </div>
@@ -170,7 +181,7 @@ export const ChangePassword: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !hasMinLength || !passwordsMatch}
+              disabled={loading || !isFormValid}
               className="w-full py-3 mt-4 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs shadow-sm hover:scale-[1.005] transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer uppercase tracking-wider"
             >
               {loading ? (

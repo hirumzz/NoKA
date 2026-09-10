@@ -257,3 +257,60 @@ type EntityAuthor struct {
 func (EntityAuthor) TableName() string {
 	return "konga_entity_authors"
 }
+
+// KongaSetting represents the konga_settings table for persisting system & integration preferences
+type KongaSetting struct {
+	ID        uint           `gorm:"primaryKey;column:id" json:"id"`
+	Key       string         `gorm:"uniqueIndex:idx_konga_settings_key;column:key" json:"key"`
+	Data      datatypes.JSON `gorm:"column:data;type:json;not null" json:"data"`
+	CreatedAt time.Time      `gorm:"column:createdAt" json:"createdAt"`
+	UpdatedAt time.Time      `gorm:"column:updatedAt" json:"updatedAt"`
+}
+
+func (KongaSetting) TableName() string {
+	return "konga_settings"
+}
+
+// KongaAlertRule represents the konga_alert_rules table
+type KongaAlertRule struct {
+	ID              uint           `gorm:"primaryKey" json:"id"`
+	Name            string         `gorm:"not null" json:"name"`
+	Description     string         `json:"description"`
+	Enabled         bool           `gorm:"default:true" json:"enabled"`
+	Severity        string         `gorm:"default:'warning'" json:"severity"` // info, warning, error, critical
+	Source          string         `gorm:"default:'custom'" json:"source"`    // reachability_ping, gateway_node, plugin_registry, metrics, audit_mutation, ssl_cert, custom
+	MatchLogic      string         `gorm:"default:'ALL'" json:"match_logic"`  // ALL (AND), ANY (OR)
+	ConditionType   string         `json:"condition_type"`                    // legacy/alias
+	ConditionConfig datatypes.JSON `json:"condition_config"`                  // generic/legacy
+	ConditionRules  datatypes.JSON `json:"condition_rules"`                   // array of { field: string, operator: string, value: string }
+	CustomTemplate  string         `json:"custom_template"`                  // custom message with {{target}}, {{status_code}}, {{details}}, {{actor}}, {{timestamp}}, {{severity}}
+	Channels        datatypes.JSON `json:"channels"`                          // array of channel names
+	CooldownMinutes int            `gorm:"default:5" json:"cooldown_minutes"`
+	CreatedBy       string         `json:"created_by"`
+	UpdatedBy       string         `json:"updated_by"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	LastTriggeredAt *time.Time     `json:"last_triggered_at"`
+}
+
+func (KongaAlertRule) TableName() string {
+	return "konga_alert_rules"
+}
+
+// KongaAlertHistory represents the konga_alert_histories table
+type KongaAlertHistory struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	RuleID        *uint          `json:"rule_id"`
+	RuleName      string         `json:"rule_name"`
+	Severity      string         `json:"severity"`
+	Title         string         `json:"title"`
+	Message       string         `json:"message"`
+	ConditionType string         `json:"condition_type"`
+	Details       datatypes.JSON `json:"details"`
+	ChannelsSent  datatypes.JSON `json:"channels_sent"`
+	CreatedAt     time.Time      `json:"created_at"`
+}
+
+func (KongaAlertHistory) TableName() string {
+	return "konga_alert_histories"
+}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -20,6 +21,11 @@ import (
 	"konga-backend/utils"
 
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	reachabilityLock        sync.Mutex
+	lastReachabilityTrigger time.Time
 )
 
 type KongHandler struct {
@@ -249,6 +255,11 @@ func extractLabel(labels, key string) string {
 		return ""
 	}
 	return labels[start : start+end]
+}
+
+func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64) {
+	totalRequests, topHits, slowestEndpoints, statusCodes, _, _, _, _ := parsePrometheusMetricsFast(metricsData)
+	return totalRequests, topHits, slowestEndpoints, statusCodes
 }
 
 func parsePrometheusMetricsFast(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
@@ -910,6 +921,26 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 	}
 	targetURL += finalPath
 
+	// SSRF Mitigation: Check if the route proxy target resolves to a private IP
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		if parsedURL, parseErr := url.Parse(targetURL); parseErr == nil && parsedURL.Hostname() != "" {
+			host := parsedURL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						c.JSON(http.StatusForbidden, gin.H{
+							"success":   true,
+							"reachable": false,
+							"message":   "Route is unreachable: access to internal IP addresses is blocked by security policy",
+						})
+						return
+					}
+				}
+			}
+		}
+	}
+
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -1006,6 +1037,14 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 		return
 	}
 
+	// Check if requester is admin (only admins can view raw email addresses)
+	isAdmin := false
+	if userVal, exists := c.Get("user"); exists {
+		if u, ok := userVal.(*models.User); ok {
+			isAdmin = u.Admin || u.Role == "admin" || u.Role == "superadmin"
+		}
+	}
+
 	// Fetch all users to resolve full names
 	var users []models.User
 	userMap := make(map[string]models.User)
@@ -1024,7 +1063,11 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 				if fullName == "" {
 					fullName = u.Username
 				}
-				return fullName, u.Email
+				email := ""
+				if isAdmin {
+					email = u.Email
+				}
+				return fullName, email
 			}
 		}
 		if username != "" && username != "-" {
@@ -1033,7 +1076,11 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 				if fullName == "" {
 					fullName = u.Username
 				}
-				return fullName, u.Email
+				email := ""
+				if isAdmin {
+					email = u.Email
+				}
+				return fullName, email
 			}
 			return username, ""
 		}
@@ -1147,12 +1194,23 @@ func (h *KongHandler) GetEnrichedPlugins(c *gin.Context) {
 	})
 }
 
-// TriggerReachabilityCheck triggers a concurrent reachability check for all entities
+// TriggerReachabilityCheck triggers a concurrent reachability check for all entities with a 30s cooldown
 func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
-	services.RunReachabilityCheck()
+	reachabilityLock.Lock()
+	defer reachabilityLock.Unlock()
+
+	if time.Since(lastReachabilityTrigger) < 30*time.Second {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"message": "Reachability check is currently running or in cooldown. Please wait 30 seconds before triggering again.",
+		})
+		return
+	}
+	lastReachabilityTrigger = time.Now()
+
+	go services.RunReachabilityCheck()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Reachability statuses refreshed successfully",
+		"message": "Reachability statuses refresh initiated successfully",
 	})
 }
 

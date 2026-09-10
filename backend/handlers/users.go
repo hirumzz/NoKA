@@ -155,6 +155,11 @@ func UpdateUser(c *gin.Context) {
 
 	// Update password if provided
 	if req.Password != "" {
+		if err := utils.ValidatePasswordStrength(req.Password); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
 		hashedPassword, err := utils.HashPassword(req.Password)
 		if err != nil {
 			tx.Rollback()

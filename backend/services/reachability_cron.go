@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -231,6 +232,20 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	}
 	targetURL += finalPath
 
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		if parsedURL, parseErr := url.Parse(targetURL); parseErr == nil && parsedURL.Hostname() != "" {
+			host := parsedURL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						return "unreachable", "Route is unreachable: access to internal IP addresses is blocked by security policy", 403
+					}
+				}
+			}
+		}
+	}
+
 	client := &http.Client{Timeout: 3 * time.Second}
 	var req *http.Request
 	if healthMethod == "POST" {
@@ -283,5 +298,22 @@ func UpsertReachabilityStatus(entityID, entityType, status, message string, stat
 
 	if err != nil {
 		log.Printf("UpsertReachabilityStatus failed for %s %s: %v", entityType, entityID, err)
+	}
+
+	if statusCode >= 500 || status == "unreachable" {
+		severity := "error"
+		title := fmt.Sprintf("%s Ping Failed (HTTP %d)", strings.Title(entityType), statusCode)
+		if statusCode == 0 {
+			title = fmt.Sprintf("%s Connection Failure", strings.Title(entityType))
+		}
+		DispatchAlertEvent("ping_5xx_failure", severity, title,
+			fmt.Sprintf("Target %s (%s) returned HTTP %d during reachability health check: %s", entityType, entityID, statusCode, message),
+			map[string]interface{}{
+				"entity_id":   entityID,
+				"entity_type": entityType,
+				"status_code": statusCode,
+				"message":     message,
+			},
+		)
 	}
 }
