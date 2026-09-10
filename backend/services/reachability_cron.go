@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -230,6 +231,20 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 		targetURL += "/"
 	}
 	targetURL += finalPath
+
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		if parsedURL, parseErr := url.Parse(targetURL); parseErr == nil && parsedURL.Hostname() != "" {
+			host := parsedURL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						return "unreachable", "Route is unreachable: access to internal IP addresses is blocked by security policy", 403
+					}
+				}
+			}
+		}
+	}
 
 	client := &http.Client{Timeout: 3 * time.Second}
 	var req *http.Request

@@ -121,6 +121,13 @@ func (s *authService) Signup(username, email, password, firstName, lastName, rol
 		return nil, errors.New("Username or email already exists")
 	}
 
+	if email != "" {
+		_, err := s.userRepo.GetByIdentifier(email)
+		if err == nil {
+			return nil, errors.New("Username or email already exists")
+		}
+	}
+
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
 		return nil, errors.New("Failed to encrypt password")
@@ -171,6 +178,10 @@ func (s *authService) ChangeInitialPassword(userID uint, newPassword string) (*m
 	passport, err := s.userRepo.GetPassportByUserID(userID, "local")
 	if err != nil {
 		return nil, errors.New("Local authentication record not found")
+	}
+
+	if utils.CheckPasswordHash(newPassword, passport.Password) {
+		return nil, errors.New("New password cannot be the same as your temporary password")
 	}
 
 	hashedPassword, err := utils.HashPassword(newPassword)
