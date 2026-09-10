@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { Lock, Mail, User, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { validatePassword } from '../utils/passwordValidation';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -14,9 +15,18 @@ export const Register: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const val = validatePassword(password);
+  const passwordsMatch = password.length > 0 && password === passwordConfirm;
+  const isFormValid = val.isValid && passwordsMatch;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!val.isValid) {
+      setError('Password must be 8-64 characters and contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.');
+      return;
+    }
 
     if (password !== passwordConfirm) {
       setError('Passwords do not match');
@@ -132,7 +142,7 @@ export const Register: React.FC = () => {
 
             {/* Password */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-text-secondary uppercase">Password (Min 7 chars)</label>
+              <label className="text-[10px] font-bold text-text-secondary uppercase">Password (8–64 characters)</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-text-muted">
                   <Lock className="w-4 h-4" />
@@ -140,7 +150,8 @@ export const Register: React.FC = () => {
                 <input
                   type="password"
                   required
-                  minLength={7}
+                  minLength={8}
+                  maxLength={64}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -159,6 +170,8 @@ export const Register: React.FC = () => {
                 <input
                   type="password"
                   required
+                  minLength={8}
+                  maxLength={64}
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   placeholder="••••••••"
@@ -167,10 +180,39 @@ export const Register: React.FC = () => {
               </div>
             </div>
 
+            {/* Password Strength Checklist */}
+            {password.length > 0 && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded text-[11px] space-y-1.5 animate-fadeIn">
+                <span className="font-bold text-slate-700 block text-[10px] uppercase tracking-wider">Password Requirements:</span>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-slate-600">
+                  <span className={`flex items-center gap-1.5 ${val.hasMinLength && val.hasMaxLength ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                    {val.hasMinLength && val.hasMaxLength ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    8–64 Characters
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${val.hasUpper ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                    {val.hasUpper ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    Uppercase [A-Z]
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${val.hasLower ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                    {val.hasLower ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    Lowercase [a-z]
+                  </span>
+                  <span className={`flex items-center gap-1.5 ${val.hasDigit ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                    {val.hasDigit ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    Number [0-9]
+                  </span>
+                  <span className={`flex items-center gap-1.5 col-span-2 ${val.hasSpecial ? 'text-emerald-600 font-semibold' : 'text-slate-400'}`}>
+                    {val.hasSpecial ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    Special Symbol (!@#$%...)
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isFormValid}
               className="w-full py-3 mt-4 rounded bg-brand-primary hover:bg-brand-primary-hover text-white font-bold text-xs shadow-sm hover:scale-[1.005] transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer uppercase tracking-wider"
             >
               {loading ? (

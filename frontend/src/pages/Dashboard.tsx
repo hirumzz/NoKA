@@ -178,8 +178,8 @@ export const Dashboard: React.FC = () => {
         setNodeInfo(res.data);
         try { localStorage.setItem('noka_cache_node_info', JSON.stringify(res.data)); } catch (e) {}
       })
-      .catch(err => {
-        console.error(err);
+      .catch(() => {
+        setNodeInfo(null);
       });
 
     axios.get('/api/kong/status')

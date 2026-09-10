@@ -112,6 +112,10 @@ func (s *authService) RegisterFirstAdmin(username, email, password, firstName, l
 }
 
 func (s *authService) Signup(username, email, password, firstName, lastName, role string) (*models.User, error) {
+	if err := utils.ValidatePasswordStrength(password); err != nil {
+		return nil, err
+	}
+
 	_, err := s.userRepo.GetByIdentifier(username)
 	if err == nil {
 		return nil, errors.New("Username or email already exists")
@@ -155,8 +159,8 @@ func (s *authService) Signup(username, email, password, firstName, lastName, rol
 }
 
 func (s *authService) ChangeInitialPassword(userID uint, newPassword string) (*models.User, error) {
-	if len(newPassword) < 7 {
-		return nil, errors.New("Password must be at least 7 characters long")
+	if err := utils.ValidatePasswordStrength(newPassword); err != nil {
+		return nil, err
 	}
 
 	user, err := s.userRepo.GetByID(userID)
