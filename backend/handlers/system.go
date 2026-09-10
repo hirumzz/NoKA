@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"time"
 
+	"konga-backend/models"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -47,7 +49,20 @@ func GetSystemResources(c *gin.Context) {
 		formatted = fmt.Sprintf("%dm %ds", minutes, uptimeSecs%60)
 	}
 
-	hostname, _ := os.Hostname()
+	hostname := "hidden"
+	goVersion := "hidden"
+
+	// Only admins can see container hostname and Go runtime version
+	if userVal, exists := c.Get("user"); exists {
+		if u, ok := userVal.(*models.User); ok {
+			if u.Admin || u.Role == "admin" || u.Role == "superadmin" {
+				if h, err := os.Hostname(); err == nil {
+					hostname = h
+				}
+				goVersion = runtime.Version()
+			}
+		}
+	}
 
 	// Active goroutines
 	goroutines := runtime.NumGoroutine()
@@ -69,7 +84,7 @@ func GetSystemResources(c *gin.Context) {
 		HeapAllocMB:     float64(m.HeapAlloc) / 1024 / 1024,
 		NumGC:           m.NumGC,
 		Hostname:        hostname,
-		GoVersion:       runtime.Version(),
+		GoVersion:       goVersion,
 		EstimatedCPU:    cpuEst,
 	})
 }

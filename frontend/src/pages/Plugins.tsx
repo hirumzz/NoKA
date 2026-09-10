@@ -18,13 +18,15 @@ import {
   CheckCircle2,
   Ban,
   GitBranch,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from 'lucide-react';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { PluginGallery } from '../components/PluginGallery';
 import { RawViewModal } from '../components/RawViewModal';
 import { AuthorBadge } from '../components/AuthorBadge';
 import { Pagination } from '../components/Pagination';
+import { ClonePluginModal } from '../components/ClonePluginModal';
 
 interface PluginItem {
   id: string;
@@ -120,6 +122,7 @@ export const Plugins: React.FC = () => {
   
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<PluginItem | null>(null);
+  const [cloningPlugin, setCloningPlugin] = useState<PluginItem | null>(null);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
   const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
 
@@ -675,6 +678,13 @@ export const Plugins: React.FC = () => {
                             </span>
                             <div className="flex gap-1">
                               <button
+                                onClick={() => setCloningPlugin(plugin)}
+                                className="p-1 rounded hover:bg-brand-primary/10 text-text-secondary hover:text-brand-primary cursor-pointer"
+                                title="Clone / Copy Plugin"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                              <button
                                 onClick={() => setViewingRawPlugin(plugin)}
                                 className="p-1 rounded hover:bg-slate-100 text-text-secondary cursor-pointer"
                                 title="View Raw Config"
@@ -891,6 +901,13 @@ export const Plugins: React.FC = () => {
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button
+                                onClick={() => setCloningPlugin(plugin)}
+                                className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                                title="Clone / Copy Plugin"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() => setViewingRawPlugin(plugin)}
                                 className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
                                 title="View Raw JSON Config"
@@ -1018,6 +1035,15 @@ export const Plugins: React.FC = () => {
         subtitle={`ID: ${viewingRawPlugin?.id}`}
         data={viewingRawPlugin}
       />
+
+      {/* Clone Plugin Modal */}
+      {cloningPlugin && (
+        <ClonePluginModal
+          plugin={cloningPlugin}
+          onClose={() => setCloningPlugin(null)}
+          onSuccess={() => fetchPluginsAndResources(false)}
+        />
+      )}
     </div>
   );
 };

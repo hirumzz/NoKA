@@ -3,9 +3,11 @@ package services
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -101,6 +103,7 @@ type KongEntity struct {
 	Path      string   `json:"path"`
 	Paths     []string `json:"paths"`
 	Protocols []string `json:"protocols"`
+	Tags      []string `json:"tags"`
 }
 
 func fetchKongEntities(client *http.Client, node models.KongNode, endpoint string) ([]KongEntity, error) {
@@ -184,24 +187,80 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	if proxyURL == "" {
 		return "unreachable", "Kong Proxy URL not configured for this node", 0
 	}
-	if len(route.Paths) == 0 {
-		return "unreachable", "Route has no paths configured", 0
-	}
 	if len(route.Protocols) > 0 && route.Protocols[0] != "http" && route.Protocols[0] != "https" {
 		return "unreachable", "Reachability check only supports http/https protocols", 0
 	}
 
 	targetURL := strings.TrimSuffix(proxyURL, "/")
-	path := route.Paths[0]
-	if !strings.HasPrefix(path, "/") {
+	var customHealthPath string
+	healthMethod := "GET"
+
+	// Parse tags for noka-hp (health path) and noka-hm (health method)
+	for _, t := range route.Tags {
+		if strings.HasPrefix(t, "noka-hp:") {
+			encoded := strings.TrimPrefix(t, "noka-hp:")
+			customHealthPath = strings.ReplaceAll(encoded, "~", "/")
+		} else if strings.HasPrefix(t, "noka-health-path:") {
+			customHealthPath = strings.TrimPrefix(t, "noka-health-path:")
+		} else if strings.HasPrefix(t, "noka-hm:") {
+			healthMethod = strings.ToUpper(strings.TrimPrefix(t, "noka-hm:"))
+		}
+	}
+
+	baseRoutePath := ""
+	if len(route.Paths) > 0 {
+		baseRoutePath = route.Paths[0]
+	}
+
+	var finalPath string
+	if customHealthPath != "" {
+		if baseRoutePath != "" && (strings.HasPrefix(customHealthPath, baseRoutePath) || customHealthPath == baseRoutePath) {
+			finalPath = customHealthPath
+		} else if baseRoutePath != "" && baseRoutePath != "/" {
+			finalPath = strings.TrimSuffix(baseRoutePath, "/") + "/" + strings.TrimPrefix(customHealthPath, "/")
+		} else {
+			finalPath = customHealthPath
+		}
+	} else if baseRoutePath != "" {
+		finalPath = baseRoutePath
+	} else {
+		finalPath = "/"
+	}
+
+	if !strings.HasPrefix(finalPath, "/") {
 		targetURL += "/"
 	}
-	targetURL += path
+	targetURL += finalPath
+
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		if parsedURL, parseErr := url.Parse(targetURL); parseErr == nil && parsedURL.Hostname() != "" {
+			host := parsedURL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						return "unreachable", "Route is unreachable: access to internal IP addresses is blocked by security policy", 403
+					}
+				}
+			}
+		}
+	}
 
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Head(targetURL)
-	if err != nil {
-		resp, err = client.Get(targetURL)
+	var req *http.Request
+	if healthMethod == "POST" {
+		req, _ = http.NewRequest("POST", targetURL, strings.NewReader("{}"))
+		req.Header.Set("Content-Type", "application/json")
+	} else if healthMethod == "HEAD" {
+		req, _ = http.NewRequest("HEAD", targetURL, nil)
+	} else {
+		req, _ = http.NewRequest("GET", targetURL, nil)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil && healthMethod == "HEAD" {
+		reqGet, _ := http.NewRequest("GET", targetURL, nil)
+		resp, err = client.Do(reqGet)
 	}
 
 	if err != nil {
@@ -209,7 +268,16 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 	}
 	defer resp.Body.Close()
 
-	// Any HTTP response means the proxy is reachable
+	if resp.StatusCode >= 500 {
+		errMsg := fmt.Sprintf("Service Error (HTTP %d)", resp.StatusCode)
+		if resp.StatusCode == http.StatusBadGateway {
+			errMsg = "Bad Gateway (HTTP 502)"
+		} else if resp.StatusCode == http.StatusGatewayTimeout {
+			errMsg = "Gateway Timeout (HTTP 504)"
+		}
+		return "unreachable", errMsg, resp.StatusCode
+	}
+
 	return "reachable", "Route is reachable", resp.StatusCode
 }
 
@@ -230,5 +298,22 @@ func UpsertReachabilityStatus(entityID, entityType, status, message string, stat
 
 	if err != nil {
 		log.Printf("UpsertReachabilityStatus failed for %s %s: %v", entityType, entityID, err)
+	}
+
+	if statusCode >= 500 || status == "unreachable" {
+		severity := "error"
+		title := fmt.Sprintf("%s Ping Failed (HTTP %d)", strings.Title(entityType), statusCode)
+		if statusCode == 0 {
+			title = fmt.Sprintf("%s Connection Failure", strings.Title(entityType))
+		}
+		DispatchAlertEvent("ping_5xx_failure", severity, title,
+			fmt.Sprintf("Target %s (%s) returned HTTP %d during reachability health check: %s", entityType, entityID, statusCode, message),
+			map[string]interface{}{
+				"entity_id":   entityID,
+				"entity_type": entityType,
+				"status_code": statusCode,
+				"message":     message,
+			},
+		)
 	}
 }

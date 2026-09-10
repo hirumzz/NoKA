@@ -71,7 +71,31 @@ func securityHeaders() gin.HandlerFunc {
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: blob:;")
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		c.Header("X-Permitted-Cross-Domain-Policies", "none")
+		c.Header("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet")
+		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'; form-action 'self'; base-uri 'self';")
+		c.Next()
+	}
+}
+
+// antiCacheHeaders prevents intermediate proxies and browsers from caching sensitive API responses
+func antiCacheHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		c.Header("Pragma", "no-cache")
+		c.Header("Expires", "0")
+		c.Next()
+	}
+}
+
+// maxRequestBodySize limits the maximum request body to prevent memory exhaustion DoS
+func maxRequestBodySize(maxBytes int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Body != nil {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+		}
 		c.Next()
 	}
 }
@@ -111,6 +135,7 @@ func main() {
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
 	services.SyncEntityAuthorsFromAuditLogs()
+	services.StartAlertEvaluationEngine()
 	go kongHandler.StartPrometheusMetricsCollector()
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
@@ -120,6 +145,9 @@ func main() {
 
 	// Security headers on all responses
 	r.Use(securityHeaders())
+
+	// Global Request Body Size Limiter (10MB)
+	r.Use(maxRequestBodySize(10 * 1024 * 1024))
 
 	// CORS middleware — restrict to configured origin
 	allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
@@ -151,7 +179,7 @@ func main() {
 
 	// Public routes
 	r.POST("/login", loginRateLimitMiddleware(loginRL), authHandler.Login)
-	r.POST("/register", authHandler.RegisterFirstAdmin) // Only works if 0 users exist
+	r.POST("/register", loginRateLimitMiddleware(loginRL), authHandler.RegisterFirstAdmin) // Only works if 0 users exist
 
 	r.GET("/api/info", func(c *gin.Context) {
 		count, _ := userRepo.CountUsers()
@@ -162,17 +190,17 @@ func main() {
 		})
 	})
 
-	// API Group with Authentication Required
+	// API Group with Authentication Required and Anti-Cache Protection
 	api := r.Group("/api")
-	api.Use(middleware.AuthRequired())
+	api.Use(middleware.AuthRequired(), antiCacheHeaders())
 	{
 		api.GET("/me", func(c *gin.Context) {
 			user, _ := c.Get("user")
 			c.JSON(http.StatusOK, user)
 		})
 
-		// First-time force change password
-		api.POST("/auth/change-initial-password", authHandler.ChangeInitialPassword)
+		// First-time force change password with rate limit
+		api.POST("/auth/change-initial-password", loginRateLimitMiddleware(loginRL), authHandler.ChangeInitialPassword)
 
 		// Admin-only: create new users
 		api.POST("/auth/signup", middleware.AdminRequired(), authHandler.Signup)
@@ -192,7 +220,9 @@ func main() {
 		api.POST("/connections/deactivate", middleware.AdminRequired(), handlers.DeactivateConnection)
 
 		// System Settings & Resource Metrics
+		api.GET("/settings", middleware.AdminRequired(), handlers.GetSystemSettings)
 		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)
+		api.POST("/settings/test-integration", middleware.AdminRequired(), handlers.TestIntegrationChannel)
 		api.GET("/system/resources", handlers.GetSystemResources)
 
 		// Comments management
@@ -206,8 +236,8 @@ func main() {
 		api.POST("/notifications", middleware.AdminRequired(), handlers.CreateNotification)
 		api.DELETE("/notifications/:id", middleware.AdminRequired(), handlers.DeleteNotification)
 
-		// User Management — list requires auth, mutation requires admin
-		api.GET("/users", func(c *gin.Context) {
+		// User Management — list and mutations require admin
+		api.GET("/users", middleware.AdminRequired(), func(c *gin.Context) {
 			var users []models.User
 			if err := db.DB.Find(&users).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch users"})
@@ -220,13 +250,23 @@ func main() {
 		api.PATCH("/users/:id", handlers.UpdateUser)
 
 		api.GET("/reachability", kongHandler.GetReachabilityStatuses)
-		api.POST("/reachability/refresh", kongHandler.TriggerReachabilityCheck)
+		api.POST("/reachability/refresh", middleware.AdminRequired(), kongHandler.TriggerReachabilityCheck)
 		api.GET("/entity-authors", kongHandler.GetEntityAuthors)
 
 		// Snapshots (Admin only)
 		api.GET("/snapshots", middleware.AdminRequired(), handlers.GetSnapshots)
 		api.POST("/snapshots", middleware.AdminRequired(), handlers.CreateSnapshot)
 		api.DELETE("/snapshots/:id", middleware.AdminRequired(), handlers.DeleteSnapshot)
+
+		// Flexible Alerting Engine
+		api.GET("/alerts/rules", handlers.GetAlertRules)
+		api.POST("/alerts/rules", middleware.AdminRequired(), handlers.CreateAlertRule)
+		api.PUT("/alerts/rules/:id", middleware.AdminRequired(), handlers.UpdateAlertRule)
+		api.DELETE("/alerts/rules/:id", middleware.AdminRequired(), handlers.DeleteAlertRule)
+		api.PATCH("/alerts/rules/:id/toggle", middleware.AdminRequired(), handlers.ToggleAlertRule)
+		api.POST("/alerts/rules/test", middleware.AdminRequired(), handlers.TestAlertRule)
+		api.GET("/alerts/history", handlers.GetAlertHistory)
+		api.DELETE("/alerts/history", middleware.AdminRequired(), handlers.ClearAlertHistory)
 	}
 
 	// Kong Proxy routes (authenticated, node-resolved, RBAC protected)
@@ -256,12 +296,19 @@ func main() {
 	}
 }
 
-// pathTraversalGuard rejects proxy paths that contain directory traversal sequences
+// pathTraversalGuard rejects proxy paths that contain directory traversal sequences, null bytes, or backslashes
 func pathTraversalGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Param("proxyPath")
-		if strings.Contains(path, "..") {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid path"})
+		rawPath := c.Request.URL.RawPath
+		rawURI := c.Request.RequestURI
+
+		// Check for directory traversal, Windows backslashes, null bytes, and encoded sequences
+		if strings.Contains(path, "..") || strings.Contains(path, "\\") || strings.Contains(path, "\x00") ||
+			strings.Contains(rawPath, "..") || strings.Contains(rawPath, "\\") ||
+			strings.Contains(strings.ToLower(rawURI), "%2e%2e") || strings.Contains(strings.ToLower(rawURI), "%252e%252e") ||
+			strings.Contains(strings.ToLower(rawURI), "%00") {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid path: directory traversal attempt rejected"})
 			c.Abort()
 			return
 		}

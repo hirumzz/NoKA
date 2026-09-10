@@ -3,9 +3,11 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -19,6 +21,11 @@ import (
 	"konga-backend/utils"
 
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	reachabilityLock        sync.Mutex
+	lastReachabilityTrigger time.Time
 )
 
 type KongHandler struct {
@@ -248,6 +255,11 @@ func extractLabel(labels, key string) string {
 		return ""
 	}
 	return labels[start : start+end]
+}
+
+func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64) {
+	totalRequests, topHits, slowestEndpoints, statusCodes, _, _, _, _ := parsePrometheusMetricsFast(metricsData)
+	return totalRequests, topHits, slowestEndpoints, statusCodes
 }
 
 func parsePrometheusMetricsFast(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
@@ -859,31 +871,95 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 
 	var route struct {
 		Paths []string `json:"paths"`
+		Tags  []string `json:"tags"`
 	}
 	if err := json.Unmarshal(respBytes, &route); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to parse route details"})
 		return
 	}
 
-	if len(route.Paths) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Route has no paths configured"})
-		return
+	targetURL := strings.TrimRight(proxyUrl, "/")
+	var customHealthPath string
+	healthMethod := "GET"
+
+	// Parse tags for noka-hp (health path) and noka-hm (health method)
+	for _, t := range route.Tags {
+		if strings.HasPrefix(t, "noka-hp:") {
+			encoded := strings.TrimPrefix(t, "noka-hp:")
+			customHealthPath = strings.ReplaceAll(encoded, "~", "/")
+		} else if strings.HasPrefix(t, "noka-health-path:") {
+			customHealthPath = strings.TrimPrefix(t, "noka-health-path:")
+		} else if strings.HasPrefix(t, "noka-hm:") {
+			healthMethod = strings.ToUpper(strings.TrimPrefix(t, "noka-hm:"))
+		}
 	}
 
-	targetURL := strings.TrimRight(proxyUrl, "/")
-	path := route.Paths[0]
-	if !strings.HasPrefix(path, "/") {
+	baseRoutePath := ""
+	if len(route.Paths) > 0 {
+		baseRoutePath = route.Paths[0]
+	}
+
+	var finalPath string
+	if customHealthPath != "" {
+		// If custom health path already starts with the route base path, use it directly
+		if baseRoutePath != "" && (strings.HasPrefix(customHealthPath, baseRoutePath) || customHealthPath == baseRoutePath) {
+			finalPath = customHealthPath
+		} else if baseRoutePath != "" && baseRoutePath != "/" {
+			// Append custom path to base route path: e.g. /jds-carts + ping -> /jds-carts/ping
+			finalPath = strings.TrimSuffix(baseRoutePath, "/") + "/" + strings.TrimPrefix(customHealthPath, "/")
+		} else {
+			finalPath = customHealthPath
+		}
+	} else if baseRoutePath != "" {
+		finalPath = baseRoutePath
+	} else {
+		finalPath = "/"
+	}
+
+	if !strings.HasPrefix(finalPath, "/") {
 		targetURL += "/"
 	}
-	targetURL += path
+	targetURL += finalPath
+
+	// SSRF Mitigation: Check if the route proxy target resolves to a private IP
+	allowInternal := os.Getenv("ALLOW_INTERNAL_SSRF") == "true"
+	if !allowInternal {
+		if parsedURL, parseErr := url.Parse(targetURL); parseErr == nil && parsedURL.Hostname() != "" {
+			host := parsedURL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						c.JSON(http.StatusForbidden, gin.H{
+							"success":   true,
+							"reachable": false,
+							"message":   "Route is unreachable: access to internal IP addresses is blocked by security policy",
+						})
+						return
+					}
+				}
+			}
+		}
+	}
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	
-	resp, err := client.Head(targetURL)
-	if err != nil {
-		resp, err = client.Get(targetURL)
+
+	var req *http.Request
+	if healthMethod == "POST" {
+		req, _ = http.NewRequest("POST", targetURL, strings.NewReader("{}"))
+		req.Header.Set("Content-Type", "application/json")
+	} else if healthMethod == "HEAD" {
+		req, _ = http.NewRequest("HEAD", targetURL, nil)
+	} else {
+		req, _ = http.NewRequest("GET", targetURL, nil)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil && healthMethod == "HEAD" {
+		// Fallback HEAD to GET if HEAD was rejected
+		reqGet, _ := http.NewRequest("GET", targetURL, nil)
+		resp, err = client.Do(reqGet)
 	}
 	
 	if err != nil {
@@ -896,6 +972,23 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		errMsg := fmt.Sprintf("Service Error (HTTP %d)", resp.StatusCode)
+		if resp.StatusCode == http.StatusBadGateway {
+			errMsg = "Bad Gateway (HTTP 502)"
+		} else if resp.StatusCode == http.StatusGatewayTimeout {
+			errMsg = "Gateway Timeout (HTTP 504)"
+		}
+		services.UpsertReachabilityStatus(routeID, "route", "unreachable", errMsg, resp.StatusCode)
+		c.JSON(http.StatusOK, gin.H{
+			"success":    true,
+			"reachable":  false,
+			"statusCode": resp.StatusCode,
+			"message":    errMsg,
+		})
+		return
+	}
 
 	services.UpsertReachabilityStatus(routeID, "route", "reachable", "Route is reachable", resp.StatusCode)
 	c.JSON(http.StatusOK, gin.H{
@@ -944,6 +1037,14 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 		return
 	}
 
+	// Check if requester is admin (only admins can view raw email addresses)
+	isAdmin := false
+	if userVal, exists := c.Get("user"); exists {
+		if u, ok := userVal.(*models.User); ok {
+			isAdmin = u.Admin || u.Role == "admin" || u.Role == "superadmin"
+		}
+	}
+
 	// Fetch all users to resolve full names
 	var users []models.User
 	userMap := make(map[string]models.User)
@@ -962,7 +1063,11 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 				if fullName == "" {
 					fullName = u.Username
 				}
-				return fullName, u.Email
+				email := ""
+				if isAdmin {
+					email = u.Email
+				}
+				return fullName, email
 			}
 		}
 		if username != "" && username != "-" {
@@ -971,7 +1076,11 @@ func (h *KongHandler) GetEntityAuthors(c *gin.Context) {
 				if fullName == "" {
 					fullName = u.Username
 				}
-				return fullName, u.Email
+				email := ""
+				if isAdmin {
+					email = u.Email
+				}
+				return fullName, email
 			}
 			return username, ""
 		}
@@ -1085,12 +1194,23 @@ func (h *KongHandler) GetEnrichedPlugins(c *gin.Context) {
 	})
 }
 
-// TriggerReachabilityCheck triggers a concurrent reachability check for all entities
+// TriggerReachabilityCheck triggers a concurrent reachability check for all entities with a 30s cooldown
 func (h *KongHandler) TriggerReachabilityCheck(c *gin.Context) {
-	services.RunReachabilityCheck()
+	reachabilityLock.Lock()
+	defer reachabilityLock.Unlock()
+
+	if time.Since(lastReachabilityTrigger) < 30*time.Second {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"message": "Reachability check is currently running or in cooldown. Please wait 30 seconds before triggering again.",
+		})
+		return
+	}
+	lastReachabilityTrigger = time.Now()
+
+	go services.RunReachabilityCheck()
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Reachability statuses refreshed successfully",
+		"message": "Reachability statuses refresh initiated successfully",
 	})
 }
 

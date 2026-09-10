@@ -14,12 +14,6 @@ func KongRBAC() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := strings.ToUpper(c.Request.Method)
 
-		// Allow all GET/read requests
-		if method == "GET" || method == "OPTIONS" {
-			c.Next()
-			return
-		}
-
 		userVal, exists := c.Get("user")
 		if !exists {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized - User context missing"})
@@ -35,6 +29,27 @@ func KongRBAC() gin.HandlerFunc {
 			} else {
 				role = "viewer"
 			}
+		}
+
+		isAdmin := user.Admin || role == "admin" || role == "superadmin"
+
+		// Security: Restrict Node Specifications, Database Config, and Server Status introspection strictly to Admins
+		proxyPath := strings.TrimPrefix(c.Param("proxyPath"), "/")
+		cleanPath := strings.TrimSuffix(proxyPath, "/")
+		if cleanPath == "" || cleanPath == "status" {
+			if !isAdmin {
+				c.JSON(http.StatusForbidden, gin.H{
+					"message": "Forbidden - Administrator privileges required to access Kong node specifications and status.",
+				})
+				c.Abort()
+				return
+			}
+		}
+
+		// Allow all other GET/read requests for authenticated non-admins (Services, Routes, Plugins, etc.)
+		if method == "GET" || method == "OPTIONS" {
+			c.Next()
+			return
 		}
 
 		// Viewers and commenters cannot perform any write operations (POST, PUT, PATCH, DELETE)

@@ -16,13 +16,16 @@ import {
   Settings,
   X,
   Eye,
-  Ban
+  Ban,
+  Copy
 } from 'lucide-react';
 import { CommentsSection } from '../components/CommentsSection';
 import { PluginGallery } from '../components/PluginGallery';
 import { PluginDynamicForm } from '../components/PluginDynamicForm';
 import { RawViewModal } from '../components/RawViewModal';
 import { useConfirm } from '../context/ConfirmContext';
+import { ClonePluginModal } from '../components/ClonePluginModal';
+import { CloneServiceModal } from '../components/CloneServiceModal';
 
 
 interface KongService {
@@ -95,6 +98,8 @@ export const ServiceDetails: React.FC = () => {
   const [routeMethods, setRouteMethods] = useState<string[]>([]);
   const [routeProtocols, setRouteProtocols] = useState<string[]>(['http', 'https']);
   const [routeTags, setRouteTags] = useState('');
+  const [routeHealthcheckPath, setRouteHealthcheckPath] = useState('');
+  const [routeHealthcheckMethod, setRouteHealthcheckMethod] = useState<'GET' | 'POST' | 'HEAD'>('GET');
   const [routeStripPath, setRouteStripPath] = useState(true);
   const [routePreserveHost, setRoutePreserveHost] = useState(false);
   const [routeRegexPriority, setRouteRegexPriority] = useState<number>(0);
@@ -119,6 +124,8 @@ export const ServiceDetails: React.FC = () => {
 
   // Raw View Modal states
   const [viewingRawPlugin, setViewingRawPlugin] = useState<any>(null);
+  const [cloningPlugin, setCloningPlugin] = useState<any>(null);
+  const [showCloneService, setShowCloneService] = useState(false);
   const [isFormInvalid, setIsFormInvalid] = useState(false);
 
   useEffect(() => {
@@ -337,6 +344,13 @@ export const ServiceDetails: React.FC = () => {
     const parsedTags = routeTags
       ? routeTags.split(',').map((t) => t.trim()).filter(Boolean)
       : [];
+    if (routeHealthcheckPath.trim()) {
+      const safeHp = routeHealthcheckPath.trim().replace(/\//g, '~');
+      parsedTags.push(`noka-hp:${safeHp}`);
+    }
+    if (routeHealthcheckMethod && routeHealthcheckMethod !== 'GET') {
+      parsedTags.push(`noka-hm:${routeHealthcheckMethod}`);
+    }
 
     let parsedHeaders = undefined;
     if (routeHeaders.trim()) {
@@ -382,6 +396,7 @@ export const ServiceDetails: React.FC = () => {
       setRouteMethods([]);
       setRouteProtocols(['http', 'https']);
       setRouteTags('');
+      setRouteHealthcheckPath('');
       setRouteStripPath(true);
       setRoutePreserveHost(false);
       setRouteRegexPriority(0);
@@ -478,17 +493,28 @@ export const ServiceDetails: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
-      <div className="flex items-center gap-4 bg-white p-6 rounded-lg border border-border-light shadow-sm">
-        <Link to="/services" className="p-2 rounded border border-border-light hover:bg-slate-50 transition-colors">
-          <ArrowLeft className="w-4 h-4 text-text-secondary" />
-        </Link>
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
-            <Layers className="w-5 h-5 text-brand-primary" /> 
-            {service.name || 'Unnamed Service'}
-          </h2>
-          <span className="text-[10px] text-text-muted font-mono font-medium block mt-0.5">Service ID: {service.id}</span>
+      <div className="flex items-center justify-between bg-white p-6 rounded-lg border border-border-light shadow-sm">
+        <div className="flex items-center gap-4">
+          <Link to="/services" className="p-2 rounded border border-border-light hover:bg-slate-50 transition-colors">
+            <ArrowLeft className="w-4 h-4 text-text-secondary" />
+          </Link>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-text-primary flex items-center gap-2">
+              <Layers className="w-5 h-5 text-brand-primary" /> 
+              {service.name || 'Unnamed Service'}
+            </h2>
+            <span className="text-[10px] text-text-muted font-mono font-medium block mt-0.5">Service ID: {service.id}</span>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCloneService(true)}
+          className="px-3.5 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+          title="Clone Service"
+        >
+          <Copy className="w-3.5 h-3.5" /> Clone Service
+        </button>
       </div>
 
       {/* Request Termination Alert Banner (Conditional) */}
@@ -927,6 +953,13 @@ export const ServiceDetails: React.FC = () => {
                           <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
                             <button
+                              onClick={() => setCloningPlugin(plugin)}
+                              className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
+                              title="Clone / Copy Plugin"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => setViewingRawPlugin(plugin)}
                               className="p-2 rounded border border-border-light hover:border-brand-primary/20 hover:bg-brand-primary/5 hover:text-brand-primary transition-colors text-text-secondary cursor-pointer"
                               title="View Raw JSON Config"
@@ -1103,6 +1136,33 @@ export const ServiceDetails: React.FC = () => {
                     className="w-full px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
                   />
                   <p className="text-[9px] text-text-muted">Optionally add tags to the route.</p>
+                </div>
+
+                {/* Healthcheck Endpoint & Method */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">Healthcheck Endpoint & Method</label>
+                    <span className="text-[9px] text-text-muted italic">(optional)</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      value={routeHealthcheckMethod}
+                      onChange={(e) => setRouteHealthcheckMethod(e.target.value as any)}
+                      className="w-24 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-bold text-text-primary"
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="HEAD">HEAD</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={routeHealthcheckPath}
+                      onChange={(e) => setRouteHealthcheckPath(e.target.value)}
+                      placeholder="e.g. ping, /healthz (appended to route path)"
+                      className="flex-1 px-3 py-2 rounded border border-border-light bg-slate-50 text-xs outline-none focus:border-brand-primary font-medium"
+                    />
+                  </div>
+                  <p className="text-[9px] text-text-muted">Custom endpoint for reachability status tests. Not sent to Kong routing rules.</p>
                 </div>
 
                 {/* Hosts */}
@@ -1369,6 +1429,26 @@ export const ServiceDetails: React.FC = () => {
         subtitle={`ID: ${viewingRawPlugin?.id}`}
         data={viewingRawPlugin}
       />
+
+      {/* Clone Plugin Modal */}
+      {cloningPlugin && (
+        <ClonePluginModal
+          plugin={cloningPlugin}
+          initialScope="service"
+          initialTargetId={service?.id}
+          onClose={() => setCloningPlugin(null)}
+          onSuccess={fetchSubResources}
+        />
+      )}
+
+      {/* Clone Service Modal */}
+      {showCloneService && service && (
+        <CloneServiceModal
+          service={service}
+          onClose={() => setShowCloneService(false)}
+          onSuccess={fetchServiceDetails}
+        />
+      )}
     </div>
   );
 };

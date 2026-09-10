@@ -10,13 +10,15 @@ import {
   CheckCircle, 
   XCircle,
   RefreshCw,
-  X
+  X,
+  Copy
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { Pagination } from '../components/Pagination';
 import { AuthorBadge } from '../components/AuthorBadge';
+import { CloneServiceModal } from '../components/CloneServiceModal';
 
 interface Service {
   id: string;
@@ -80,6 +82,7 @@ export const Services: React.FC = () => {
   const [selectedTag, setSelectedTag] = useState('');
   const [terminatedServiceIds, setTerminatedServiceIds] = useState<Set<string>>(new Set());
   const [entityAuthors, setEntityAuthors] = useState<Record<string, any>>({});
+  const [cloningService, setCloningService] = useState<Service | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -751,8 +754,15 @@ export const Services: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
+                          onClick={(e) => { e.stopPropagation(); setCloningService(svc); }}
+                          className="p-2 rounded border border-border-light hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 transition-colors text-text-secondary cursor-pointer"
+                          title="Clone / Copy Service"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteService(svc.id); }}
-                          className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary"
+                          className="p-2 rounded border border-border-light hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors text-text-secondary cursor-pointer"
                           title="Delete Service"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -781,6 +791,15 @@ export const Services: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Clone Service Modal */}
+      {cloningService && (
+        <CloneServiceModal
+          service={cloningService}
+          onClose={() => setCloningService(null)}
+          onSuccess={fetchServices}
+        />
+      )}
     </div>
   );
 };

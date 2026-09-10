@@ -37,6 +37,16 @@ func CreateSnapshot(c *gin.Context) {
 		return
 	}
 
+	if len(req.Data) > 10*1024*1024 {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"message": "Snapshot payload exceeds maximum allowed size (10MB)"})
+		return
+	}
+
+	if !json.Valid(req.Data) {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Snapshot payload is not valid JSON"})
+		return
+	}
+
 	snapshot := models.Snapshot{
 		Name:     req.Name,
 		Data:     datatypes.JSON(req.Data),

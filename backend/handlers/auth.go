@@ -28,7 +28,7 @@ type LoginRequest struct {
 type RegisterRequest struct {
 	Username             string `json:"username" binding:"required"`
 	Email                string `json:"email" binding:"required,email"`
-	Password             string `json:"password" binding:"required,min=7"`
+	Password             string `json:"password" binding:"required,min=8,max=64"`
 	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
 	FirstName            string `json:"firstName"`
 	LastName             string `json:"lastName"`
@@ -110,6 +110,11 @@ func (h *AuthHandler) RegisterFirstAdmin(c *gin.Context) {
 		return
 	}
 
+	if err := utils.ValidatePasswordStrength(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
 	user, token, err := h.authService.RegisterFirstAdmin(req.Username, req.Email, req.Password, req.FirstName, req.LastName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -136,6 +141,11 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 		return
 	}
 
+	if err := utils.ValidatePasswordStrength(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
 	user, err := h.authService.Signup(req.Username, req.Email, req.Password, req.FirstName, req.LastName, req.Role)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
@@ -146,19 +156,24 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 }
 
 type ChangeInitialPasswordRequest struct {
-	Password             string `json:"password" binding:"required,min=7"`
+	Password             string `json:"password" binding:"required,min=8,max=64"`
 	PasswordConfirmation string `json:"password_confirmation" binding:"required"`
 }
 
 func (h *AuthHandler) ChangeInitialPassword(c *gin.Context) {
 	var req ChangeInitialPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Password must be at least 7 characters", "error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Password must be 8-64 characters", "error": err.Error()})
 		return
 	}
 
 	if req.Password != req.PasswordConfirmation {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Passwords do not match"})
+		return
+	}
+
+	if err := utils.ValidatePasswordStrength(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
 

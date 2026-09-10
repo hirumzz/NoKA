@@ -112,9 +112,20 @@ func (s *authService) RegisterFirstAdmin(username, email, password, firstName, l
 }
 
 func (s *authService) Signup(username, email, password, firstName, lastName, role string) (*models.User, error) {
+	if err := utils.ValidatePasswordStrength(password); err != nil {
+		return nil, err
+	}
+
 	_, err := s.userRepo.GetByIdentifier(username)
 	if err == nil {
 		return nil, errors.New("Username or email already exists")
+	}
+
+	if email != "" {
+		_, err := s.userRepo.GetByIdentifier(email)
+		if err == nil {
+			return nil, errors.New("Username or email already exists")
+		}
 	}
 
 	hashedPassword, err := utils.HashPassword(password)
@@ -155,8 +166,8 @@ func (s *authService) Signup(username, email, password, firstName, lastName, rol
 }
 
 func (s *authService) ChangeInitialPassword(userID uint, newPassword string) (*models.User, error) {
-	if len(newPassword) < 7 {
-		return nil, errors.New("Password must be at least 7 characters long")
+	if err := utils.ValidatePasswordStrength(newPassword); err != nil {
+		return nil, err
 	}
 
 	user, err := s.userRepo.GetByID(userID)
@@ -167,6 +178,10 @@ func (s *authService) ChangeInitialPassword(userID uint, newPassword string) (*m
 	passport, err := s.userRepo.GetPassportByUserID(userID, "local")
 	if err != nil {
 		return nil, errors.New("Local authentication record not found")
+	}
+
+	if utils.CheckPasswordHash(newPassword, passport.Password) {
+		return nil, errors.New("New password cannot be the same as your temporary password")
 	}
 
 	hashedPassword, err := utils.HashPassword(newPassword)

@@ -121,6 +121,16 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			entity = segments[0]
 		}
 
+		// Handle subresources like /services/:id/plugins, /routes/:id/plugins, /consumers/:id/plugins
+		isSubresourcePlugin := false
+		if len(segments) >= 3 && segments[2] == "plugins" {
+			entity = "plugins"
+			isSubresourcePlugin = true
+		} else if len(segments) >= 3 && segments[0] == "consumers" {
+			// e.g. /consumers/:id/key-auth, /consumers/:id/basic-auth
+			entity = "consumers"
+		}
+
 		payloadStr := string(bodyBytes)
 		if payloadStr == "" {
 			payloadStr = "null"
@@ -191,15 +201,13 @@ func (s *kongProxyService) ForwardRequest(node *models.KongNode, method, path, r
 			UpdatedAt:    now,
 		}
 
-		// I'll fix c.Request.URL.Path inside the service
-
 		// Import db and create a system notification for the change
 		icon := "mdi-message-outline"
 		state := ""
 
-		// Build entity ID from path segments (e.g. /services/{id} → services/{id})
+		// Build entity ID from path segments
 		entityID := ""
-		if len(segments) > 1 && segments[1] != "" {
+		if !isSubresourcePlugin && len(segments) > 1 && segments[1] != "" {
 			entityID = segments[1]
 		}
 

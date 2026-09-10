@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"konga-backend/db"
@@ -65,6 +66,16 @@ func CreateComment(c *gin.Context) {
 	var req CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request fields", "error": err.Error()})
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Comment content cannot be empty"})
+		return
+	}
+	if len(req.Content) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Comment content cannot exceed 2000 characters"})
 		return
 	}
 
@@ -154,6 +165,16 @@ func UpdateComment(c *gin.Context) {
 	var req UpdateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Content is required", "error": err.Error()})
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Comment content cannot be empty"})
+		return
+	}
+	if len(req.Content) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Comment content cannot exceed 2000 characters"})
 		return
 	}
 

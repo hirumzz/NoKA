@@ -10,11 +10,93 @@ import {
   CheckSquare,
   Check,
   X,
+  Send,
+  MessageSquare,
+  Globe,
+  Hash,
+  Share2,
+  Play,
+  Loader2
 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EmailTransport = 'smtp' | 'sendmail' | 'mailgun';
+
+type IntegrationChannel = 'telegram' | 'whatsapp' | 'webhook' | 'slack' | 'discord';
+
+interface TelegramConfig {
+  enabled: boolean;
+  botToken: string;
+  chatId: string;
+  threadId?: string;
+}
+
+interface WhatsAppConfig {
+  enabled: boolean;
+  serverUrl: string; // e.g. http://localhost:3000/api/sendText or WAHA endpoint
+  apiKey?: string;
+  session?: string;
+  recipient: string; // Phone number or group jid
+}
+
+interface WebhookConfig {
+  enabled: boolean;
+  url: string;
+  method: 'POST' | 'PUT';
+  headersJson?: string;
+}
+
+interface SlackConfig {
+  enabled: boolean;
+  webhookUrl: string;
+  channel?: string;
+}
+
+interface DiscordConfig {
+  enabled: boolean;
+  webhookUrl: string;
+}
+
+interface IntegrationsState {
+  telegram: TelegramConfig;
+  whatsapp: WhatsAppConfig;
+  webhook: WebhookConfig;
+  slack: SlackConfig;
+  discord: DiscordConfig;
+}
+
+const DEFAULT_INTEGRATIONS: IntegrationsState = {
+  telegram: {
+    enabled: false,
+    botToken: '',
+    chatId: '',
+    threadId: ''
+  },
+  whatsapp: {
+    enabled: false,
+    serverUrl: '',
+    apiKey: '',
+    session: 'default',
+    recipient: ''
+  },
+  webhook: {
+    enabled: false,
+    url: '',
+    method: 'POST',
+    headersJson: '{\n  "Content-Type": "application/json"\n}'
+  },
+  slack: {
+    enabled: false,
+    webhookUrl: '',
+    channel: ''
+  },
+  discord: {
+    enabled: false,
+    webhookUrl: ''
+  }
+};
 
 interface ResourcePermissions {
   create: boolean;
@@ -61,21 +143,20 @@ interface ToastProps {
 }
 
 const Toast: React.FC<ToastProps> = ({ message, onClose }) => (
-  <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 bg-emerald-600 text-white rounded-lg shadow-xl text-sm font-semibold">
-    <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white/20">
-      <Check className="w-3 h-3" />
-    </div>
-    {message}
+  <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-xl border border-slate-700 animate-fadeIn">
+    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+    <span>{message}</span>
     <button
+      type="button"
       onClick={onClose}
-      className="ml-2 opacity-70 hover:opacity-100 transition-opacity"
+      className="ml-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
     >
-      <X className="w-4 h-4" />
+      <X className="w-3.5 h-3.5" />
     </button>
   </div>
 );
 
-// ─── Section Card ──────────────────────────────────────────────────────────────
+// ─── Section Card Wrapper ──────────────────────────────────────────────────────
 
 interface SectionCardProps {
   icon: React.ReactNode;
@@ -84,63 +165,61 @@ interface SectionCardProps {
 }
 
 const SectionCard: React.FC<SectionCardProps> = ({ icon, title, children }) => (
-  <div className="bg-white rounded-lg border border-border-light shadow-sm overflow-hidden">
-    <div className="flex items-center gap-2.5 px-6 py-4 border-b border-border-light bg-slate-50/60">
-      <span className="text-brand-primary">{icon}</span>
-      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">{title}</h3>
+  <div className="bg-white rounded-lg border border-border-light shadow-sm p-6 space-y-6">
+    <div className="flex items-center gap-2.5 border-b border-border-light pb-4">
+      <div className="p-2 rounded bg-indigo-50 text-brand-primary flex-shrink-0">{icon}</div>
+      <h2 className="text-xs font-bold uppercase tracking-wider text-text-primary">{title}</h2>
     </div>
-    <div className="p-6">{children}</div>
+    {children}
   </div>
 );
 
-// ─── Field Row ─────────────────────────────────────────────────────────────────
+// ─── Reusable Form Row ─────────────────────────────────────────────────────────
 
 interface FieldRowProps {
   label: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
 }
 
 const FieldRow: React.FC<FieldRowProps> = ({ label, description, children }) => (
-  <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-6 py-4 border-b border-border-light last:border-b-0">
-    <div className="sm:w-64 flex-shrink-0">
-      <label className="block text-xs font-bold text-text-primary">{label}</label>
-      <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">{description}</p>
+  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 py-3 border-b border-border-light last:border-0">
+    <div className="max-w-md space-y-0.5">
+      <label className="text-xs font-bold text-text-primary block">{label}</label>
+      {description && <p className="text-[11px] text-text-muted leading-relaxed">{description}</p>}
     </div>
-    <div className="flex-1">{children}</div>
+    <div className="flex-shrink-0">{children}</div>
   </div>
 );
 
-// ─── Checkbox Row ──────────────────────────────────────────────────────────────
+// ─── Reusable Checkbox Row ─────────────────────────────────────────────────────
 
 interface CheckboxRowProps {
   label: string;
-  description: string;
+  description?: string;
   checked: boolean;
-  onChange: (v: boolean) => void;
+  onChange: (val: boolean) => void;
 }
 
 const CheckboxRow: React.FC<CheckboxRowProps> = ({ label, description, checked, onChange }) => (
-  <div className="flex items-start gap-4 py-4 border-b border-border-light last:border-b-0">
-    <div className="mt-0.5">
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors flex-shrink-0 ${
-          checked
-            ? 'bg-brand-primary border-brand-primary text-white'
-            : 'border-border-light bg-white hover:border-brand-primary/60'
+  <div className="flex items-start justify-between gap-4 py-3 border-b border-border-light last:border-0">
+    <div className="space-y-0.5">
+      <p className="text-xs font-bold text-text-primary">{label}</p>
+      {description && <p className="text-[11px] text-text-muted leading-relaxed">{description}</p>}
+    </div>
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+        checked ? 'bg-brand-primary' : 'bg-slate-200'
+      }`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+          checked ? 'translate-x-4' : 'translate-x-0'
         }`}
-      >
-        {checked && <Check className="w-3 h-3" />}
-      </button>
-    </div>
-    <div>
-      <span className="block text-xs font-bold text-text-primary">{label}</span>
-      <span className="block text-[11px] text-text-muted mt-0.5 leading-relaxed">{description}</span>
-    </div>
+      />
+    </button>
   </div>
 );
 
@@ -211,6 +290,8 @@ const PermCell: React.FC<PermCellProps> = ({ checked, onChange, colorClass }) =>
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export const Settings: React.FC = () => {
+  const { addToast } = useToast();
+
   // ── General ──
   const [refreshInterval, setRefreshInterval] = useState('30000');
   const [baseUrl, setBaseUrl] = useState('');
@@ -228,58 +309,121 @@ export const Settings: React.FC = () => {
   const [notifyNodeDown, setNotifyNodeDown] = useState(false);
   const [notifyApiDown, setNotifyApiDown] = useState(false);
 
+  // ── 3rd-Party Integrations Hub ──
+  const [selectedChannel, setSelectedChannel] = useState<IntegrationChannel>('telegram');
+  const [integrations, setIntegrations] = useState<IntegrationsState>(DEFAULT_INTEGRATIONS);
+  const [testingChannel, setTestingChannel] = useState(false);
+
   // ── Permissions ──
   const [permissions, setPermissions] = useState<PermissionsMap>(DEFAULT_PERMISSIONS);
 
   // ── Toast ──
   const [toastVisible, setToastVisible] = useState(false);
 
-  // ─── Load from localStorage ──────────────────────────────────────────────────
+  // ─── Load from Database & localStorage ───────────────────────────────────────
 
   useEffect(() => {
+    // 1. Initial load from localStorage (instant cache)
     const ri = localStorage.getItem('noka_refresh_interval');
     if (ri !== null) setRefreshInterval(ri);
-
     const bu = localStorage.getItem('noka_base_url');
     if (bu !== null) setBaseUrl(bu);
-
     const pu = localStorage.getItem('noka_proxy_url');
     if (pu !== null) setProxyUrl(pu);
-
     const as = localStorage.getItem('noka_allow_signup');
     if (as !== null) setAllowSignup(as === 'true');
-
     const sae = localStorage.getItem('noka_send_activation_email');
     if (sae !== null) setSendActivationEmail(sae === 'true');
-
-    const esn = localStorage.getItem('noka_email_sender_name');
-    if (esn !== null) setEmailSenderName(esn);
-
-    const esa = localStorage.getItem('noka_email_sender_address');
-    if (esa !== null) setEmailSenderAddress(esa);
-
-    const et = localStorage.getItem('noka_email_transport');
-    if (et !== null) setEmailTransport(et as EmailTransport);
-
+    const sn = localStorage.getItem('noka_email_sender_name');
+    if (sn !== null) setEmailSenderName(sn);
+    const sa = localStorage.getItem('noka_email_sender_address');
+    if (sa !== null) setEmailSenderAddress(sa);
+    const et = localStorage.getItem('noka_email_transport') as EmailTransport | null;
+    if (et !== null) setEmailTransport(et);
     const nnd = localStorage.getItem('noka_notify_node_down');
     if (nnd !== null) setNotifyNodeDown(nnd === 'true');
-
     const nad = localStorage.getItem('noka_notify_api_down');
     if (nad !== null) setNotifyApiDown(nad === 'true');
 
-    const perm = localStorage.getItem('noka_permissions');
-    if (perm) {
+    const rawIntegrations = localStorage.getItem('noka_integrations_config');
+    if (rawIntegrations) {
       try {
-        setPermissions({ ...DEFAULT_PERMISSIONS, ...JSON.parse(perm) });
-      } catch {
-        /* ignore parse errors */
-      }
+        const parsed = JSON.parse(rawIntegrations);
+        setIntegrations(prev => ({ ...prev, ...parsed }));
+      } catch (e) {}
     }
+
+    const perms = localStorage.getItem('noka_permissions');
+    if (perms !== null) {
+      try {
+        setPermissions(JSON.parse(perms));
+      } catch {}
+    }
+
+    // 2. Fetch authoritative configuration from backend PostgreSQL database
+    axios.get('/api/settings')
+      .then(res => {
+        const dbData = res.data?.data;
+        if (dbData) {
+          if (dbData.refresh_interval !== undefined) {
+            setRefreshInterval(String(dbData.refresh_interval));
+            localStorage.setItem('noka_refresh_interval', String(dbData.refresh_interval));
+          }
+          if (dbData.base_url !== undefined) {
+            setBaseUrl(String(dbData.base_url));
+            localStorage.setItem('noka_base_url', String(dbData.base_url));
+          }
+          if (dbData.proxy_url !== undefined) {
+            setProxyUrl(String(dbData.proxy_url));
+            localStorage.setItem('noka_proxy_url', String(dbData.proxy_url));
+          }
+          if (dbData.allow_signup !== undefined) {
+            setAllowSignup(Boolean(dbData.allow_signup));
+            localStorage.setItem('noka_allow_signup', String(dbData.allow_signup));
+          }
+          if (dbData.send_activation_email !== undefined) {
+            setSendActivationEmail(Boolean(dbData.send_activation_email));
+            localStorage.setItem('noka_send_activation_email', String(dbData.send_activation_email));
+          }
+          if (dbData.email_sender_name !== undefined) {
+            setEmailSenderName(String(dbData.email_sender_name));
+            localStorage.setItem('noka_email_sender_name', String(dbData.email_sender_name));
+          }
+          if (dbData.email_sender_address !== undefined) {
+            setEmailSenderAddress(String(dbData.email_sender_address));
+            localStorage.setItem('noka_email_sender_address', String(dbData.email_sender_address));
+          }
+          if (dbData.email_transport !== undefined) {
+            setEmailTransport(dbData.email_transport as EmailTransport);
+            localStorage.setItem('noka_email_transport', dbData.email_transport);
+          }
+          if (dbData.notify_node_down !== undefined) {
+            setNotifyNodeDown(Boolean(dbData.notify_node_down));
+            localStorage.setItem('noka_notify_node_down', String(dbData.notify_node_down));
+          }
+          if (dbData.notify_api_down !== undefined) {
+            setNotifyApiDown(Boolean(dbData.notify_api_down));
+            localStorage.setItem('noka_notify_api_down', String(dbData.notify_api_down));
+          }
+          if (dbData.integrations_config) {
+            setIntegrations(prev => ({ ...prev, ...dbData.integrations_config }));
+            localStorage.setItem('noka_integrations_config', JSON.stringify(dbData.integrations_config));
+          }
+          if (dbData.permissions) {
+            setPermissions(dbData.permissions);
+            localStorage.setItem('noka_permissions', JSON.stringify(dbData.permissions));
+          }
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch settings from DB:', err);
+      });
   }, []);
 
-  // ─── Save to localStorage ────────────────────────────────────────────────────
+  // ─── Save to Database & localStorage ─────────────────────────────────────────
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    // Save to localStorage for instant local access
     localStorage.setItem('noka_refresh_interval', refreshInterval);
     localStorage.setItem('noka_base_url', baseUrl);
     localStorage.setItem('noka_proxy_url', proxyUrl);
@@ -290,48 +434,114 @@ export const Settings: React.FC = () => {
     localStorage.setItem('noka_email_transport', emailTransport);
     localStorage.setItem('noka_notify_node_down', String(notifyNodeDown));
     localStorage.setItem('noka_notify_api_down', String(notifyApiDown));
+    localStorage.setItem('noka_integrations_config', JSON.stringify(integrations));
     localStorage.setItem('noka_permissions', JSON.stringify(permissions));
 
+    // Persist to PostgreSQL database
     try {
       await axios.post('/api/settings', {
         settings: {
-          refreshInterval,
-          baseUrl,
-          proxyUrl,
-          allowSignup,
-          sendActivationEmail,
-          emailSenderName,
-          emailSenderAddress,
-          emailTransport,
-          notifyNodeDown,
-          notifyApiDown,
-          permissions
+          refresh_interval: refreshInterval,
+          base_url: baseUrl,
+          proxy_url: proxyUrl,
+          allow_signup: allowSignup,
+          send_activation_email: sendActivationEmail,
+          email_sender_name: emailSenderName,
+          email_sender_address: emailSenderAddress,
+          email_transport: emailTransport,
+          notify_node_down: notifyNodeDown,
+          notify_api_down: notifyApiDown,
+          integrations_config: integrations,
+          permissions: permissions
         }
-      }, { withCredentials: true });
+      });
+      setToastVisible(true);
+      setTimeout(() => setToastVisible(false), 3500);
     } catch (err) {
-      console.error("Failed to save settings to backend", err);
+      console.error('Failed to persist settings to DB:', err);
+      setToastVisible(true);
+      setTimeout(() => setToastVisible(false), 3500);
     }
+  }, [
+    refreshInterval,
+    baseUrl,
+    proxyUrl,
+    allowSignup,
+    sendActivationEmail,
+    emailSenderName,
+    emailSenderAddress,
+    emailTransport,
+    notifyNodeDown,
+    notifyApiDown,
+    integrations,
+    permissions,
+  ]);
 
-    setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 3500);
+  // ─── Test Send Notification Simulator ─────────────────────────────────────────
+
+  const handleTestChannel = async (channel: IntegrationChannel) => {
+    setTestingChannel(true);
+    try {
+      const chConfig = integrations[channel];
+      if (!chConfig.enabled) {
+        addToast('error', `Please enable ${channel.toUpperCase()} first before testing.`, 'Channel Disabled');
+        setTestingChannel(false);
+        return;
+      }
+
+      // Quick client-side validation
+      if (channel === 'telegram' && (!integrations.telegram.botToken || !integrations.telegram.chatId)) {
+        addToast('error', 'Bot Token and Chat ID are required for Telegram.', 'Missing Parameters');
+        setTestingChannel(false);
+        return;
+      }
+      if (channel === 'whatsapp' && (!integrations.whatsapp.serverUrl || !integrations.whatsapp.recipient)) {
+        addToast('error', 'Server URL and Recipient are required for WhatsApp.', 'Missing Parameters');
+        setTestingChannel(false);
+        return;
+      }
+      if (channel === 'webhook' && !integrations.webhook.url) {
+        addToast('error', 'Webhook URL is required.', 'Missing Parameters');
+        setTestingChannel(false);
+        return;
+      }
+      if (channel === 'slack' && !integrations.slack.webhookUrl) {
+        addToast('error', 'Slack Webhook URL is required.', 'Missing Parameters');
+        setTestingChannel(false);
+        return;
+      }
+      if (channel === 'discord' && !integrations.discord.webhookUrl) {
+        addToast('error', 'Discord Webhook URL is required.', 'Missing Parameters');
+        setTestingChannel(false);
+        return;
+      }
+
+      const res = await axios.post('/api/settings/test-integration', {
+        channel,
+        config: integrations[channel],
+        message: `🔔 [NOKA Gateway Alert] Real-time test notification for ${channel.toUpperCase()}`
+      });
+
+      addToast('success', res.data?.message || 'Test notification delivered successfully!', 'Test Sent');
+    } catch (err: any) {
+      const errMsg = err.response?.data?.message || err.message || 'Failed to dispatch test notification.';
+      addToast('error', errMsg, 'Dispatch Failed');
+    } finally {
+      setTestingChannel(false);
+    }
   };
 
-  // ─── Permission toggle helper ────────────────────────────────────────────────
+  // ─── Permission helpers ──────────────────────────────────────────────────────
 
-  const togglePerm = useCallback(
-    (resource: ResourceKey, action: keyof ResourcePermissions) => {
-      setPermissions((prev) => ({
-        ...prev,
-        [resource]: {
-          ...prev[resource],
-          [action]: !prev[resource][action],
-        },
-      }));
-    },
-    []
-  );
-
-  // ─── Permission color map ────────────────────────────────────────────────────
+  const togglePerm = (resource: ResourceKey, action: keyof ResourcePermissions) => {
+    setPermissions((prev) => ({
+      ...prev,
+      [resource]: {
+        ...prev[resource],
+        [action]: !prev[resource][action],
+      },
+    }));
+  };
 
   const permColors: Record<keyof ResourcePermissions, string> = {
     create: 'bg-emerald-500',
@@ -340,31 +550,24 @@ export const Settings: React.FC = () => {
     delete: 'bg-red-500',
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
-
   return (
     <div className="space-y-6 font-sans">
-      {/* Toast */}
+      {/* Toast Notification */}
       {toastVisible && (
-        <Toast
-          message="Settings saved successfully!"
-          onClose={() => setToastVisible(false)}
-        />
+        <Toast message="Settings saved successfully!" onClose={() => setToastVisible(false)} />
       )}
 
       {/* ── Page Header ── */}
-      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-primary/5 to-transparent pointer-events-none" />
-        <div className="relative z-10 flex items-start gap-4">
-          <div className="p-2.5 rounded-lg bg-brand-primary/10 text-brand-primary flex-shrink-0">
-            <SettingsIcon className="w-5 h-5" />
+      <div className="bg-white p-6 rounded-lg border border-border-light shadow-sm flex items-center justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-brand-primary" />
+            <h1 className="text-xl font-bold tracking-tight text-text-primary">Settings</h1>
           </div>
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-text-primary">Settings</h2>
-            <p className="text-xs text-text-secondary mt-1 leading-relaxed max-w-2xl">
-              Configure application preferences, signup restrictions, notifications and user permissions.
-            </p>
-          </div>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Configure application preferences, signup restrictions, notifications and user
+            permissions.
+          </p>
         </div>
       </div>
 
@@ -427,13 +630,13 @@ export const Settings: React.FC = () => {
       </SectionCard>
 
       {/* ── Notifications ── */}
-      <SectionCard icon={<Bell className="w-4 h-4" />} title="Notifications">
+      <SectionCard icon={<Bell className="w-4 h-4" />} title="Notifications & Alert Channels">
         {/* Tab bar */}
         <div className="flex gap-0 border border-border-light rounded-lg overflow-hidden w-fit mb-6">
           <button
             type="button"
             onClick={() => setNotifTab('email')}
-            className={`px-5 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+            className={`px-5 py-2 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
               notifTab === 'email'
                 ? 'bg-brand-primary text-white'
                 : 'bg-white text-text-secondary hover:bg-slate-50 hover:text-text-primary'
@@ -444,13 +647,13 @@ export const Settings: React.FC = () => {
           <button
             type="button"
             onClick={() => setNotifTab('3rd')}
-            className={`px-5 py-2 text-xs font-bold uppercase tracking-wider border-l border-border-light transition-colors ${
+            className={`px-5 py-2 text-xs font-bold uppercase tracking-wider border-l border-border-light transition-colors cursor-pointer ${
               notifTab === '3rd'
                 ? 'bg-brand-primary text-white'
                 : 'bg-white text-text-secondary hover:bg-slate-50 hover:text-text-primary'
             }`}
           >
-            3rd-Party Integrations
+            3rd-Party Integrations Hub
           </button>
         </div>
 
@@ -531,15 +734,487 @@ export const Settings: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* 3rd-party tab placeholder */
-          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-            <div className="p-3 rounded-full bg-slate-100 text-text-muted">
-              <Bell className="w-6 h-6" />
+          /* 3rd-Party Integrations Hub */
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <p className="text-xs font-bold text-text-primary mb-1">Select Integration Channel</p>
+              <p className="text-[11px] text-text-muted mb-4">
+                Configure instant incident and threat alerts for your DevOps chat rooms and webhook listeners.
+              </p>
+
+              {/* Channel Selector Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {/* Telegram */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel('telegram')}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedChannel === 'telegram'
+                      ? 'border-sky-500 bg-sky-50 text-sky-700 font-bold shadow-xs'
+                      : 'border-border-light bg-white text-text-secondary hover:border-slate-300'
+                  }`}
+                >
+                  <Send className="w-5 h-5 text-sky-500" />
+                  <div className="text-center">
+                    <span className="text-xs block">Telegram</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                      integrations.telegram.enabled ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400 bg-slate-100'
+                    }`}>
+                      {integrations.telegram.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel('whatsapp')}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedChannel === 'whatsapp'
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-bold shadow-xs'
+                      : 'border-border-light bg-white text-text-secondary hover:border-slate-300'
+                  }`}
+                >
+                  <MessageSquare className="w-5 h-5 text-emerald-500" />
+                  <div className="text-center">
+                    <span className="text-xs block">WhatsApp</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                      integrations.whatsapp.enabled ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400 bg-slate-100'
+                    }`}>
+                      {integrations.whatsapp.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Webhook */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel('webhook')}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedChannel === 'webhook'
+                      ? 'border-brand-primary bg-brand-primary/5 text-brand-primary font-bold shadow-xs'
+                      : 'border-border-light bg-white text-text-secondary hover:border-slate-300'
+                  }`}
+                >
+                  <Globe className="w-5 h-5 text-brand-primary" />
+                  <div className="text-center">
+                    <span className="text-xs block">Webhook</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                      integrations.webhook.enabled ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400 bg-slate-100'
+                    }`}>
+                      {integrations.webhook.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Slack */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel('slack')}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedChannel === 'slack'
+                      ? 'border-purple-500 bg-purple-50 text-purple-700 font-bold shadow-xs'
+                      : 'border-border-light bg-white text-text-secondary hover:border-slate-300'
+                  }`}
+                >
+                  <Hash className="w-5 h-5 text-purple-500" />
+                  <div className="text-center">
+                    <span className="text-xs block">Slack</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                      integrations.slack.enabled ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400 bg-slate-100'
+                    }`}>
+                      {integrations.slack.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Discord */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedChannel('discord')}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                    selectedChannel === 'discord'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-bold shadow-xs'
+                      : 'border-border-light bg-white text-text-secondary hover:border-slate-300'
+                  }`}
+                >
+                  <Share2 className="w-5 h-5 text-indigo-500" />
+                  <div className="text-center">
+                    <span className="text-xs block">Discord</span>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                      integrations.discord.enabled ? 'text-emerald-700 bg-emerald-100' : 'text-slate-400 bg-slate-100'
+                    }`}>
+                      {integrations.discord.enabled ? 'Active' : 'Off'}
+                    </span>
+                  </div>
+                </button>
+              </div>
             </div>
-            <p className="text-sm font-bold text-text-primary">Coming Soon</p>
-            <p className="text-xs text-text-muted max-w-xs leading-relaxed">
-              3rd-party integrations such as Slack, Hipchat etc. coming soon.
-            </p>
+
+            {/* Channel Form Details */}
+            <div className="p-5 rounded-xl border border-border-light bg-slate-50/50 space-y-4">
+              {/* Telegram Form */}
+              {selectedChannel === 'telegram' && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-border-light pb-3">
+                    <div className="flex items-center gap-2">
+                      <Send className="w-4 h-4 text-sky-500" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Telegram Bot Configuration
+                      </h3>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <span>Enable Telegram Alerts</span>
+                      <input
+                        type="checkbox"
+                        checked={integrations.telegram.enabled}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          telegram: { ...prev.telegram, enabled: e.target.checked }
+                        }))}
+                        className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Bot Token <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={integrations.telegram.botToken}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          telegram: { ...prev.telegram, botToken: e.target.value }
+                        }))}
+                        placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">Obtained from @BotFather on Telegram.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Chat ID / Group ID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.telegram.chatId}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          telegram: { ...prev.telegram, chatId: e.target.value }
+                        }))}
+                        placeholder="e.g. -100123456789 or 987654321"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">Target User ID, Group ID, or Channel (@channel_name).</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Topic Thread ID (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.telegram.threadId || ''}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          telegram: { ...prev.telegram, threadId: e.target.value }
+                        }))}
+                        placeholder="e.g. 12"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">Only required if sending to a specific Supergroup Forum Topic.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* WhatsApp Form */}
+              {selectedChannel === 'whatsapp' && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-border-light pb-3">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-emerald-500" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        WhatsApp Gateway (WAHA / Custom API) Configuration
+                      </h3>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <span>Enable WhatsApp Alerts</span>
+                      <input
+                        type="checkbox"
+                        checked={integrations.whatsapp.enabled}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          whatsapp: { ...prev.whatsapp, enabled: e.target.checked }
+                        }))}
+                        className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Server API Endpoint URL <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.whatsapp.serverUrl}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          whatsapp: { ...prev.whatsapp, serverUrl: e.target.value }
+                        }))}
+                        placeholder="e.g. http://waha.internal:3000/api/sendText or https://wa.api.gateway/v1/send"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">WAHA HTTP API endpoint or compatible WhatsApp gateway url.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Recipient Number / Group JID <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.whatsapp.recipient}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          whatsapp: { ...prev.whatsapp, recipient: e.target.value }
+                        }))}
+                        placeholder="e.g. 6281234567890@c.us or 12036302@g.us"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">International phone number with country code or Group JID.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Session Name / API Key (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.whatsapp.session || ''}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          whatsapp: { ...prev.whatsapp, session: e.target.value }
+                        }))}
+                        placeholder="e.g. default"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">Session identifier or authorization header token.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Webhook Form */}
+              {selectedChannel === 'webhook' && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-border-light pb-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-brand-primary" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Generic HTTP Webhook Configuration
+                      </h3>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <span>Enable Webhook Alerts</span>
+                      <input
+                        type="checkbox"
+                        checked={integrations.webhook.enabled}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          webhook: { ...prev.webhook, enabled: e.target.checked }
+                        }))}
+                        className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Webhook Target URL <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.webhook.url}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          webhook: { ...prev.webhook, url: e.target.value }
+                        }))}
+                        placeholder="e.g. https://api.ops.company.com/v1/alerts"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        HTTP Method <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={integrations.webhook.method}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          webhook: { ...prev.webhook, method: e.target.value as 'POST' | 'PUT' }
+                        }))}
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-bold text-text-primary focus:outline-none focus:border-brand-primary"
+                      >
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-3">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Custom Headers (JSON format)
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={integrations.webhook.headersJson || ''}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          webhook: { ...prev.webhook, headersJson: e.target.value }
+                        }))}
+                        placeholder='{"Authorization": "Bearer secret_token", "X-Custom-Header": "value"}'
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">JSON object containing headers to include in the HTTP request.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Slack Form */}
+              {selectedChannel === 'slack' && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-border-light pb-3">
+                    <div className="flex items-center gap-2">
+                      <Hash className="w-4 h-4 text-purple-500" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Slack Incoming Webhook Configuration
+                      </h3>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <span>Enable Slack Alerts</span>
+                      <input
+                        type="checkbox"
+                        checked={integrations.slack.enabled}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          slack: { ...prev.slack, enabled: e.target.checked }
+                        }))}
+                        className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Incoming Webhook URL <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={integrations.slack.webhookUrl}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          slack: { ...prev.slack, webhookUrl: e.target.value }
+                        }))}
+                        placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">Create an Incoming Webhook in your Slack Workspace App configuration.</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Override Channel (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={integrations.slack.channel || ''}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          slack: { ...prev.slack, channel: e.target.value }
+                        }))}
+                        placeholder="#gateway-alerts"
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Discord Form */}
+              {selectedChannel === 'discord' && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between border-b border-border-light pb-3">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="w-4 h-4 text-indigo-500" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">
+                        Discord Channel Webhook Configuration
+                      </h3>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                      <span>Enable Discord Alerts</span>
+                      <input
+                        type="checkbox"
+                        checked={integrations.discord.enabled}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          discord: { ...prev.discord, enabled: e.target.checked }
+                        }))}
+                        className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase">
+                      Discord Webhook URL <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={integrations.discord.webhookUrl}
+                      onChange={(e) => setIntegrations(prev => ({
+                        ...prev,
+                        discord: { ...prev.discord, webhookUrl: e.target.value }
+                      }))}
+                      placeholder="https://discord.com/api/webhooks/1234567890/abcdefghijklmnopqrstuvwxyz"
+                      className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                    />
+                    <p className="text-[10px] text-text-muted">Generated under Discord Server Settings → Integrations → Webhooks.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Bar for Channel */}
+              <div className="flex items-center justify-end pt-3 border-t border-border-light/80 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleTestChannel(selectedChannel)}
+                  disabled={testingChannel}
+                  className="px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {testingChannel ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 text-brand-primary animate-spin" />
+                      <span>Testing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 text-brand-primary" />
+                      <span>Test {selectedChannel.toUpperCase()}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </SectionCard>
@@ -619,7 +1294,7 @@ export const Settings: React.FC = () => {
       <button
         type="button"
         onClick={handleSave}
-        className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 bg-brand-primary text-white text-sm font-bold rounded-lg hover:bg-brand-primary/90 active:scale-[0.99] transition-all shadow-sm"
+        className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 bg-brand-primary text-white text-sm font-bold rounded-lg hover:bg-brand-primary/90 active:scale-[0.99] transition-all shadow-sm cursor-pointer"
       >
         <Save className="w-4 h-4" />
         Save Settings
