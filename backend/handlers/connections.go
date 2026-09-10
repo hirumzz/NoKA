@@ -27,13 +27,33 @@ type CreateConnectionRequest struct {
 	NetdataURL   string `json:"netdata_url"`
 }
 
-// GetConnections lists all connections
+// GetConnections lists all connections, sanitizing sensitive credentials for non-admins
 func GetConnections(c *gin.Context) {
 	var nodes []models.KongNode
 	if err := db.DB.Find(&nodes).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch connections"})
 		return
 	}
+
+	// Check if user is admin
+	isAdmin := false
+	if userVal, exists := c.Get("user"); exists {
+		if user, ok := userVal.(*models.User); ok {
+			isAdmin = user.Admin || user.Role == "admin" || user.Role == "superadmin"
+		}
+	}
+
+	// Security: If not admin, sanitize sensitive credentials from output
+	if !isAdmin {
+		for i := range nodes {
+			nodes[i].KongAPIKey = ""
+			nodes[i].Password = ""
+			nodes[i].JWTSecret = ""
+			nodes[i].JWTKey = ""
+			nodes[i].Username = ""
+		}
+	}
+
 	c.JSON(http.StatusOK, nodes)
 }
 

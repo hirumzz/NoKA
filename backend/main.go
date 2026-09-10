@@ -71,6 +71,9 @@ func securityHeaders() gin.HandlerFunc {
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+		c.Header("X-Permitted-Cross-Domain-Policies", "none")
 		c.Header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: blob:;")
 		c.Next()
 	}
@@ -152,7 +155,7 @@ func main() {
 
 	// Public routes
 	r.POST("/login", loginRateLimitMiddleware(loginRL), authHandler.Login)
-	r.POST("/register", authHandler.RegisterFirstAdmin) // Only works if 0 users exist
+	r.POST("/register", loginRateLimitMiddleware(loginRL), authHandler.RegisterFirstAdmin) // Only works if 0 users exist
 
 	r.GET("/api/info", func(c *gin.Context) {
 		count, _ := userRepo.CountUsers()
@@ -193,9 +196,9 @@ func main() {
 		api.POST("/connections/deactivate", middleware.AdminRequired(), handlers.DeactivateConnection)
 
 		// System Settings & Resource Metrics
-		api.GET("/settings", handlers.GetSystemSettings)
+		api.GET("/settings", middleware.AdminRequired(), handlers.GetSystemSettings)
 		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)
-		api.POST("/settings/test-integration", handlers.TestIntegrationChannel)
+		api.POST("/settings/test-integration", middleware.AdminRequired(), handlers.TestIntegrationChannel)
 		api.GET("/system/resources", handlers.GetSystemResources)
 
 		// Comments management
@@ -209,8 +212,8 @@ func main() {
 		api.POST("/notifications", middleware.AdminRequired(), handlers.CreateNotification)
 		api.DELETE("/notifications/:id", middleware.AdminRequired(), handlers.DeleteNotification)
 
-		// User Management — list requires auth, mutation requires admin
-		api.GET("/users", func(c *gin.Context) {
+		// User Management — list and mutations require admin
+		api.GET("/users", middleware.AdminRequired(), func(c *gin.Context) {
 			var users []models.User
 			if err := db.DB.Find(&users).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to fetch users"})
@@ -237,7 +240,7 @@ func main() {
 		api.PUT("/alerts/rules/:id", middleware.AdminRequired(), handlers.UpdateAlertRule)
 		api.DELETE("/alerts/rules/:id", middleware.AdminRequired(), handlers.DeleteAlertRule)
 		api.PATCH("/alerts/rules/:id/toggle", middleware.AdminRequired(), handlers.ToggleAlertRule)
-		api.POST("/alerts/rules/test", handlers.TestAlertRule)
+		api.POST("/alerts/rules/test", middleware.AdminRequired(), handlers.TestAlertRule)
 		api.GET("/alerts/history", handlers.GetAlertHistory)
 		api.DELETE("/alerts/history", middleware.AdminRequired(), handlers.ClearAlertHistory)
 	}

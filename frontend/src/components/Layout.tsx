@@ -232,10 +232,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       title: 'APPLICATION',
       items: [
         { path: '/alerts', label: 'ALERTS', icon: BellRing },
-        { path: '/users', label: 'USERS', icon: UsersIcon },
+        { path: '/users', label: 'USERS', icon: UsersIcon, adminOnly: true },
         { path: '/connections', label: 'CONNECTIONS', icon: Radio },
         { path: '/audit-logs', label: 'AUDIT LOGS', icon: FileText, adminOnly: true },
-        { path: '/settings', label: 'SETTINGS', icon: Settings },
+        { path: '/settings', label: 'SETTINGS', icon: Settings, adminOnly: true },
         { path: '/help', label: 'HELP', icon: HelpCircle }
       ]
     }
@@ -338,7 +338,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Version Footer */}
         <div className="p-4 bg-brand-royal-dark/40 border-t border-white/5 flex items-center justify-between text-[10px] font-semibold">
-          <span className="text-brand-primary">NOKA v2.17.1</span>
+          <span className="text-brand-primary">NOKA v2.17.2</span>
         </div>
       </aside>
 

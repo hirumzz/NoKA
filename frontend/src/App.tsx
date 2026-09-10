@@ -286,9 +286,9 @@ function App() {
             <Route
               path="/users"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <Users />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
@@ -334,9 +334,9 @@ function App() {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <Settings />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
