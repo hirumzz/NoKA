@@ -31,6 +31,7 @@ import { CertificateDetails } from './pages/CertificateDetails';
 import { Info } from './pages/Info';
 import { Snapshots } from './pages/Snapshots';
 import { Settings } from './pages/Settings';
+import { Alerts } from './pages/Alerts';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -335,6 +336,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/alerts"
+              element={
+                <ProtectedRoute>
+                  <Alerts />
                 </ProtectedRoute>
               }
             />

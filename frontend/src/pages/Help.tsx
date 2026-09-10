@@ -12,6 +12,12 @@ import {
   Rocket,
   ChevronDown,
   ChevronUp,
+  BellRing,
+  Send,
+  ShieldCheck,
+  Zap,
+  Activity,
+  Clock,
 } from 'lucide-react';
 
 const Help = () => {
@@ -29,7 +35,7 @@ const Help = () => {
           <h1 className="text-2xl font-bold text-slate-800">NOKA Documentation & Help Center</h1>
         </div>
         <p className="text-slate-500">
-          Learn about each menu in Noka, how to configure routing and plugins, and troubleshooting steps. Click on Services or Routes for full tutorials.
+          Learn about each menu in Noka, how to configure routing and plugins, set up alerts and 3rd-party integrations, and troubleshooting steps. Click on Services, Routes, or Alerts for full tutorials.
         </p>
       </div>
 
@@ -269,6 +275,220 @@ const Help = () => {
                 Configure backend vault adapters (like HashiCorp Vault, AWS Secrets Manager) to securely store system secrets. Keys and Key Sets manage cryptographic identities (like JWK, public keys) used for token verification.
               </p>
             </div>
+
+            {/* ALERTS & 3RD-PARTY INTEGRATIONS SECTION */}
+            <div 
+              className="bg-white rounded border-l-4 border-purple-500 p-4 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors"
+              onClick={() => toggleGuide('alerts')}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-800 flex items-center">
+                  <BellRing className="w-5 h-5 mr-2 text-purple-500" /> Alerts & 3rd-Party Integrations
+                </h3>
+                <span className="text-xs text-purple-500 font-medium flex items-center">
+                  {activeGuide === 'alerts' ? <ChevronUp className="w-4 h-4 mr-1" /> : <ChevronDown className="w-4 h-4 mr-1" />}
+                  Click for Full Tutorial
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mt-2">
+                Real-time incident response and multi-channel alerting. Automate monitoring for gateway reachability, 5xx error spikes, SSL certificate expiration, and critical config mutations across Telegram, WhatsApp, Slack, Discord, and Webhooks.
+              </p>
+            </div>
+
+            {activeGuide === 'alerts' && (
+              <div className="bg-purple-50/50 rounded-lg border border-purple-100 p-6 animate-in fade-in slide-in-from-top-4 duration-300 space-y-6">
+                <div>
+                  <h4 className="text-lg font-bold text-purple-800 flex items-center mb-2">
+                    <BellRing className="w-6 h-6 mr-2 text-purple-600" /> Alerts & 3rd-Party Integrations — Master Guide
+                  </h4>
+                  <p className="text-sm text-slate-600">
+                    NOKA includes a composable multi-channel alerting engine. Configure universal rule criteria, interpolate dynamic payload variables, set cooldown periods to prevent alert fatigue, and securely dispatch notifications to third-party endpoints.
+                  </p>
+                </div>
+
+                {/* 1. 3rd-Party Integrations Setup */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs space-y-4">
+                  <h5 className="font-bold text-slate-800 flex items-center text-sm">
+                    <Send className="w-4 h-4 mr-2 text-purple-600" /> 1. Configuring 3rd-Party Integration Channels
+                  </h5>
+                  <p className="text-xs text-slate-500">
+                    Manage your delivery credentials under <strong className="text-slate-700">Application &gt; Settings &gt; Integrations</strong> or the 3rd-Party tab in the Alerts console.
+                  </p>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Telegram */}
+                    <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs space-y-2">
+                      <div className="font-bold text-slate-800 flex items-center text-xs">
+                        <span className="w-2 h-2 rounded-full bg-sky-500 mr-2"></span> Telegram Bot Setup
+                      </div>
+                      <ol className="list-decimal list-inside text-slate-600 space-y-1.5 leading-relaxed">
+                        <li>Open Telegram and message <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">@BotFather</code>.</li>
+                        <li>Send <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">/newbot</code> and follow prompts to obtain your <strong>Bot API Token</strong> (e.g. <code>123456789:ABCdefGhIJKlm...</code>).</li>
+                        <li>Start a conversation with your bot, or add it to your DevOps group.</li>
+                        <li>Retrieve your <strong>Chat ID</strong>: Message <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">@userinfobot</code> or fetch updates via <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code>. (Group IDs begin with a minus, e.g. <code>-100123456789</code>).</li>
+                        <li><em>Optional:</em> For supergroups with Forum Topics, specify the <strong>Topic / Thread ID</strong> to isolate alerts into specific topic threads.</li>
+                      </ol>
+                    </div>
+
+                    {/* WhatsApp */}
+                    <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs space-y-2">
+                      <div className="font-bold text-slate-800 flex items-center text-xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> WhatsApp (via WAHA Gateway)
+                      </div>
+                      <ol className="list-decimal list-inside text-slate-600 space-y-1.5 leading-relaxed">
+                        <li>Deploy the <a href="https://waha.devlike.pro/" target="_blank" rel="noreferrer" className="text-emerald-600 font-semibold underline">WAHA (WhatsApp HTTP API)</a> Docker container in your infrastructure.</li>
+                        <li>Enter the <strong>Server URL</strong> (e.g. <code>http://waha:3000</code> or <code>https://waha.internal.net</code>).</li>
+                        <li>Provide your <strong>API Key</strong> (if configured on the WAHA daemon) and <strong>Session Name</strong> (defaults to <code>default</code>).</li>
+                        <li>Configure the <strong>Recipient Phone</strong> in international E.164 format with country code (e.g. <code>6281234567890@c.us</code> or group ID <code>123456789@g.us</code>).</li>
+                      </ol>
+                    </div>
+
+                    {/* Slack */}
+                    <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs space-y-2">
+                      <div className="font-bold text-slate-800 flex items-center text-xs">
+                        <span className="w-2 h-2 rounded-full bg-fuchsia-500 mr-2"></span> Slack Webhooks
+                      </div>
+                      <ol className="list-decimal list-inside text-slate-600 space-y-1.5 leading-relaxed">
+                        <li>Go to your Slack Workspace App Management and enable <strong>Incoming Webhooks</strong>.</li>
+                        <li>Click <strong>Add New Webhook to Workspace</strong> and choose target channel.</li>
+                        <li>Copy the generated <strong>Webhook URL</strong> (e.g. <code>https://hooks.slack.com/services/T.../B.../...</code>).</li>
+                        <li><em>Optional:</em> Override the default channel (e.g. <code>#gateway-alerts</code>) or customize the sender Bot Username.</li>
+                      </ol>
+                    </div>
+
+                    {/* Discord & Generic Webhooks */}
+                    <div className="bg-slate-50 border border-slate-200 rounded p-4 text-xs space-y-2">
+                      <div className="font-bold text-slate-800 flex items-center text-xs">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span> Discord &amp; Custom Webhooks
+                      </div>
+                      <ul className="list-disc list-inside text-slate-600 space-y-1.5 leading-relaxed">
+                        <li><strong>Discord:</strong> In your Discord channel, go to <em>Server Settings &gt; Integrations &gt; Webhooks &gt; New Webhook</em> and paste the Webhook URL into NOKA.</li>
+                        <li><strong>Generic Webhooks:</strong> Enter any HTTP endpoint URL (e.g. PagerDuty, Opsgenie, custom REST receivers). Supports <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">POST</code> or <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-[11px]">PUT</code> with custom header mappings (e.g. <code>Authorization: Bearer &lt;token&gt;</code>).</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Security & AES-256 GCM */}
+                <div className="bg-purple-950 text-purple-100 rounded-lg p-5 shadow-sm space-y-2">
+                  <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm">
+                    <ShieldCheck className="w-5 h-5" />
+                    <span>Security &amp; AES-256 GCM Encryption at Rest</span>
+                  </div>
+                  <p className="text-xs text-purple-200 leading-relaxed">
+                    All sensitive secrets — including Telegram bot tokens, WAHA API keys, Slack/Discord webhook URLs, and custom authentication headers — are protected using <strong>AES-256 GCM authenticated encryption at rest</strong> before being persisted into the PostgreSQL database (<code className="text-amber-300 font-mono">konga_settings</code>). 
+                    Secrets are decrypted strictly in memory upon dispatch, ensuring zero plaintext leakage in database backups, replication streams, or query logs.
+                  </p>
+                </div>
+
+                {/* 3. Universal Composable Alert Rules */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs space-y-4">
+                  <h5 className="font-bold text-slate-800 flex items-center text-sm">
+                    <Zap className="w-4 h-4 mr-2 text-purple-600" /> 2. Universal Composable Alert Rules
+                  </h5>
+                  <p className="text-xs text-slate-600">
+                    Rules allow you to define granular event matching conditions, choose notification channels, and customize outgoing alert messages.
+                  </p>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left text-slate-600 border border-slate-200 rounded">
+                      <thead className="text-[11px] uppercase bg-slate-100 text-slate-700 font-bold">
+                        <tr>
+                          <th className="px-3 py-2 border-b">Event Source</th>
+                          <th className="px-3 py-2 border-b">Trigger Description</th>
+                          <th className="px-3 py-2 border-b">Available Payload Variables</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        <tr className="bg-white">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">reachability_ping</td>
+                          <td className="px-3 py-2">Fired when Kong Admin API health check ping fails or returns HTTP 5xx.</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;target&#125;&#125;</code>, <code>&#123;&#123;status_code&#125;&#125;</code>, <code>&#123;&#123;node_name&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-slate-50">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">gateway_node</td>
+                          <td className="px-3 py-2">Gateway node goes offline, unreachable, or is disconnected.</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;node_name&#125;&#125;</code>, <code>&#123;&#123;admin_url&#125;&#125;</code>, <code>&#123;&#123;status_code&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-white">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">plugin_registry</td>
+                          <td className="px-3 py-2">Security anomaly detected (e.g. dynamic Lua execution plugins <code>pre-function</code> / <code>post-function</code>).</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;plugin_name&#125;&#125;</code>, <code>&#123;&#123;plugin_id&#125;&#125;</code>, <code>&#123;&#123;node_name&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-slate-50">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">metrics</td>
+                          <td className="px-3 py-2">Prometheus HTTP 5xx error rate or traffic spike crosses configured threshold.</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;target&#125;&#125;</code>, <code>&#123;&#123;error_rate&#125;&#125;</code>, <code>&#123;&#123;status_code&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-white">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">audit_mutation</td>
+                          <td className="px-3 py-2">Mutating configuration actions (Service/Route deletion, credential changes).</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;actor&#125;&#125;</code>, <code>&#123;&#123;target&#125;&#125;</code>, <code>&#123;&#123;action&#125;&#125;</code>, <code>&#123;&#123;entity&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-slate-50">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">ssl_cert</td>
+                          <td className="px-3 py-2">SSL/TLS certificate expiring within 30 days (&lt;= 7 days triggers CRITICAL).</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;target&#125;&#125;</code> (SNIs), <code>&#123;&#123;days_remaining&#125;&#125;</code>, <code>&#123;&#123;expires_at&#125;&#125;</code></td>
+                        </tr>
+                        <tr className="bg-white">
+                          <td className="px-3 py-2 font-mono font-semibold text-purple-700">custom</td>
+                          <td className="px-3 py-2">Catch-all custom events and ad-hoc rule evaluation.</td>
+                          <td className="px-3 py-2 font-mono text-[11px] text-slate-500"><code>&#123;&#123;title&#125;&#125;</code>, <code>&#123;&#123;message&#125;&#125;</code>, <code>&#123;&#123;timestamp&#125;&#125;</code>, <code>&#123;&#123;details&#125;&#125;</code></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Condition Operators & Logic */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-1.5">
+                      <div className="font-bold text-slate-800">Supported Condition Operators</div>
+                      <ul className="text-slate-600 space-y-1 list-disc list-inside">
+                        <li><code>equals</code> / <code>not_equals</code>: Exact match</li>
+                        <li><code>greater_than</code> / <code>less_than</code>: Numeric comparison</li>
+                        <li><code>greater_equal</code> / <code>less_equal</code>: Numeric threshold</li>
+                        <li><code>contains</code> / <code>not_contains</code>: Substring search</li>
+                        <li><code>in_list</code>: Comma-separated list membership (e.g. <code>500,502,503,504</code>)</li>
+                        <li><code>regex_match</code>: Regular expression pattern</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs space-y-1.5">
+                      <div className="font-bold text-slate-800">Matching Logic (MatchLogic)</div>
+                      <ul className="text-slate-600 space-y-1 list-disc list-inside">
+                        <li><strong>ALL (AND):</strong> Every condition rule item must match for the alert to trigger.</li>
+                        <li><strong>ANY (OR):</strong> Alert triggers if at least one condition item evaluates to true.</li>
+                      </ul>
+                      <div className="pt-2 font-bold text-slate-800">Variable Interpolation Example</div>
+                      <div className="bg-slate-900 text-purple-300 font-mono text-[11px] p-2 rounded">
+                        🚨 Target &#123;&#123;target&#125;&#125; failed with status &#123;&#123;status_code&#125;&#125; by user &#123;&#123;actor&#125;&#125; at &#123;&#123;timestamp&#125;&#125;
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Cooldown Periods & Automated Scanning */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs space-y-2">
+                    <div className="font-bold text-amber-800 flex items-center">
+                      <Clock className="w-4 h-4 mr-1.5 text-amber-600" /> Cooldown Periods (Anti-Fatigue)
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      To prevent inbox flooding and alert fatigue during cascading failures, each rule has a configurable <strong>Cooldown Period</strong> (e.g., 5, 15, 30, or 60 minutes). Subsequent matching events within the cooldown window are suppressed from sending duplicate messages to chat channels.
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs space-y-2">
+                    <div className="font-bold text-blue-800 flex items-center">
+                      <Activity className="w-4 h-4 mr-1.5 text-blue-600" /> Automated Incident Detection
+                    </div>
+                    <p className="text-slate-600 leading-relaxed">
+                      NOKA's background engine continuously probes active Kong nodes every <strong>60 seconds</strong>. It automatically triggers incidents on reachability 5xx responses, detects unapproved Lua code injection plugins, and scans SSL certificates approaching expiration.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

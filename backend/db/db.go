@@ -86,6 +86,10 @@ func InitDB() *gorm.DB {
 
 	log.Println("Database connection established successfully")
 
+	// Pre-migration patch for legacy konga_settings table if key column is missing
+	_ = DB.Exec(`ALTER TABLE konga_settings ADD COLUMN IF NOT EXISTS "key" text;`).Error
+	_ = DB.Exec(`DELETE FROM konga_settings WHERE "key" IS NULL;`).Error
+
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Passport{},
@@ -97,6 +101,9 @@ func InitDB() *gorm.DB {
 		&models.ReachabilityStatus{},
 		&models.Snapshot{},
 		&models.EntityAuthor{},
+		&models.KongaSetting{},
+		&models.KongaAlertRule{},
+		&models.KongaAlertHistory{},
 	)
 	if err != nil {
 		log.Printf("Failed to auto-migrate database schema: %v", err)

@@ -111,6 +111,7 @@ func main() {
 	services.StartReachabilityCron()
 	services.StartBlacklistedTokenCleanup()
 	services.SyncEntityAuthorsFromAuditLogs()
+	services.StartAlertEvaluationEngine()
 	go kongHandler.StartPrometheusMetricsCollector()
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
@@ -192,7 +193,9 @@ func main() {
 		api.POST("/connections/deactivate", middleware.AdminRequired(), handlers.DeactivateConnection)
 
 		// System Settings & Resource Metrics
+		api.GET("/settings", handlers.GetSystemSettings)
 		api.POST("/settings", middleware.AdminRequired(), handlers.SaveSystemSettings)
+		api.POST("/settings/test-integration", handlers.TestIntegrationChannel)
 		api.GET("/system/resources", handlers.GetSystemResources)
 
 		// Comments management
@@ -227,6 +230,16 @@ func main() {
 		api.GET("/snapshots", middleware.AdminRequired(), handlers.GetSnapshots)
 		api.POST("/snapshots", middleware.AdminRequired(), handlers.CreateSnapshot)
 		api.DELETE("/snapshots/:id", middleware.AdminRequired(), handlers.DeleteSnapshot)
+
+		// Flexible Alerting Engine
+		api.GET("/alerts/rules", handlers.GetAlertRules)
+		api.POST("/alerts/rules", middleware.AdminRequired(), handlers.CreateAlertRule)
+		api.PUT("/alerts/rules/:id", middleware.AdminRequired(), handlers.UpdateAlertRule)
+		api.DELETE("/alerts/rules/:id", middleware.AdminRequired(), handlers.DeleteAlertRule)
+		api.PATCH("/alerts/rules/:id/toggle", middleware.AdminRequired(), handlers.ToggleAlertRule)
+		api.POST("/alerts/rules/test", handlers.TestAlertRule)
+		api.GET("/alerts/history", handlers.GetAlertHistory)
+		api.DELETE("/alerts/history", middleware.AdminRequired(), handlers.ClearAlertHistory)
 	}
 
 	// Kong Proxy routes (authenticated, node-resolved, RBAC protected)

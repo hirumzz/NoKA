@@ -251,6 +251,11 @@ func extractLabel(labels, key string) string {
 	return labels[start : start+end]
 }
 
+func parsePrometheusMetrics(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64) {
+	totalRequests, topHits, slowestEndpoints, statusCodes, _, _, _, _ := parsePrometheusMetricsFast(metricsData)
+	return totalRequests, topHits, slowestEndpoints, statusCodes
+}
+
 func parsePrometheusMetricsFast(metricsData string) (float64, []TopHit, []SlowestEndpoint, map[string]float64, []ErrorEndpoint, []ErrorEndpoint, map[string][]ErrorRouteDetail, map[string][]ErrorRouteDetail) {
 	var totalRequests float64
 	hitsByEndpoint := make(map[string]float64)

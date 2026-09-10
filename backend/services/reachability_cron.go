@@ -284,4 +284,21 @@ func UpsertReachabilityStatus(entityID, entityType, status, message string, stat
 	if err != nil {
 		log.Printf("UpsertReachabilityStatus failed for %s %s: %v", entityType, entityID, err)
 	}
+
+	if statusCode >= 500 || status == "unreachable" {
+		severity := "error"
+		title := fmt.Sprintf("%s Ping Failed (HTTP %d)", strings.Title(entityType), statusCode)
+		if statusCode == 0 {
+			title = fmt.Sprintf("%s Connection Failure", strings.Title(entityType))
+		}
+		DispatchAlertEvent("ping_5xx_failure", severity, title,
+			fmt.Sprintf("Target %s (%s) returned HTTP %d during reachability health check: %s", entityType, entityID, statusCode, message),
+			map[string]interface{}{
+				"entity_id":   entityID,
+				"entity_type": entityType,
+				"status_code": statusCode,
+				"message":     message,
+			},
+		)
+	}
 }
