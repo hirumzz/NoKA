@@ -16,7 +16,9 @@ import {
   Hash,
   Share2,
   Play,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
@@ -316,6 +318,13 @@ export const Settings: React.FC = () => {
 
   // ── Permissions ──
   const [permissions, setPermissions] = useState<PermissionsMap>(DEFAULT_PERMISSIONS);
+
+  // ── Secret Field Masking Visibility ──
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [showWhatsAppSession, setShowWhatsAppSession] = useState(false);
+  const [showWebhookHeaders, setShowWebhookHeaders] = useState(false);
+  const [showSlackUrl, setShowSlackUrl] = useState(false);
+  const [showDiscordUrl, setShowDiscordUrl] = useState(false);
 
   // ── Toast ──
   const [toastVisible, setToastVisible] = useState(false);
@@ -879,19 +888,39 @@ export const Settings: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1 md:col-span-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">
-                        Bot Token <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="password"
-                        value={integrations.telegram.botToken}
-                        onChange={(e) => setIntegrations(prev => ({
-                          ...prev,
-                          telegram: { ...prev.telegram, botToken: e.target.value }
-                        }))}
-                        placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-text-secondary uppercase">
+                          Bot Token <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowTelegramToken(!showTelegramToken)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors cursor-pointer"
+                        >
+                          {showTelegramToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showTelegramToken ? 'Hide Token' : 'Show Token'}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showTelegramToken ? 'text' : 'password'}
+                          value={integrations.telegram.botToken}
+                          onChange={(e) => setIntegrations(prev => ({
+                            ...prev,
+                            telegram: { ...prev.telegram, botToken: e.target.value }
+                          }))}
+                          placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                          className="w-full px-3 py-2 pr-10 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTelegramToken(!showTelegramToken)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                          title={showTelegramToken ? 'Hide token' : 'Show token'}
+                        >
+                          {showTelegramToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                       <p className="text-[10px] text-text-muted">Obtained from @BotFather on Telegram.</p>
                     </div>
 
@@ -992,19 +1021,39 @@ export const Settings: React.FC = () => {
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">
-                        Session Name / API Key (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={integrations.whatsapp.session || ''}
-                        onChange={(e) => setIntegrations(prev => ({
-                          ...prev,
-                          whatsapp: { ...prev.whatsapp, session: e.target.value }
-                        }))}
-                        placeholder="e.g. default"
-                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-text-secondary uppercase">
+                          Session / API Key (Optional)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowWhatsAppSession(!showWhatsAppSession)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors cursor-pointer"
+                        >
+                          {showWhatsAppSession ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showWhatsAppSession ? 'Hide Key' : 'Show Key'}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showWhatsAppSession ? 'text' : 'password'}
+                          value={integrations.whatsapp.session || ''}
+                          onChange={(e) => setIntegrations(prev => ({
+                            ...prev,
+                            whatsapp: { ...prev.whatsapp, session: e.target.value }
+                          }))}
+                          placeholder="e.g. default"
+                          className="w-full px-3 py-2 pr-10 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowWhatsAppSession(!showWhatsAppSession)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                          title={showWhatsAppSession ? 'Hide key' : 'Show key'}
+                        >
+                          {showWhatsAppSession ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                       <p className="text-[10px] text-text-muted">Session identifier or authorization header token.</p>
                     </div>
                   </div>
@@ -1070,9 +1119,19 @@ export const Settings: React.FC = () => {
                     </div>
 
                     <div className="space-y-1 md:col-span-3">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">
-                        Custom Headers (JSON format)
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-text-secondary uppercase">
+                          Custom Headers (JSON format)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowWebhookHeaders(!showWebhookHeaders)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors cursor-pointer"
+                        >
+                          {showWebhookHeaders ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showWebhookHeaders ? 'Mask Secret Headers' : 'Show Secret Text'}</span>
+                        </button>
+                      </div>
                       <textarea
                         rows={3}
                         value={integrations.webhook.headersJson || ''}
@@ -1081,6 +1140,7 @@ export const Settings: React.FC = () => {
                           webhook: { ...prev.webhook, headersJson: e.target.value }
                         }))}
                         placeholder='{"Authorization": "Bearer secret_token", "X-Custom-Header": "value"}'
+                        style={showWebhookHeaders ? undefined : ({ WebkitTextSecurity: 'disc' } as React.CSSProperties)}
                         className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
                       />
                       <p className="text-[10px] text-text-muted">JSON object containing headers to include in the HTTP request.</p>
@@ -1115,19 +1175,39 @@ export const Settings: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1 md:col-span-2">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase">
-                        Incoming Webhook URL <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="password"
-                        value={integrations.slack.webhookUrl}
-                        onChange={(e) => setIntegrations(prev => ({
-                          ...prev,
-                          slack: { ...prev.slack, webhookUrl: e.target.value }
-                        }))}
-                        placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-text-secondary uppercase">
+                          Incoming Webhook URL <span className="text-red-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowSlackUrl(!showSlackUrl)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors cursor-pointer"
+                        >
+                          {showSlackUrl ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showSlackUrl ? 'Hide URL' : 'Show URL'}</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showSlackUrl ? 'text' : 'password'}
+                          value={integrations.slack.webhookUrl}
+                          onChange={(e) => setIntegrations(prev => ({
+                            ...prev,
+                            slack: { ...prev.slack, webhookUrl: e.target.value }
+                          }))}
+                          placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+                          className="w-full px-3 py-2 pr-10 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSlackUrl(!showSlackUrl)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                          title={showSlackUrl ? 'Hide URL' : 'Show URL'}
+                        >
+                          {showSlackUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                       <p className="text-[10px] text-text-muted">Create an Incoming Webhook in your Slack Workspace App configuration.</p>
                     </div>
 
@@ -1175,19 +1255,39 @@ export const Settings: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-text-secondary uppercase">
-                      Discord Webhook URL <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      value={integrations.discord.webhookUrl}
-                      onChange={(e) => setIntegrations(prev => ({
-                        ...prev,
-                        discord: { ...prev.discord, webhookUrl: e.target.value }
-                      }))}
-                      placeholder="https://discord.com/api/webhooks/1234567890/abcdefghijklmnopqrstuvwxyz"
-                      className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
-                    />
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        Discord Webhook URL <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowDiscordUrl(!showDiscordUrl)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-primary hover:text-brand-primary-dark transition-colors cursor-pointer"
+                      >
+                        {showDiscordUrl ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        <span>{showDiscordUrl ? 'Hide URL' : 'Show URL'}</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showDiscordUrl ? 'text' : 'password'}
+                        value={integrations.discord.webhookUrl}
+                        onChange={(e) => setIntegrations(prev => ({
+                          ...prev,
+                          discord: { ...prev.discord, webhookUrl: e.target.value }
+                        }))}
+                        placeholder="https://discord.com/api/webhooks/1234567890/abcdefghijklmnopqrstuvwxyz"
+                        className="w-full px-3 py-2 pr-10 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowDiscordUrl(!showDiscordUrl)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-1 cursor-pointer"
+                        title={showDiscordUrl ? 'Hide URL' : 'Show URL'}
+                      >
+                        {showDiscordUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                     <p className="text-[10px] text-text-muted">Generated under Discord Server Settings → Integrations → Webhooks.</p>
                   </div>
                 </div>
