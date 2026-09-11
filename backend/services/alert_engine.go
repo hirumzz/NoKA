@@ -248,6 +248,38 @@ func InterpolateTemplate(template string, defaultMsg string, data map[string]int
 		}
 	}
 
+	if _, ok := resolvedData["message"]; !ok {
+		resolvedData["message"] = defaultMsg
+	}
+
+	if _, ok := resolvedData["title"]; !ok {
+		if v, ok := resolvedData["name"]; ok {
+			resolvedData["title"] = v
+		} else {
+			resolvedData["title"] = "Gateway Alert"
+		}
+	}
+
+	if _, ok := resolvedData["node_name"]; !ok {
+		if v, ok := resolvedData["node"]; ok {
+			resolvedData["node_name"] = v
+		} else {
+			resolvedData["node_name"] = "kong-node"
+		}
+	}
+
+	if _, ok := resolvedData["resource_name"]; !ok {
+		resolvedData["resource_name"] = resolvedData["target"]
+	}
+
+	if _, ok := resolvedData["namespace_or_service"]; !ok {
+		resolvedData["namespace_or_service"] = resolvedData["node_name"]
+	}
+
+	if _, ok := resolvedData["cluster_or_workspace"]; !ok {
+		resolvedData["cluster_or_workspace"] = "default"
+	}
+
 	if _, ok := resolvedData["timestamp"]; !ok {
 		resolvedData["timestamp"] = time.Now().UTC().Format("2006-01-02 15:04:05 UTC")
 	} else if tsStr, ok := resolvedData["timestamp"].(string); ok {

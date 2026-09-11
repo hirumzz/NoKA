@@ -798,9 +798,11 @@ export const Alerts: React.FC = () => {
     if (!formTemplate.trim()) return '';
     let sampleTarget = 'https://api.gateway.internal/v1/payments';
     let sampleStatusCode = '503';
+    let sampleNodeName = 'kong-staging-34(cluster-kong)';
     if (formSource === 'gateway_node') {
       sampleTarget = 'kong-admin-node-01';
       sampleStatusCode = '500';
+      sampleNodeName = 'kong-admin-node-01';
     } else if (formSource === 'plugin_registry') {
       sampleTarget = 'pre-function';
       sampleStatusCode = '200';
@@ -818,29 +820,37 @@ export const Alerts: React.FC = () => {
     const sampleTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
     const sampleDetails = 'Connection timeout to upstream host (ETIMEDOUT 504)';
     const sampleActor = 'devops-admin';
+    const sampleTitle = formName.trim() || 'Gateway Alert';
+    const sampleMessage = `Alert: ${sampleTitle} triggered on ${sampleTarget}`;
 
     return formTemplate
-      .replace(/\{\{title\}\}/g, formName.trim() || '5xx Outage Alert')
-      .replace(/\{\{target\}\}/g, sampleTarget)
-      .replace(/\{\{plugin_name\}\}/g, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
-      .replace(/\{\{node_name\}\}/g, 'kong-staging-34(cluster-kong)')
-      .replace(/\{\{severity\}\}/g, formSeverity.toUpperCase())
-      .replace(/\{\{status_code\}\}/g, sampleStatusCode)
-      .replace(/\{\{actor\}\}/g, sampleActor)
-      .replace(/\{\{timestamp\}\}/g, sampleTimestamp)
-      .replace(/\{\{kong_url\}\}/g, 'http://localhost:8081')
-      .replace(/\{\{noka_url\}\}/g, 'http://localhost:1337')
-      .replace(/\{\{details\}\}/g, sampleDetails);
+      .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle)
+      .replace(/\{\{\s*message\s*\}\}/gi, sampleMessage)
+      .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget)
+      .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
+      .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName)
+      .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget)
+      .replace(/\{\{\s*namespace_or_service\s*\}\}/gi, sampleNodeName)
+      .replace(/\{\{\s*cluster_or_workspace\s*\}\}/gi, 'default')
+      .replace(/\{\{\s*severity\s*\}\}/gi, formSeverity.toUpperCase())
+      .replace(/\{\{\s*status_code\s*\}\}/gi, sampleStatusCode)
+      .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor)
+      .replace(/\{\{\s*timestamp\s*\}\}/gi, sampleTimestamp)
+      .replace(/\{\{\s*kong_url\s*\}\}/gi, 'http://localhost:8081')
+      .replace(/\{\{\s*noka_url\s*\}\}/gi, 'http://localhost:13337')
+      .replace(/\{\{\s*details\s*\}\}/gi, sampleDetails);
   }, [formTemplate, formName, formSeverity, formSource]);
 
   // Live Interpolated Webhook JSON Preview
   const liveWebhookJsonPreview = useMemo(() => {
     let sampleTarget = 'https://api.gateway.internal/v1/payments';
     let sampleStatusCode = '503';
+    let sampleNodeName = 'kong-staging-34(cluster-kong)';
     let sampleDetails: any = { status_code: 503, target_url: 'https://api.gateway.internal/v1/payments' };
     if (formSource === 'gateway_node') {
       sampleTarget = 'kong-admin-node-01';
       sampleStatusCode = '500';
+      sampleNodeName = 'kong-admin-node-01';
       sampleDetails = { node_name: 'kong-admin-node-01', status: 'down' };
     } else if (formSource === 'plugin_registry') {
       sampleTarget = 'pre-function';
@@ -862,28 +872,34 @@ export const Alerts: React.FC = () => {
 
     const sampleTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
     const sampleActor = 'devops-admin';
-    const finalMsg = liveInterpolatedPreview || `Alert: ${formName || 'Gateway Alert'} triggered on ${sampleTarget}`;
+    const sampleTitle = formName.trim() || 'Gateway Alert';
+    const finalMsg = liveInterpolatedPreview || `Alert: ${sampleTitle} triggered on ${sampleTarget}`;
 
-    if (formWebhookJson && formWebhookJson.trim()) {
+    const jsonTemplateToInterpolate = formWebhookJson?.trim() || (formTemplate?.trim().startsWith('{') ? formTemplate.trim() : '');
+
+    if (jsonTemplateToInterpolate) {
+      const interpolatedStr = jsonTemplateToInterpolate
+        .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle)
+        .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget)
+        .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
+        .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName)
+        .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget)
+        .replace(/\{\{\s*namespace_or_service\s*\}\}/gi, sampleNodeName)
+        .replace(/\{\{\s*cluster_or_workspace\s*\}\}/gi, 'default')
+        .replace(/\{\{\s*severity\s*\}\}/gi, formSeverity.toUpperCase())
+        .replace(/\{\{\s*status_code\s*\}\}/gi, sampleStatusCode)
+        .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor)
+        .replace(/\{\{\s*timestamp\s*\}\}/gi, sampleTimestamp)
+        .replace(/\{\{\s*message\s*\}\}/gi, finalMsg)
+        .replace(/\{\{\s*kong_url\s*\}\}/gi, 'http://localhost:8081')
+        .replace(/\{\{\s*noka_url\s*\}\}/gi, 'http://localhost:13337');
+
       try {
-        let str = formWebhookJson
-          .replace(/\{\{title\}\}/g, formName.trim() || '5xx Outage Alert')
-          .replace(/\{\{target\}\}/g, sampleTarget)
-          .replace(/\{\{plugin_name\}\}/g, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
-          .replace(/\{\{node_name\}\}/g, 'kong-staging-34(cluster-kong)')
-          .replace(/\{\{severity\}\}/g, formSeverity.toUpperCase())
-          .replace(/\{\{status_code\}\}/g, sampleStatusCode)
-          .replace(/\{\{actor\}\}/g, sampleActor)
-          .replace(/\{\{timestamp\}\}/g, sampleTimestamp)
-          .replace(/\{\{message\}\}/g, finalMsg)
-          .replace(/\{\{kong_url\}\}/g, 'http://localhost:8081')
-          .replace(/\{\{noka_url\}\}/g, 'http://localhost:1337');
-        
-        // Try parsing to pretty-print
-        const parsed = JSON.parse(str);
+        const parsed = JSON.parse(interpolatedStr);
         return JSON.stringify(parsed, null, 2);
       } catch {
-        return formWebhookJson;
+        // Even if JSON has a temporary syntax error (e.g. trailing comma or missing value), return the interpolated string!
+        return interpolatedStr;
       }
     }
 
@@ -891,13 +907,13 @@ export const Alerts: React.FC = () => {
     const defaultObj = {
       event: 'gateway_alert',
       severity: formSeverity.toUpperCase(),
-      title: formName.trim() || 'Gateway Alert',
+      title: sampleTitle,
       message: finalMsg,
       details: sampleDetails,
       timestamp: sampleTimestamp
     };
     return JSON.stringify(defaultObj, null, 2);
-  }, [formWebhookJson, liveInterpolatedPreview, formName, formSeverity, formSource]);
+  }, [formWebhookJson, formTemplate, liveInterpolatedPreview, formName, formSeverity, formSource]);
 
   // ── Load Data & Persistent Caches ──
 
