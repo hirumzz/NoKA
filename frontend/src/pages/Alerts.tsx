@@ -552,8 +552,9 @@ export const FIELD_METADATA: Record<
 const TEMPLATE_VARIABLES = [
   { tag: '{{title}}', label: 'Rule Title' },
   { tag: '{{target}}', label: 'Target / Node' },
-  { tag: '{{plugin_name}}', label: 'Plugin Name' },
+  { tag: '{{node_id}}', label: 'Node ID' },
   { tag: '{{node_name}}', label: 'Gateway Node' },
+  { tag: '{{plugin_name}}', label: 'Plugin Name' },
   { tag: '{{severity}}', label: 'Severity' },
   { tag: '{{status_code}}', label: 'Status Code' },
   { tag: '{{actor}}', label: 'Actor / User' },
@@ -827,11 +828,16 @@ export const Alerts: React.FC = () => {
       .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle)
       .replace(/\{\{\s*message\s*\}\}/gi, sampleMessage)
       .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget)
-      .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
+      .replace(/\{\{\s*node_id\s*\}\}/gi, '1')
       .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName)
+      .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
       .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget)
       .replace(/\{\{\s*namespace_or_service\s*\}\}/gi, sampleNodeName)
       .replace(/\{\{\s*cluster_or_workspace\s*\}\}/gi, 'default')
+      .replace(/\{\{\s*event\s*\}\}/gi, 'gateway_alert')
+      .replace(/\{\{\s*event_type\s*\}\}/gi, 'gateway_alert')
+      .replace(/\{\{\s*source\s*\}\}/gi, formSource)
+      .replace(/\{\{\s*category\s*\}\}/gi, formSource)
       .replace(/\{\{\s*severity\s*\}\}/gi, formSeverity.toUpperCase())
       .replace(/\{\{\s*status_code\s*\}\}/gi, sampleStatusCode)
       .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor)
@@ -851,11 +857,11 @@ export const Alerts: React.FC = () => {
       sampleTarget = 'kong-admin-node-01';
       sampleStatusCode = '500';
       sampleNodeName = 'kong-admin-node-01';
-      sampleDetails = { node_name: 'kong-admin-node-01', status: 'down' };
+      sampleDetails = { node_id: '1', node_name: 'kong-admin-node-01', status: 'down' };
     } else if (formSource === 'plugin_registry') {
       sampleTarget = 'pre-function';
       sampleStatusCode = '200';
-      sampleDetails = { node_id: '3', node_name: 'kong-staging-34(cluster-kong)', plugin_id: '35305d9e-7f1f-4908-8979-0b1aa00b6d2d', plugin_name: 'pre-function' };
+      sampleDetails = { node_id: '1', node_name: 'kong-staging-34(cluster-kong)', plugin_id: '35305d9e-7f1f-4908-8979-0b1aa00b6d2d', plugin_name: 'pre-function' };
     } else if (formSource === 'ssl_cert') {
       sampleTarget = '*.api.enterprise.com (SNI)';
       sampleStatusCode = '28';
@@ -873,24 +879,31 @@ export const Alerts: React.FC = () => {
     const sampleTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
     const sampleActor = 'devops-admin';
     const sampleTitle = formName.trim() || 'Gateway Alert';
-    const finalMsg = liveInterpolatedPreview || `Alert: ${sampleTitle} triggered on ${sampleTarget}`;
+    const rawMsg = liveInterpolatedPreview || `Alert: ${sampleTitle} triggered on ${sampleTarget}`;
+    // Escape string values cleanly for JSON context so quotes and newlines don't break JSON syntax
+    const jsonEscapedMsg = rawMsg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
 
     const jsonTemplateToInterpolate = formWebhookJson?.trim() || (formTemplate?.trim().startsWith('{') ? formTemplate.trim() : '');
 
     if (jsonTemplateToInterpolate) {
       const interpolatedStr = jsonTemplateToInterpolate
-        .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle)
-        .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget)
-        .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
-        .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName)
-        .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget)
-        .replace(/\{\{\s*namespace_or_service\s*\}\}/gi, sampleNodeName)
+        .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
+        .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
+        .replace(/\{\{\s*node_id\s*\}\}/gi, '1')
+        .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
+        .replace(/\{\{\s*plugin_name\s*\}\}/gi, (formSource === 'plugin_registry' ? 'pre-function' : sampleTarget).replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
+        .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
+        .replace(/\{\{\s*namespace_or_service\s*\}\}/gi, sampleNodeName.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*cluster_or_workspace\s*\}\}/gi, 'default')
+        .replace(/\{\{\s*event\s*\}\}/gi, 'gateway_alert')
+        .replace(/\{\{\s*event_type\s*\}\}/gi, 'gateway_alert')
+        .replace(/\{\{\s*source\s*\}\}/gi, formSource)
+        .replace(/\{\{\s*category\s*\}\}/gi, formSource)
         .replace(/\{\{\s*severity\s*\}\}/gi, formSeverity.toUpperCase())
         .replace(/\{\{\s*status_code\s*\}\}/gi, sampleStatusCode)
-        .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor)
+        .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*timestamp\s*\}\}/gi, sampleTimestamp)
-        .replace(/\{\{\s*message\s*\}\}/gi, finalMsg)
+        .replace(/\{\{\s*message\s*\}\}/gi, jsonEscapedMsg)
         .replace(/\{\{\s*kong_url\s*\}\}/gi, 'http://localhost:8081')
         .replace(/\{\{\s*noka_url\s*\}\}/gi, 'http://localhost:13337');
 
@@ -908,7 +921,7 @@ export const Alerts: React.FC = () => {
       event: 'gateway_alert',
       severity: formSeverity.toUpperCase(),
       title: sampleTitle,
-      message: finalMsg,
+      message: rawMsg,
       details: sampleDetails,
       timestamp: sampleTimestamp
     };
@@ -2111,21 +2124,30 @@ export const Alerts: React.FC = () => {
                   </div>
                   <span className="text-[10px] text-slate-400">Click any recipe card to populate form</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
                   {ALERT_RECIPES.map((recipe) => (
                     <button
                       key={recipe.id}
                       type="button"
                       onClick={() => handleApplyRecipe(recipe)}
                       title={`${recipe.description} (Click to load)`}
-                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 shadow-xs hover:scale-[1.02] active:scale-[0.98] ${recipe.badgeColor}`}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 shadow-xs hover:scale-[1.01] active:scale-[0.99] ${recipe.badgeColor}`}
                     >
-                      <div className="font-bold text-[11px] leading-snug">
-                        <span>{recipe.badge}</span>
+                      <div className="space-y-1">
+                        <div className="font-bold text-xs leading-snug flex items-center gap-1.5">
+                          <span>{recipe.badge}</span>
+                        </div>
+                        <p className="text-[10px] opacity-80 line-clamp-2 leading-relaxed font-normal">
+                          {recipe.description}
+                        </p>
                       </div>
-                      <div className="flex items-center justify-between text-[9px] font-semibold opacity-75 mt-0.5">
-                        <span className="uppercase">{recipe.source.replace('_', ' ')}</span>
-                        <span className="font-extrabold uppercase">{recipe.severity}</span>
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-current/15 text-[9px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-black/10 uppercase tracking-wider">
+                          {recipe.source.replace('_', ' ')}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-black/15 font-extrabold uppercase tracking-wider">
+                          {recipe.severity}
+                        </span>
                       </div>
                     </button>
                   ))}

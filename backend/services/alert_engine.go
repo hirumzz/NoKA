@@ -268,6 +268,38 @@ func InterpolateTemplate(template string, defaultMsg string, data map[string]int
 		}
 	}
 
+	if _, ok := resolvedData["node_id"]; !ok {
+		if v, ok := resolvedData["nodeId"]; ok {
+			resolvedData["node_id"] = v
+		} else {
+			resolvedData["node_id"] = "1"
+		}
+	}
+
+	if _, ok := resolvedData["status_code"]; !ok {
+		if v, ok := resolvedData["statusCode"]; ok {
+			resolvedData["status_code"] = v
+		} else {
+			resolvedData["status_code"] = "200"
+		}
+	}
+
+	if _, ok := resolvedData["plugin_name"]; !ok {
+		if v, ok := resolvedData["plugin"]; ok {
+			resolvedData["plugin_name"] = v
+		} else {
+			resolvedData["plugin_name"] = resolvedData["target"]
+		}
+	}
+
+	if _, ok := resolvedData["event"]; !ok {
+		resolvedData["event"] = "gateway_alert"
+	}
+
+	if _, ok := resolvedData["event_type"]; !ok {
+		resolvedData["event_type"] = "gateway_alert"
+	}
+
 	if _, ok := resolvedData["resource_name"]; !ok {
 		resolvedData["resource_name"] = resolvedData["target"]
 	}
