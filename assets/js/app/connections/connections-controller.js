@@ -249,17 +249,32 @@
           }else{
             UserModel
               .update(UserService.user().id, {
-                node: isActive(node) ? null : node
+                node: isActive(node) ? null : node.id,
+                node_id: isActive(node) ? '' : String(node.id)
               }).then(function onSuccess(res) {
-              var credentials = $localStorage.credentials
+              var credentials = $localStorage.credentials;
               var user = res.data;
-              if (!user.node) {
-                delete credentials.user.node;
+              if (!user || !user.node) {
+                if (credentials && credentials.user) {
+                  delete credentials.user.node;
+                  credentials.user.node_id = '';
+                }
+                if ($rootScope.user) {
+                  delete $rootScope.user.node;
+                  $rootScope.user.node_id = '';
+                }
               } else {
-                credentials.user.node = node;
+                if (credentials && credentials.user) {
+                  credentials.user.node = node;
+                  credentials.user.node_id = String(node.id);
+                }
+                if ($rootScope.user) {
+                  $rootScope.user.node = node;
+                  $rootScope.user.node_id = String(node.id);
+                }
               }
 
-              $rootScope.$broadcast('user.node.updated', res.data.node)
+              $rootScope.$broadcast('user.node.updated', user ? user.node : null);
             })
           }
         }
@@ -454,15 +469,28 @@
         })
 
         function updateUserNode(node) {
+          var payload = {};
+          if (node) {
+            payload.node = node.id || node;
+            payload.node_id = String(node.id || node);
+          } else {
+            payload.node = null;
+            payload.node_id = '';
+          }
           UserModel
-            .update(UserService.user().id, {
-              node: node
-            })
+            .update(UserService.user().id, payload)
             .then(
               function onSuccess(res) {
-                var credentials = $localStorage.credentials
-                credentials.user.node = node
-                $rootScope.$broadcast('user.node.updated', node)
+                var credentials = $localStorage.credentials;
+                if (credentials && credentials.user) {
+                  credentials.user.node = node;
+                  credentials.user.node_id = node ? String(node.id || node) : '';
+                }
+                if ($rootScope.user) {
+                  $rootScope.user.node = node;
+                  $rootScope.user.node_id = node ? String(node.id || node) : '';
+                }
+                $rootScope.$broadcast('user.node.updated', node);
               }
             );
         }

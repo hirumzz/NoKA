@@ -94,6 +94,28 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
             user.admin = (user.role === 'admin');
         }
 
+        // Normalize node and node_id to prevent PostgreSQL [object Object] type error
+        if (user.node !== undefined) {
+            if (user.node === null || user.node === '' || user.node === 0 || user.node === '0') {
+                user.node = null;
+                user.node_id = '';
+            } else if (typeof user.node === 'object' && user.node.id) {
+                user.node_id = String(user.node.id);
+                user.node = parseInt(user.node.id, 10);
+            } else {
+                user.node_id = String(user.node);
+                user.node = parseInt(user.node, 10);
+            }
+        } else if (user.node_id !== undefined) {
+            if (user.node_id === '' || user.node_id === null) {
+                user.node = null;
+                user.node_id = '';
+            } else {
+                user.node = parseInt(user.node_id, 10);
+                user.node_id = String(user.node_id);
+            }
+        }
+
         sails.models.user
             .update({id : req.param('id')},user)
             .exec(function(err,updated){
