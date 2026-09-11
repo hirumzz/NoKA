@@ -77,8 +77,19 @@ func DeleteUser(c *gin.Context) {
 		}
 	}
 
-	if err := db.DB.Delete(&models.User{}, uint(id)).Error; err != nil {
+	tx := db.DB.Begin()
+	if err := tx.Where("\"user\" = ?", uint(id)).Delete(&models.Passport{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user passports"})
+		return
+	}
+	if err := tx.Delete(&models.User{}, uint(id)).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user"})
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to commit user deletion"})
 		return
 	}
 

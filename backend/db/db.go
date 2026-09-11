@@ -84,6 +84,13 @@ func InitDB() *gorm.DB {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	sqlDB, err := DB.DB()
+	if err == nil {
+		sqlDB.SetMaxIdleConns(10)
+		sqlDB.SetMaxOpenConns(100)
+		sqlDB.SetConnMaxLifetime(time.Hour)
+	}
+
 	log.Println("Database connection established successfully")
 
 	// Pre-migration patch for legacy konga_settings table if key column is missing

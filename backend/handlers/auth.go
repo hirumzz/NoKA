@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -152,6 +153,15 @@ func (h *AuthHandler) Signup(c *gin.Context) {
 		return
 	}
 
+	auditPayload := map[string]interface{}{
+		"username":  user.Username,
+		"email":     user.Email,
+		"role":      user.Role,
+		"firstName": user.FirstName,
+		"lastName":  user.LastName,
+	}
+	recordUserAuditAndNotify(c, "POST", "users", fmt.Sprintf("/api/users/%d", user.ID), "User created: "+user.Username, "mdi-account-plus", auditPayload)
+
 	c.JSON(http.StatusOK, user)
 }
 
@@ -189,6 +199,8 @@ func (h *AuthHandler) ChangeInitialPassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 		return
 	}
+
+	recordUserAuditAndNotify(c, "PATCH", "users", fmt.Sprintf("/api/users/%d/password", currUser.ID), "Initial password changed for user: "+currUser.Username, "mdi-lock-reset", map[string]string{"action": "change_initial_password"})
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Password updated successfully",
