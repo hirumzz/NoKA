@@ -517,6 +517,15 @@ func ClearAlertHistory(c *gin.Context) {
 	}
 	db.DB.Create(&audit)
 
+	notif := models.KongaNotification{
+		Message:     fmt.Sprintf("%s cleared all alert history records", username),
+		Icon:        "mdi-delete-sweep-outline",
+		State:       "alerts",
+		StateParams: datatypes.JSON([]byte(`{"entity":"alert_history","url":"/api/alerts/history"}`)),
+		UserID:      userID,
+	}
+	db.DB.Create(&notif)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Alert history cleared successfully"})
 }
 

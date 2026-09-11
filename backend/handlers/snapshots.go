@@ -58,7 +58,7 @@ func CreateSnapshot(c *gin.Context) {
 		return
 	}
 
-	// Capture Audit Log
+	// Capture Audit Log & Notification
 	username := "anonymous"
 	var userID *uint
 	if userVal, exists := c.Get("user"); exists {
@@ -72,6 +72,7 @@ func CreateSnapshot(c *gin.Context) {
 		}
 	}
 
+	payloadBytes, _ := json.Marshal(map[string]string{"name": req.Name})
 	auditLog := &models.AuditLog{
 		IPAddress:    c.ClientIP(),
 		UserID:       userID,
@@ -79,12 +80,23 @@ func CreateSnapshot(c *gin.Context) {
 		Action:       "POST",
 		Entity:       "snapshots",
 		URL:          "/api/snapshots",
-		Payload:      datatypes.JSON(fmt.Sprintf(`{"name": "%s"}`, req.Name)),
+		Payload:      datatypes.JSON(payloadBytes),
 		KongNodeName: req.NodeName,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 	_ = db.DB.Create(auditLog)
+
+	notif := &models.KongaNotification{
+		Message:     fmt.Sprintf("%s created snapshot '%s'", username, req.Name),
+		Icon:        "mdi-camera-outline",
+		State:       "snapshots",
+		StateParams: datatypes.JSON("{}"),
+		UserID:      userID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	_ = db.DB.Create(notif)
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Snapshot saved successfully", "data": snapshot})
 }
@@ -98,7 +110,7 @@ func DeleteSnapshot(c *gin.Context) {
 	if err := db.DB.First(&snapshot, id).Error; err == nil {
 		// Proceed with delete
 		if err := db.DB.Delete(&models.Snapshot{}, id).Error; err == nil {
-			// Capture Audit Log
+			// Capture Audit Log & Notification
 			username := "anonymous"
 			var userID *uint
 			if userVal, exists := c.Get("user"); exists {
@@ -112,6 +124,7 @@ func DeleteSnapshot(c *gin.Context) {
 				}
 			}
 
+			payloadBytes, _ := json.Marshal(map[string]string{"id": id, "name": snapshot.Name})
 			auditLog := &models.AuditLog{
 				IPAddress:    c.ClientIP(),
 				UserID:       userID,
@@ -119,12 +132,23 @@ func DeleteSnapshot(c *gin.Context) {
 				Action:       "DELETE",
 				Entity:       "snapshots",
 				URL:          "/api/snapshots/" + id,
-				Payload:      datatypes.JSON(fmt.Sprintf(`{"id": "%s", "name": "%s"}`, id, snapshot.Name)),
+				Payload:      datatypes.JSON(payloadBytes),
 				KongNodeName: snapshot.NodeName,
 				CreatedAt:    time.Now(),
 				UpdatedAt:    time.Now(),
 			}
 			_ = db.DB.Create(auditLog)
+
+			notif := &models.KongaNotification{
+				Message:     fmt.Sprintf("%s deleted snapshot '%s'", username, snapshot.Name),
+				Icon:        "mdi-camera-off-outline",
+				State:       "snapshots",
+				StateParams: datatypes.JSON("{}"),
+				UserID:      userID,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+			_ = db.DB.Create(notif)
 			
 			c.JSON(http.StatusOK, gin.H{"message": "Snapshot deleted successfully"})
 			return

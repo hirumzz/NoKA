@@ -140,7 +140,23 @@ func main() {
 
 	// Use gin.New() instead of gin.Default() — avoids logging sensitive request data
 	r := gin.New()
-	r.SetTrustedProxies(nil)
+	trustedProxiesEnv := os.Getenv("TRUSTED_PROXIES")
+	if trustedProxiesEnv != "" {
+		proxies := strings.Split(trustedProxiesEnv, ",")
+		var cleanedProxies []string
+		for _, p := range proxies {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				cleanedProxies = append(cleanedProxies, trimmed)
+			}
+		}
+		if len(cleanedProxies) > 0 {
+			r.SetTrustedProxies(cleanedProxies)
+		} else {
+			r.SetTrustedProxies(nil)
+		}
+	} else {
+		r.SetTrustedProxies(nil)
+	}
 	r.Use(gin.Recovery())
 
 	// Security headers on all responses
@@ -245,7 +261,7 @@ func main() {
 			}
 			c.JSON(http.StatusOK, users)
 		})
-		api.GET("/users/:id", middleware.AdminRequired(), handlers.GetUserByID)
+		api.GET("/users/:id", handlers.GetUserByID)
 		api.DELETE("/users/:id", middleware.AdminRequired(), handlers.DeleteUser)
 		api.PATCH("/users/:id", handlers.UpdateUser)
 

@@ -8,6 +8,7 @@ import (
 
 	"konga-backend/db"
 	"konga-backend/models"
+	"konga-backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -303,23 +304,52 @@ func UpdateConnection(c *gin.Context) {
 		updates["type"] = req.Type
 	}
 	// Only update credential fields if explicitly provided or changing auth type
-	if req.KongAPIKey != "" || req.Type != "" {
-		updates["kong_api_key"] = req.KongAPIKey
+	if req.KongAPIKey != "" {
+		if enc, err := utils.Encrypt(req.KongAPIKey); err == nil {
+			updates["kong_api_key"] = enc
+		} else {
+			updates["kong_api_key"] = req.KongAPIKey
+		}
+	} else if req.Type != "" && req.KongAPIKey == "" {
+		updates["kong_api_key"] = ""
 	}
+
 	if req.Username != "" || req.Type != "" {
 		updates["username"] = req.Username
 	}
-	if req.Password != "" || req.Type != "" {
-		updates["password"] = req.Password
+
+	if req.Password != "" {
+		if enc, err := utils.Encrypt(req.Password); err == nil {
+			updates["password"] = enc
+		} else {
+			updates["password"] = req.Password
+		}
+	} else if req.Type != "" && req.Password == "" {
+		updates["password"] = ""
 	}
+
 	if req.JWTAlgorithm != "" {
 		updates["jwt_algorithm"] = req.JWTAlgorithm
 	}
-	if req.JWTKey != "" || req.Type != "" {
-		updates["jwt_key"] = req.JWTKey
+
+	if req.JWTKey != "" {
+		if enc, err := utils.Encrypt(req.JWTKey); err == nil {
+			updates["jwt_key"] = enc
+		} else {
+			updates["jwt_key"] = req.JWTKey
+		}
+	} else if req.Type != "" && req.JWTKey == "" {
+		updates["jwt_key"] = ""
 	}
-	if req.JWTSecret != "" || req.Type != "" {
-		updates["jwt_secret"] = req.JWTSecret
+
+	if req.JWTSecret != "" {
+		if enc, err := utils.Encrypt(req.JWTSecret); err == nil {
+			updates["jwt_secret"] = enc
+		} else {
+			updates["jwt_secret"] = req.JWTSecret
+		}
+	} else if req.Type != "" && req.JWTSecret == "" {
+		updates["jwt_secret"] = ""
 	}
 	if req.NetdataURL != "" {
 		updates["netdata_url"] = req.NetdataURL

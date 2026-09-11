@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"konga-backend/db"
 	"konga-backend/models"
@@ -31,6 +32,20 @@ func GetUserByID(c *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid user ID"})
+		return
+	}
+
+	currentUserVal, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+	currentUser := currentUserVal.(*models.User)
+	isAdmin := currentUser.Admin || currentUser.Role == "admin" || currentUser.Role == "superadmin"
+
+	// IDOR Protection: Non-admins can only view their own user profile
+	if !isAdmin && currentUser.ID != uint(id) {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Forbidden - You can only view your own profile"})
 		return
 	}
 
@@ -138,7 +153,15 @@ func UpdateUser(c *gin.Context) {
 		updates["lastName"] = *req.LastName
 	}
 	if req.Avatar != nil {
-		updates["avatar"] = *req.Avatar
+		avatarVal := strings.TrimSpace(*req.Avatar)
+		if avatarVal != "" {
+			lower := strings.ToLower(avatarVal)
+			if !strings.HasPrefix(lower, "https://") && !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "data:image/") {
+				c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid avatar URL. Must be http://, https://, or data:image/"})
+				return
+			}
+		}
+		updates["avatar"] = avatarVal
 	}
 
 	if req.Node != nil {

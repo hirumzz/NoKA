@@ -102,6 +102,13 @@ func (n *KongNode) BeforeSave(tx *gorm.DB) (err error) {
 		}
 		n.JWTSecret = enc
 	}
+	if n.JWTKey != "" {
+		enc, err := utils.Encrypt(n.JWTKey)
+		if err != nil {
+			return err
+		}
+		n.JWTKey = enc
+	}
 	return nil
 }
 
@@ -124,6 +131,12 @@ func (n *KongNode) AfterSave(tx *gorm.DB) (err error) {
 			n.JWTSecret = dec
 		}
 	}
+	if n.JWTKey != "" {
+		dec, err := utils.Decrypt(n.JWTKey)
+		if err == nil {
+			n.JWTKey = dec
+		}
+	}
 	return nil
 }
 
@@ -144,6 +157,12 @@ func (n *KongNode) AfterFind(tx *gorm.DB) (err error) {
 		dec, err := utils.Decrypt(n.JWTSecret)
 		if err == nil {
 			n.JWTSecret = dec
+		}
+	}
+	if n.JWTKey != "" {
+		dec, err := utils.Decrypt(n.JWTKey)
+		if err == nil {
+			n.JWTKey = dec
 		}
 	}
 	return nil

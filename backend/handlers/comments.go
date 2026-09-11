@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,6 +14,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 )
+
+var validReferenceTypes = map[string]bool{
+	"route":       true,
+	"service":     true,
+	"consumer":    true,
+	"plugin":      true,
+	"upstream":    true,
+	"certificate": true,
+	"snis":        true,
+	"key":         true,
+	"key-set":     true,
+	"vault":       true,
+}
 
 type CreateCommentRequest struct {
 	ReferenceID   string `json:"referenceId" binding:"required"`
@@ -29,10 +43,15 @@ type UpdateCommentRequest struct {
 // GetComments gets comments for a specific entity
 func GetComments(c *gin.Context) {
 	refID := c.Query("referenceId")
-	refType := c.Query("referenceType")
+	refType := strings.ToLower(c.Query("referenceType"))
 
 	if refID == "" || refType == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Missing referenceId or referenceType query params"})
+		return
+	}
+
+	if !validReferenceTypes[refType] {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid referenceType"})
 		return
 	}
 
@@ -66,6 +85,12 @@ func CreateComment(c *gin.Context) {
 	var req CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request fields", "error": err.Error()})
+		return
+	}
+
+	req.ReferenceType = strings.ToLower(strings.TrimSpace(req.ReferenceType))
+	if !validReferenceTypes[req.ReferenceType] {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid referenceType"})
 		return
 	}
 
@@ -129,6 +154,11 @@ func CreateComment(c *gin.Context) {
 	if req.ReferenceName != "" {
 		auditPath = fmt.Sprintf("/api/comments (%s)", req.ReferenceName)
 	}
+	auditPayloadBytes, _ := json.Marshal(map[string]string{
+		"referenceType": req.ReferenceType,
+		"referenceId":   req.ReferenceID,
+		"referenceName": req.ReferenceName,
+	})
 	auditLog := &models.AuditLog{
 		IPAddress:    c.ClientIP(),
 		UserID:       &user.ID,
@@ -136,7 +166,7 @@ func CreateComment(c *gin.Context) {
 		Action:       "POST",
 		Entity:       "comments",
 		URL:          auditPath,
-		Payload:      datatypes.JSON(fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, req.ReferenceType, req.ReferenceID, req.ReferenceName)),
+		Payload:      datatypes.JSON(auditPayloadBytes),
 		KongNodeName: "system",
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -232,7 +262,11 @@ func UpdateComment(c *gin.Context) {
 	if req.ReferenceName != "" {
 		auditUrl = fmt.Sprintf("/api/comments/%s (%s: %s)", idStr, comment.ReferenceType, req.ReferenceName)
 	}
-	auditPayload := fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, comment.ReferenceType, comment.ReferenceID, req.ReferenceName)
+	auditPayloadBytes, _ := json.Marshal(map[string]string{
+		"referenceType": comment.ReferenceType,
+		"referenceId":   comment.ReferenceID,
+		"referenceName": req.ReferenceName,
+	})
 
 	auditLog := &models.AuditLog{
 		IPAddress:    c.ClientIP(),
@@ -241,7 +275,7 @@ func UpdateComment(c *gin.Context) {
 		Action:       "PATCH",
 		Entity:       "comments",
 		URL:          auditUrl,
-		Payload:      datatypes.JSON(auditPayload),
+		Payload:      datatypes.JSON(auditPayloadBytes),
 		KongNodeName: "system",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -320,7 +354,11 @@ func DeleteComment(c *gin.Context) {
 	if refName != "" {
 		auditUrl = fmt.Sprintf("/api/comments/%s (%s: %s)", idStr, comment.ReferenceType, refName)
 	}
-	auditPayload := fmt.Sprintf(`{"referenceType": "%s", "referenceId": "%s", "referenceName": "%s"}`, comment.ReferenceType, comment.ReferenceID, refName)
+	auditPayloadBytes, _ := json.Marshal(map[string]string{
+		"referenceType": comment.ReferenceType,
+		"referenceId":   comment.ReferenceID,
+		"referenceName": refName,
+	})
 
 	auditLog := &models.AuditLog{
 		IPAddress:    c.ClientIP(),
@@ -329,7 +367,7 @@ func DeleteComment(c *gin.Context) {
 		Action:       "DELETE",
 		Entity:       "comments",
 		URL:          auditUrl,
-		Payload:      datatypes.JSON(auditPayload),
+		Payload:      datatypes.JSON(auditPayloadBytes),
 		KongNodeName: "system",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
