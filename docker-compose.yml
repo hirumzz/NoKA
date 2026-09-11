@@ -97,6 +97,7 @@ services:
       TOKEN_SECRET: "some_secure_token_secret"
     ports:
       - "1337:1337"
+      - "13337:1337"
     volumes:
       - noka-data:/app/kongadata
     depends_on:
