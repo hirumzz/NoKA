@@ -938,6 +938,9 @@ func sendChannelNotification(channel, severity, title, message string, details m
 				}
 			}
 		}
+		if apiKey := getString(cfg, "apiKey"); strings.TrimSpace(apiKey) != "" {
+			customHeaders["X-API-Key"] = strings.TrimSpace(apiKey)
+		}
 
 		// Check if a custom webhook JSON payload template was provided
 		var finalPayload interface{}

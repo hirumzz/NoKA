@@ -47,6 +47,7 @@ interface WebhookConfig {
   enabled: boolean;
   url: string;
   method: 'POST' | 'PUT';
+  apiKey?: string;
   headersJson?: string;
 }
 
@@ -87,6 +88,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsState = {
     enabled: false,
     url: '',
     method: 'POST',
+    apiKey: '',
     headersJson: '{\n  "Content-Type": "application/json"\n}'
   },
   slack: {
@@ -288,6 +290,64 @@ const PermCell: React.FC<PermCellProps> = ({ checked, onChange, colorClass }) =>
     </button>
   </td>
 );
+
+// ─── Anti-Inspect Secret Input ────────────────────────────────────────────────
+interface AntiInspectSecretInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+const AntiInspectSecretInput: React.FC<AntiInspectSecretInputProps> = ({
+  value,
+  onChange,
+  placeholder = 'Enter secret API key',
+  className = ''
+}) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isTampered, setIsTampered] = useState(false);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    // Active MutationObserver detecting unauthorized DOM attribute tampering in DevTools
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && (m.attributeName === 'type' || m.attributeName === 'value')) {
+          const currentType = el.getAttribute('type');
+          if (currentType !== 'password') {
+            setIsTampered(true);
+            el.setAttribute('type', 'text');
+            el.value = '🖕';
+          }
+        }
+      }
+    });
+
+    observer.observe(el, { attributes: true, attributeFilter: ['type', 'value'] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <input
+      ref={inputRef}
+      type="password"
+      value={isTampered ? '🖕' : value}
+      onChange={(e) => {
+        if (!isTampered) {
+          onChange(e.target.value);
+        }
+      }}
+      placeholder={placeholder}
+      className={className}
+      autoComplete="new-password"
+      spellCheck={false}
+    />
+  );
+};
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -1119,9 +1179,30 @@ export const Settings: React.FC = () => {
                     </div>
 
                     <div className="space-y-1 md:col-span-3">
+                      <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center justify-between">
+                        <span>Webhook Auth / API Key (Secret)</span>
+                        <span className="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          🛡️ Anti-Inspect Protected (Auto X-API-Key Header)
+                        </span>
+                      </label>
+                      <AntiInspectSecretInput
+                        value={integrations.webhook.apiKey || ''}
+                        onChange={(val) => setIntegrations(prev => ({
+                          ...prev,
+                          webhook: { ...prev.webhook, apiKey: val }
+                        }))}
+                        placeholder="Paste your secret API Key / Token here..."
+                        className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
+                      />
+                      <p className="text-[10px] text-text-muted">
+                        Automatically attached as <code className="text-brand-primary font-bold">X-API-Key</code> request header. Protected from browser inspection.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-3">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold text-text-secondary uppercase">
-                          Custom Headers (JSON format)
+                          Additional Custom Headers (JSON format)
                         </label>
                         <button
                           type="button"

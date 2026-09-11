@@ -324,6 +324,9 @@ func TestIntegrationChannel(c *gin.Context) {
 					}
 				}
 			}
+			if apiKey := getString(decryptedConfig, "apiKey"); strings.TrimSpace(apiKey) != "" {
+				customHeaders["X-API-Key"] = strings.TrimSpace(apiKey)
+			}
 			payload := map[string]interface{}{
 				"event":     "integration_test",
 				"channel":   "webhook",
