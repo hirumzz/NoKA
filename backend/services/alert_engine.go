@@ -930,6 +930,14 @@ func sendChannelNotification(channel, severity, title, message string, details m
 				}
 			}
 		}
+		if hJson := getString(cfg, "headersJson"); strings.TrimSpace(hJson) != "" {
+			var parsedHeaders map[string]interface{}
+			if json.Unmarshal([]byte(hJson), &parsedHeaders) == nil {
+				for k, v := range parsedHeaders {
+					customHeaders[k] = fmt.Sprintf("%v", v)
+				}
+			}
+		}
 
 		// Check if a custom webhook JSON payload template was provided
 		var finalPayload interface{}

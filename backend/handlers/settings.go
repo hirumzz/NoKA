@@ -316,6 +316,14 @@ func TestIntegrationChannel(c *gin.Context) {
 					}
 				}
 			}
+			if hJson := getString(decryptedConfig, "headersJson"); strings.TrimSpace(hJson) != "" {
+				var parsedHeaders map[string]interface{}
+				if json.Unmarshal([]byte(hJson), &parsedHeaders) == nil {
+					for k, v := range parsedHeaders {
+						customHeaders[k] = fmt.Sprintf("%v", v)
+					}
+				}
+			}
 			payload := map[string]interface{}{
 				"event":     "integration_test",
 				"channel":   "webhook",
