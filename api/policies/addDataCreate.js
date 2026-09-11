@@ -15,8 +15,9 @@ module.exports = function addDataCreate(request, response, next) {
   }
 
   if (request.token) {
-    request.body.createdUser = request.token;
-    request.body.updatedUser = request.token;
+    var userId = parseInt(request.token, 10) || request.token;
+    request.body.createdUser = userId;
+    request.body.updatedUser = userId;
 
     next();
   } else {
