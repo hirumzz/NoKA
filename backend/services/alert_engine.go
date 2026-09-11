@@ -327,27 +327,43 @@ func InterpolateTemplate(template string, defaultMsg string, data map[string]int
 		} else if v, ok := resolvedData["node_url"]; ok && fmt.Sprintf("%v", v) != "" {
 			resolvedData["kong_url"] = v
 		} else {
-			kongEnv := os.Getenv("KONG_ADMIN_URL")
-			if kongEnv == "" {
-				kongEnv = "http://localhost:8081"
+			var activeNode models.KongNode
+			if db.DB != nil && db.DB.Where("active = ?", true).First(&activeNode).Error == nil && activeNode.KongAdminURL != "" {
+				resolvedData["kong_url"] = activeNode.KongAdminURL
+			} else {
+				kongEnv := os.Getenv("KONG_ADMIN_URL")
+				if kongEnv == "" {
+					kongEnv = "http://localhost:8081"
+				}
+				resolvedData["kong_url"] = kongEnv
 			}
-			resolvedData["kong_url"] = kongEnv
 		}
 	}
 
 	if _, ok := resolvedData["noka_url"]; !ok {
-		nokaEnv := os.Getenv("NOKA_URL")
-		if nokaEnv == "" {
-			nokaEnv = os.Getenv("APP_URL")
-		}
-		if nokaEnv == "" {
-			port := os.Getenv("PORT")
-			if port == "" {
-				port = "1337"
+		var setting models.KongaSetting
+		if db.DB != nil && db.DB.Where("key = ?", "general").First(&setting).Error == nil && len(setting.Data) > 0 {
+			var genData map[string]interface{}
+			if json.Unmarshal(setting.Data, &genData) == nil {
+				if b, ok := genData["baseUrl"].(string); ok && strings.TrimSpace(b) != "" {
+					resolvedData["noka_url"] = strings.TrimRight(strings.TrimSpace(b), "/")
+				}
 			}
-			nokaEnv = fmt.Sprintf("http://localhost:%s", port)
 		}
-		resolvedData["noka_url"] = nokaEnv
+		if _, ok := resolvedData["noka_url"]; !ok {
+			nokaEnv := os.Getenv("NOKA_URL")
+			if nokaEnv == "" {
+				nokaEnv = os.Getenv("APP_URL")
+			}
+			if nokaEnv == "" {
+				port := os.Getenv("PORT")
+				if port == "" {
+					port = "1337"
+				}
+				nokaEnv = fmt.Sprintf("http://localhost:%s", port)
+			}
+			resolvedData["noka_url"] = nokaEnv
+		}
 	}
 
 	for k, v := range resolvedData {
@@ -759,6 +775,53 @@ func TriggerTestAlertRule(rule models.KongaAlertRule) (map[string]bool, error) {
 
 	integrationsMap := getDecryptedIntegrationsConfig()
 
+	var activeNode models.KongNode
+	nodeName := "kong-admin-node-01"
+	var nodeID uint = 1
+	kongURL := "http://localhost:8081"
+	if db.DB != nil && db.DB.Where("active = ?", true).First(&activeNode).Error == nil {
+		if activeNode.Name != "" {
+			nodeName = activeNode.Name
+		}
+		if activeNode.ID != 0 {
+			nodeID = activeNode.ID
+		}
+		if activeNode.KongAdminURL != "" {
+			kongURL = activeNode.KongAdminURL
+		}
+	} else if os.Getenv("KONG_ADMIN_URL") != "" {
+		kongURL = os.Getenv("KONG_ADMIN_URL")
+	}
+
+	nokaURL := "http://localhost:13337"
+	var setting models.KongaSetting
+	if db.DB != nil && db.DB.Where("key = ?", "general").First(&setting).Error == nil && len(setting.Data) > 0 {
+		var genData map[string]interface{}
+		if json.Unmarshal(setting.Data, &genData) == nil {
+			if b, ok := genData["baseUrl"].(string); ok && strings.TrimSpace(b) != "" {
+				nokaURL = strings.TrimRight(strings.TrimSpace(b), "/")
+			}
+		}
+	}
+	if nokaURL == "http://localhost:13337" {
+		if envURL := os.Getenv("NOKA_URL"); envURL != "" {
+			nokaURL = envURL
+		} else if envURL := os.Getenv("APP_URL"); envURL != "" {
+			nokaURL = envURL
+		}
+	}
+
+	target := "sample-gateway-service"
+	if rule.Source == "gateway_node" || rule.Source == "reachability_ping" {
+		if activeNode.Name != "" {
+			target = activeNode.Name
+		} else if activeNode.KongAdminURL != "" {
+			target = activeNode.KongAdminURL
+		} else {
+			target = nodeName
+		}
+	}
+
 	testData := map[string]interface{}{
 		"test":           true,
 		"rule_id":        rule.ID,
@@ -766,10 +829,14 @@ func TriggerTestAlertRule(rule models.KongaAlertRule) (map[string]bool, error) {
 		"source":         rule.Source,
 		"condition_type": rule.ConditionType,
 		"severity":       rule.Severity,
-		"target":         "sample-gateway-service",
-		"status_code":    502,
+		"node_name":      nodeName,
+		"node_id":        nodeID,
+		"target":         target,
+		"kong_url":       kongURL,
+		"noka_url":       nokaURL,
+		"status_code":    500,
 		"actor":          "admin",
-		"details":        "Simulated test event trigger",
+		"details":        fmt.Sprintf("Simulated test event trigger for %s", nodeName),
 		"timestamp":      time.Now().UTC().Format("2006-01-02 15:04:05 UTC"),
 	}
 

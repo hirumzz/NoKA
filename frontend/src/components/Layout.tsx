@@ -469,7 +469,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-border-light rounded-lg shadow-lg py-1 z-30">
                   <div className="px-4 py-2 border-b border-border-light">
                     <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">NOKA Engine</span>
-                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.16.0 • Enterprise Ready</span>
+                    <span className="text-[9px] text-text-muted/80 block mt-0.5">v2.17.13 • Enterprise Ready</span>
                   </div>
                   <button
                     onClick={handleLogout}

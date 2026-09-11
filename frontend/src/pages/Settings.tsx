@@ -1179,11 +1179,8 @@ export const Settings: React.FC = () => {
                     </div>
 
                     <div className="space-y-1 md:col-span-3">
-                      <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center justify-between">
-                        <span>Webhook Auth / API Key (Secret)</span>
-                        <span className="text-[9px] font-mono text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                          🛡️ Anti-Inspect Protected (Auto X-API-Key Header)
-                        </span>
+                      <label className="text-[10px] font-bold text-text-secondary uppercase">
+                        API Key (Optional)
                       </label>
                       <AntiInspectSecretInput
                         value={integrations.webhook.apiKey || ''}
@@ -1191,12 +1188,9 @@ export const Settings: React.FC = () => {
                           ...prev,
                           webhook: { ...prev.webhook, apiKey: val }
                         }))}
-                        placeholder="Paste your secret API Key / Token here..."
+                        placeholder="e.g. your-api-key"
                         className="w-full px-3 py-2 border border-border-light bg-white rounded text-xs font-mono font-medium focus:outline-none focus:border-brand-primary"
                       />
-                      <p className="text-[10px] text-text-muted">
-                        Automatically attached as <code className="text-brand-primary font-bold">X-API-Key</code> request header. Protected from browser inspection.
-                      </p>
                     </div>
 
                     <div className="space-y-1 md:col-span-3">

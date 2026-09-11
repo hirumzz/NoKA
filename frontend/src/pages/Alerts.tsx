@@ -740,6 +740,8 @@ export const Alerts: React.FC = () => {
   const [incidents, setIncidents] = useState<IncidentAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeNode, setActiveNode] = useState<any>(null);
+  const [baseUrl, setBaseUrl] = useState<string>('');
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -799,11 +801,11 @@ export const Alerts: React.FC = () => {
     if (!formTemplate.trim()) return '';
     let sampleTarget = 'https://api.gateway.internal/v1/payments';
     let sampleStatusCode = '503';
-    let sampleNodeName = 'kong-staging-34(cluster-kong)';
+    let sampleNodeName = activeNode?.name || 'kong-staging-34(cluster-kong)';
     if (formSource === 'gateway_node') {
-      sampleTarget = 'kong-admin-node-01';
+      sampleTarget = activeNode?.name || 'kong-admin-node-01';
       sampleStatusCode = '500';
-      sampleNodeName = 'kong-admin-node-01';
+      sampleNodeName = activeNode?.name || 'kong-admin-node-01';
     } else if (formSource === 'plugin_registry') {
       sampleTarget = 'pre-function';
       sampleStatusCode = '200';
@@ -828,7 +830,7 @@ export const Alerts: React.FC = () => {
       .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle)
       .replace(/\{\{\s*message\s*\}\}/gi, sampleMessage)
       .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget)
-      .replace(/\{\{\s*node_id\s*\}\}/gi, '1')
+      .replace(/\{\{\s*node_id\s*\}\}/gi, activeNode?.id ? String(activeNode.id) : '1')
       .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName)
       .replace(/\{\{\s*plugin_name\s*\}\}/gi, formSource === 'plugin_registry' ? 'pre-function' : sampleTarget)
       .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget)
@@ -842,26 +844,26 @@ export const Alerts: React.FC = () => {
       .replace(/\{\{\s*status_code\s*\}\}/gi, sampleStatusCode)
       .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor)
       .replace(/\{\{\s*timestamp\s*\}\}/gi, sampleTimestamp)
-      .replace(/\{\{\s*kong_url\s*\}\}/gi, 'http://localhost:8081')
-      .replace(/\{\{\s*noka_url\s*\}\}/gi, 'http://localhost:13337')
+      .replace(/\{\{\s*kong_url\s*\}\}/gi, activeNode?.kong_admin_url || 'http://localhost:8081')
+      .replace(/\{\{\s*noka_url\s*\}\}/gi, baseUrl || window.location.origin)
       .replace(/\{\{\s*details\s*\}\}/gi, sampleDetails);
-  }, [formTemplate, formName, formSeverity, formSource]);
+  }, [formTemplate, formName, formSeverity, formSource, activeNode, baseUrl]);
 
   // Live Interpolated Webhook JSON Preview
   const liveWebhookJsonPreview = useMemo(() => {
     let sampleTarget = 'https://api.gateway.internal/v1/payments';
     let sampleStatusCode = '503';
-    let sampleNodeName = 'kong-staging-34(cluster-kong)';
+    let sampleNodeName = activeNode?.name || 'kong-staging-34(cluster-kong)';
     let sampleDetails: any = { status_code: 503, target_url: 'https://api.gateway.internal/v1/payments' };
     if (formSource === 'gateway_node') {
-      sampleTarget = 'kong-admin-node-01';
+      sampleTarget = activeNode?.name || 'kong-admin-node-01';
       sampleStatusCode = '500';
-      sampleNodeName = 'kong-admin-node-01';
-      sampleDetails = { node_id: '1', node_name: 'kong-admin-node-01', status: 'down' };
+      sampleNodeName = activeNode?.name || 'kong-admin-node-01';
+      sampleDetails = { node_id: activeNode?.id ? String(activeNode.id) : '1', node_name: sampleNodeName, status: 'down' };
     } else if (formSource === 'plugin_registry') {
       sampleTarget = 'pre-function';
       sampleStatusCode = '200';
-      sampleDetails = { node_id: '1', node_name: 'kong-staging-34(cluster-kong)', plugin_id: '35305d9e-7f1f-4908-8979-0b1aa00b6d2d', plugin_name: 'pre-function' };
+      sampleDetails = { node_id: activeNode?.id ? String(activeNode.id) : '1', node_name: sampleNodeName, plugin_id: '35305d9e-7f1f-4908-8979-0b1aa00b6d2d', plugin_name: 'pre-function' };
     } else if (formSource === 'ssl_cert') {
       sampleTarget = '*.api.enterprise.com (SNI)';
       sampleStatusCode = '28';
@@ -889,7 +891,7 @@ export const Alerts: React.FC = () => {
       const interpolatedStr = jsonTemplateToInterpolate
         .replace(/\{\{\s*title\s*\}\}/gi, sampleTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*target\s*\}\}/gi, sampleTarget.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
-        .replace(/\{\{\s*node_id\s*\}\}/gi, '1')
+        .replace(/\{\{\s*node_id\s*\}\}/gi, activeNode?.id ? String(activeNode.id) : '1')
         .replace(/\{\{\s*node_name\s*\}\}/gi, sampleNodeName.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*plugin_name\s*\}\}/gi, (formSource === 'plugin_registry' ? 'pre-function' : sampleTarget).replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*resource_name\s*\}\}/gi, sampleTarget.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
@@ -904,8 +906,8 @@ export const Alerts: React.FC = () => {
         .replace(/\{\{\s*actor\s*\}\}/gi, sampleActor.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))
         .replace(/\{\{\s*timestamp\s*\}\}/gi, sampleTimestamp)
         .replace(/\{\{\s*message\s*\}\}/gi, jsonEscapedMsg)
-        .replace(/\{\{\s*kong_url\s*\}\}/gi, 'http://localhost:8081')
-        .replace(/\{\{\s*noka_url\s*\}\}/gi, 'http://localhost:13337');
+        .replace(/\{\{\s*kong_url\s*\}\}/gi, activeNode?.kong_admin_url || 'http://localhost:8081')
+        .replace(/\{\{\s*noka_url\s*\}\}/gi, baseUrl || window.location.origin);
 
       try {
         const parsed = JSON.parse(interpolatedStr);
@@ -926,7 +928,7 @@ export const Alerts: React.FC = () => {
       timestamp: sampleTimestamp
     };
     return JSON.stringify(defaultObj, null, 2);
-  }, [formWebhookJson, formTemplate, liveInterpolatedPreview, formName, formSeverity, formSource]);
+  }, [formWebhookJson, formTemplate, liveInterpolatedPreview, formName, formSeverity, formSource, activeNode, baseUrl]);
 
   // ── Load Data & Persistent Caches ──
 
@@ -949,6 +951,27 @@ export const Alerts: React.FC = () => {
         } catch {
           // Fallback
         }
+      }
+
+      // 1b. Fetch active connection / node
+      try {
+        const connRes = await axios.get('/api/connections');
+        const conns = Array.isArray(connRes.data) ? connRes.data : (connRes.data?.data || []);
+        const act = conns.find((c: any) => c.active === true);
+        if (act) setActiveNode(act);
+      } catch (e) {
+        console.error('Failed to load connections:', e);
+      }
+
+      // 1c. Fetch settings baseUrl
+      try {
+        const setRes = await axios.get('/api/settings');
+        const settingsData = setRes.data?.data || setRes.data;
+        if (settingsData?.baseUrl) {
+          setBaseUrl(settingsData.baseUrl.replace(/\/+$/, ''));
+        }
+      } catch (e) {
+        console.error('Failed to load settings:', e);
       }
 
       // 2. Fetch Alert Rules from Backend DB
