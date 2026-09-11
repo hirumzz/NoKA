@@ -32,24 +32,42 @@ module.exports = function dynamicNode(request, response, next) {
 
   } else {
     // Get the default node from user
+    var userId = parseInt(request.token, 10) || request.token;
     sails.models.user.findOne({
-      id: request.token
+      id: userId
     }).populate('node').exec(function (err, user) {
       if (err) return next(err);
       if (!user) return response.notFound({
         message: "user not found"
-      })
+      });
 
-      if (user.node) {
-        // Remove trailing slash from kong_admin_url property
-        _.update(user.node, 'kong_admin_url', function(o) { return o.replace(/\/$/, ""); });
-        request.connection = user.node;
-        return next();
-      } else {
+      var nodeTarget = user.node || user.node_id;
+      if (!nodeTarget) {
         return response.badRequest({
           message: "No connection is selected. Please activate a connection in settings"
         });
       }
+
+      if (typeof nodeTarget === 'object' && nodeTarget.kong_admin_url) {
+        // Remove trailing slash from kong_admin_url property
+        _.update(nodeTarget, 'kong_admin_url', function(o) { return o.replace(/\/$/, ""); });
+        request.connection = nodeTarget;
+        return next();
+      }
+
+      // If nodeTarget is an ID (string or number), look up the kongnode
+      var nodeId = (typeof nodeTarget === 'object' && nodeTarget.id) ? nodeTarget.id : nodeTarget;
+      sails.models.kongnode.findOne({ id: nodeId }).exec(function(err, node) {
+        if (err) return next(err);
+        if (!node) {
+          return response.badRequest({
+            message: "No connection is selected. Please activate a connection in settings"
+          });
+        }
+        _.update(node, 'kong_admin_url', function(o) { return o.replace(/\/$/, ""); });
+        request.connection = node;
+        return next();
+      });
     });
   }
 

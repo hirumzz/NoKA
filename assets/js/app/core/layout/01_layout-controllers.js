@@ -178,7 +178,8 @@
 
           $scope.alerts = [];
 
-          if ((UserService.user().node && UserService.user().node.id == node.id) || node.checkingConnection) {
+          var currentUserNode = (UserService.user() && UserService.user().node) ? UserService.user().node : null;
+          if ((currentUserNode && currentUserNode.id == node.id) || node.checkingConnection) {
             return false;
           }
 
@@ -194,12 +195,20 @@
 
             UserModel
               .update(UserService.user().id, {
-                node: node
+                node: node.id,
+                node_id: String(node.id)
               })
               .then(function onSuccess(res) {
-                  var credentials = $localStorage.credentials
-                  credentials.user.node = node
-
+                  var credentials = $localStorage.credentials;
+                  if (credentials && credentials.user) {
+                    credentials.user.node = node;
+                    credentials.user.node_id = String(node.id);
+                  }
+                  if ($rootScope.user) {
+                    $rootScope.user.node = node;
+                    $rootScope.user.node_id = String(node.id);
+                  }
+                  $rootScope.$broadcast('user.node.updated', node);
 
                   // Update $rootScope.Gateway
                   _fetchGatewayInfo(node);
