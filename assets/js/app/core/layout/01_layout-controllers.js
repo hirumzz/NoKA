@@ -178,9 +178,8 @@
 
           $scope.alerts = [];
 
-          var currentUserNode = _.get(UserService.user(), 'node');
-          var currentId = (typeof currentUserNode === 'object' && currentUserNode) ? currentUserNode.id : currentUserNode;
-          if ((currentId && currentId == node.id) || node.checkingConnection) {
+          var currentUserNode = (UserService.user() && UserService.user().node) ? UserService.user().node : null;
+          if ((currentUserNode && currentUserNode.id == node.id) || node.checkingConnection) {
             return false;
           }
 
