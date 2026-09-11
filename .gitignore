@@ -127,3 +127,11 @@ nbproject
 /seeds/
 /seeds/
 flow_analysis.md
+*SECURITY*.md
+SECURITY_TESTING.md
+.agents/
+.vscode/
+AI_WARNING.md
+Dockerfile.fast
+backend/
+frontend/

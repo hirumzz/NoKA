@@ -192,6 +192,8 @@ module.exports = {
                 sails.log("helath_checks:settings =>", settings)
                 if (!settings.length
                     || !settings[0].data
+                    || !settings[0].data.notify_when
+                    || !settings[0].data.notify_when.api_down
                     || !settings[0].data.notify_when.api_down.active) return false;
 
 

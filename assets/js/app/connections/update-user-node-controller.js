@@ -28,7 +28,8 @@
 
                     $scope.alerts = [];
 
-                    if(($rootScope.user.node.id == node.id ) || node.checkingConnection) return false;
+                    var currentNode = ($rootScope.user && $rootScope.user.node) ? $rootScope.user.node : null;
+                    if((currentNode && currentNode.id == node.id ) || node.checkingConnection) return false;
 
 
                     // Check if the connection is valid
@@ -41,17 +42,25 @@
 
                         UserModel
                             .update(UserService.user().id, {
-                                node : node
+                                node : node.id,
+                                node_id: String(node.id)
                             })
                             .then(
                                 function onSuccess(res) {
-                                    var credentials = $localStorage.credentials
-                                    credentials.user.node = node
-                                    $rootScope.$broadcast('user.node.updated',node)
-                                    $scope.close()
+                                    var credentials = $localStorage.credentials;
+                                    if (credentials && credentials.user) {
+                                        credentials.user.node = node;
+                                        credentials.user.node_id = String(node.id);
+                                    }
+                                    if ($rootScope.user) {
+                                        $rootScope.user.node = node;
+                                        $rootScope.user.node_id = String(node.id);
+                                    }
+                                    $rootScope.$broadcast('user.node.updated',node);
+                                    $scope.close();
                                 },function(err){
-                                    $scope.busy = false
-                                    UserModel.handleError($scope,err)
+                                    $scope.busy = false;
+                                    UserModel.handleError($scope,err);
                                 }
                             );
 
