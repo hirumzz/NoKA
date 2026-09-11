@@ -1,10 +1,6 @@
 {
   "name": "noka",
-<<<<<<< HEAD
   "version": "1.0.7",
-=======
-  "version": "1.0.6",
->>>>>>> remotes/origin/master
   "description": "Nocta Kong Admin - Elegant Kong GUI",
   "keywords": [
     "sails.js",
