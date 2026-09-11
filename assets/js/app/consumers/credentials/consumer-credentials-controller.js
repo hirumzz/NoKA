@@ -55,12 +55,14 @@
           },
         ]
 
-        $scope.availablePlugins = $rootScope.Gateway.plugins.available_on_server;
+        $scope.availablePlugins = _.get($rootScope, 'Gateway.plugins.available_on_server', {});
 
-        // Remove credentials that are not available on the server
-        $scope.credentialGroups = _.filter($scope.credentialGroups, function (item) {
-          return $scope.availablePlugins[item.id];
-        })
+        // Remove credentials that are not available on the server only if availablePlugins is populated
+        if ($scope.availablePlugins && Object.keys($scope.availablePlugins).length > 0) {
+          $scope.credentialGroups = _.filter($scope.credentialGroups, function (item) {
+            return $scope.availablePlugins[item.id];
+          });
+        }
 
         // Fetch the remaining ones
         $scope.credentialGroups.forEach(function (item) {

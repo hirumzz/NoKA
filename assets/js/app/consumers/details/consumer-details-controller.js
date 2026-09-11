@@ -57,8 +57,8 @@
               referenceType: 'consumer'
             }
           }).then(function (res) {
-            var currentUserId = String($scope.user.id);
-            var isAdmin = $scope.user.admin || $scope.user.role === 'admin';
+            var currentUserId = ($scope.user && $scope.user.id) ? String($scope.user.id) : '';
+            var isAdmin = $scope.user ? ($scope.user.admin || $scope.user.role === 'admin') : false;
             res.data.forEach(function(comment) {
               comment._isOwner = comment.user ? String(comment.user.id) === currentUserId : false;
               comment._canDelete = comment._isOwner || isAdmin;

@@ -8,14 +8,25 @@
 
   angular.module('frontend.info')
     .service('InfoService', [
-        '$log', '$state','$http',
-      function( $log, $state, $http) {
+        '$log', '$state', '$http', '$q', '$rootScope',
+      function( $log, $state, $http, $q, $rootScope) {
 
           return {
 
               getInfo : function() {
                   console.log('InfoService:getInfo called');
                   return $http.get('kong')
+              },
+              ensureGatewayInfo : function() {
+                  if ($rootScope.Gateway) {
+                      return $q.when($rootScope.Gateway);
+                  }
+                  return $http.get('kong').then(function(response) {
+                      $rootScope.Gateway = response.data;
+                      return response.data;
+                  }).catch(function(err) {
+                      return null;
+                  });
               },
               nodeStatus : function(params) {
                   return $http.get('kong/status',{

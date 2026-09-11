@@ -14,9 +14,10 @@
                           $uibModalInstance, MessageService, _service) {
 
 
-        var availableFormattedVersion = RoutesService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
+        var gatewayVersion = _.get($rootScope, 'Gateway.version') || '0.14.0';
+        var availableFormattedVersion = RoutesService.getLastAvailableFormattedVersion(gatewayVersion);
         $scope.service = _service;
-        $scope.route = angular.copy(RoutesService.getProperties($rootScope.Gateway.version));
+        $scope.route = angular.copy(RoutesService.getProperties(gatewayVersion));
         // Assign service id
         $scope.route.service = {
           id: _service.id

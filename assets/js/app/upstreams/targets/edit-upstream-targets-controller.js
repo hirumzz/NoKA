@@ -149,14 +149,21 @@
 
         function _fetchData() {
           Target.load().then(function (response) {
-            $scope.items = JSON.stringify(response.data) === "{}" ? [] : response.data;
+            var rawData = response.data;
+            if (rawData && rawData.data && Array.isArray(rawData.data)) {
+              $scope.items = rawData.data;
+            } else if (Array.isArray(rawData)) {
+              $scope.items = rawData;
+            } else {
+              $scope.items = [];
+            }
 
             // Get Targets health
             if($rootScope.compareKongVersion('0.12.2') >= 0) {
               // Fetch targets Health
               Upstream.health($stateParams.id).then(function (_response) {
-                console.log("Health checks =>", response);
-                if(_response && _response.data.length) {
+                console.log("Health checks =>", _response);
+                if(_response && _response.data && Array.isArray(_response.data) && _response.data.length) {
                   $scope.items.forEach(function(item){
                     var healthObj = _.find(_response.data, function (target) {
                       return target.id === item.id;
@@ -166,8 +173,13 @@
                     }
                   });
                 }
+              }).catch(function (err) {
+                $log.error('Failed to load targets health', err);
               });
             }
+          }).catch(function (err) {
+            $scope.items = [];
+            $log.error('Failed to load targets', err);
           });
         }
 

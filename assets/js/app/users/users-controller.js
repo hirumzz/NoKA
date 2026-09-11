@@ -23,7 +23,7 @@
 
           // Set initial data
           $scope.items = _items;
-          $scope.itemCount = _count.count;
+          $scope.itemCount = (typeof _count === 'object' && _count) ? _count.count : _count;
           $scope.user = UserService.user();
 
 

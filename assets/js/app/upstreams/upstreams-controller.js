@@ -64,6 +64,9 @@
                     }).then(function(response){
                         $scope.items = response
                         $scope.loading  = false;
+                    }).catch(function (err) {
+                        $scope.loading = false;
+                        $log.error('Failed to load upstreams', err);
                     });
                 }
 
@@ -83,12 +86,11 @@
 
 
                 $scope.$on('user.node.updated',function(ev,node){
-                    if(UserService.user().node.kong_version == '0-9-x'){
+                    if(_.get(UserService.user(), 'node.kong_version') == '0-9-x'){
                         $state.go('dashboard')
                     }else{
                         _fetchData()
                     }
-
                 });
 
 

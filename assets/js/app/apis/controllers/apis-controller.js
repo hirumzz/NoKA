@@ -43,7 +43,7 @@
 
         function toggleStripRequestPathOrUri(api) {
 
-          if ($rootScope.Gateway.version.indexOf("0.9.") > -1) {
+          if ($rootScope.Gateway && $rootScope.Gateway.version && $rootScope.Gateway.version.indexOf("0.9.") > -1) {
             api.strip_request_path = !api.strip_request_path;
           } else {
             api.strip_uri = !api.strip_uri;

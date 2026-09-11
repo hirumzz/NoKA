@@ -11,12 +11,14 @@
       '$scope', '$rootScope', '$state', 'SettingsService', '$log', 'AuthService', '_service',
       function controller($scope, $rootScope, $state, SettingsService, $log,AuthService, _service) {
 
-        $scope.service = _service.data
+        $scope.service = (_service && _service.data) ? _service.data : (_service || {});
 
         // Fix empty object properties
         fixProperties()
 
-        $state.current.data.pageName = "Service " + ($scope.service.name || $scope.service.id)
+        if ($state.current && $state.current.data) {
+          $state.current.data.pageName = "Service " + ($scope.service.name || $scope.service.id || 'Details');
+        }
         $scope.activeSection = 0;
         $scope.sections = [
           {

@@ -14,8 +14,9 @@
                           $uibModalInstance, MessageService) {
 
         $scope.tags = [];
-        var availableFormattedVersion = ServiceService.getLastAvailableFormattedVersion($rootScope.Gateway.version);
-        $scope.service = angular.copy(ServiceService.getProperties($rootScope.Gateway.version));
+        var gatewayVersion = _.get($rootScope, 'Gateway.version') || '0.14.0';
+        var availableFormattedVersion = ServiceService.getLastAvailableFormattedVersion(gatewayVersion);
+        $scope.service = angular.copy(ServiceService.getProperties(gatewayVersion));
 
         $scope.partial = 'js/app/services/partials/form-service-' + availableFormattedVersion + '.html?r=' + Date.now();
 
