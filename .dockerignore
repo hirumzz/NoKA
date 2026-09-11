@@ -67,8 +67,15 @@ config/local.js
 #
 ################################################
 
-# node_modules
-# bower_components
+# Dependencies
+node_modules
+frontend/node_modules
+bower_components
+backend/vendor
+.git
+.agents
+db-existing
+*.sql
 
 
 
