@@ -39,8 +39,9 @@
                   function accept() {
                     SnisModel.delete(sni)
                       .then(function (res) {
-
-                        $scope.data.snis.splice($scope.data.snis.indexOf(sni), 1);
+                        if ($scope.data.snis && Array.isArray($scope.data.snis)) {
+                          $scope.data.snis.splice($scope.data.snis.indexOf(sni), 1);
+                        }
                       }, function (err) {
                         $log.error("ListConfigService : Model delete failed => ", err)
                       });
@@ -98,7 +99,12 @@
                 });
 
                 _modalInstance.result.then(function (data) {
-                  if (data && data.data) $scope.data.snis.push(data.data);
+                  if (data && data.data) {
+                    if (!Array.isArray($scope.data.snis)) {
+                      $scope.data.snis = [];
+                    }
+                    $scope.data.snis.push(data.data);
+                  }
                 }, function (data) {
                 });
               }
@@ -127,7 +133,9 @@
                 data.key = data.key.trim();
 
                 if ($rootScope.isGatewayVersionEqOrGreater('0.14') && data.snis) {
-                  data.snis = data.snis.split(",")
+                  if (typeof data.snis === 'string') {
+                    data.snis = data.snis.split(",");
+                  }
                 }
 
                 CertificateModel.create(data)
@@ -221,11 +229,15 @@
             $scope.loading = false;
 
             if (response.data && Object.keys(response.data).length) {
-              $scope.certificates = Semver.cmp($rootScope.Gateway.version, "0.10.1") > 0 ? response.data.data : response.data
+              var gatewayVersion = _.get($rootScope, 'Gateway.version') || '0.11.0';
+              $scope.certificates = Semver.cmp(gatewayVersion, "0.10.1") > 0 ? response.data.data : response.data
             } else {
               $scope.certificates = []
             }
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load certificates', err);
+          });
         }
 
         _fetchData()

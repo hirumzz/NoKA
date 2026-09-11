@@ -18,8 +18,8 @@
                           _plugins, _info) {
 
 
-        var info = _info.data
-        var plugins_available = info.plugins.available_on_server
+        var info = (_info && _info.data) ? _info.data : (_info || {});
+        var plugins_available = _.get(info, 'plugins.available_on_server', {});
         console.log("SERVER AVAILABLE PLUGINS => ", plugins_available)
         var pluginOptions = new KongPluginsService().pluginOptions()
 
@@ -29,13 +29,16 @@
           $log.debug("Plugin Groups", $scope.pluginGroups)
 
           $scope.pluginGroups.forEach(function (group) {
-            for (var key in group.plugins) {
-              if (!plugins_available[key]) delete group.plugins[key]
+            if (plugins_available && Object.keys(plugins_available).length > 0) {
+              for (var key in group.plugins) {
+                if (!plugins_available[key]) delete group.plugins[key]
+              }
             }
           })
 
           // Init
-          syncPlugins(_plugins.data.data)
+          var addedPlugins = _.isArray(_.get(_plugins, 'data')) ? _plugins.data : _.get(_plugins, 'data.data', []);
+          syncPlugins(addedPlugins);
         })
         $scope.activeGroup = 'Authentication'
         $scope.setActiveGroup = setActiveGroup
@@ -101,8 +104,8 @@
         }
 
         function syncPlugins(added) {
-
-          var addedMap = added.map(function (item) {
+          var list = _.isArray(added) ? added : _.get(added, 'data', []);
+          var addedMap = list.map(function (item) {
             return item.name
           })
 
@@ -110,7 +113,7 @@
             for (var key in group.plugins) {
               if (addedMap.indexOf(key) > -1) {
                 group.plugins[key].isAdded = true
-                var plugin = findPlugin(added, key);
+                var plugin = findPlugin(list, key);
                 if (plugin) {
                   for (var _key in plugin) {
                     group.plugins[key][_key] = plugin[_key]
@@ -127,7 +130,8 @@
         function fetchPlugins() {
           PluginsService.load()
             .then(function (res) {
-              syncPlugins(res.data.data)
+              var addedPlugins = _.isArray(_.get(res, 'data')) ? res.data : _.get(res, 'data.data', []);
+              syncPlugins(addedPlugins);
             })
         }
 

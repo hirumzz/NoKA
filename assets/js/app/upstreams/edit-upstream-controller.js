@@ -52,13 +52,12 @@
 
 
           $scope.$on('user.node.updated',function(node){
-              if(UserService.user().node.kong_version == '0-9-x'){
+              if(_.get(UserService.user(), 'node.kong_version') == '0-9-x'){
                   $state.go('dashboard')
               }else{
                   $state.go('upstreams')
               }
-
-          })
+          });
       }
     ])
   ;

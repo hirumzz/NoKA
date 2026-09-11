@@ -13,10 +13,9 @@
 
 
           $scope.toggleApiHC = function() {
-
+              if(!$scope.apiHC) return false;
               ApiHCModel.update($scope.apiHC.id,{active: $scope.apiHC.active})
                   .then(function(updated){
-
                       MessageService.success("Health Checks " + ($scope.apiHC.active ? 'enabled' : 'disabled') + " ")
                   },function(err){
                       //
@@ -24,7 +23,7 @@
           }
 
           $scope.save = function() {
-              if(!$scope.apiHC.health_check_endpoint) return false;
+              if(!$scope.apiHC || !$scope.apiHC.health_check_endpoint) return false;
               ApiHCModel.update($scope.apiHC.id,$scope.apiHC)
                   .then(function(updated){
                       MessageService.success("API health checks updated!")

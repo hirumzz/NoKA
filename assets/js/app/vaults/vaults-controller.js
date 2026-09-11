@@ -87,7 +87,10 @@
             } else {
               $scope.vaults = [];
             }
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load vaults', err);
+          });
         }
 
         _fetchData();

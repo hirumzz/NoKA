@@ -253,23 +253,10 @@
         }
 
         //Check for state change errors.
-        //$rootScope.$on('$stateChangeError', function stateChangeError(event, toState, toParams, fromState, fromParams, error) {
-        //  event.preventDefault();
-        //
-        //  $injector.get('MessageService')
-        //    .error('Error loading the page');
-        //
-        //  $state.get('error').error = {
-        //    event: event,
-        //    toState: toState,
-        //    toParams: toParams,
-        //    fromState: fromState,
-        //    fromParams: fromParams,
-        //    error: error
-        //  };
-        //
-        //  return $state.go('error');
-        //});
+        $rootScope.$on('$stateChangeError', function stateChangeError(event, toState, toParams, fromState, fromParams, error) {
+          $log.error('$stateChangeError =>', error);
+          cfpLoadingBar.complete();
+        });
       }
     ])
     .controller('MainController', ['$log', '$scope', '$rootScope', 'Settings', 'NodeModel', 'Semver',
@@ -291,7 +278,8 @@
         }
 
         $rootScope.compareKongVersion = function (version) {
-          return Semver.cmp($rootScope.Gateway.version, version);
+          var gatewayVersion = _.get($rootScope, 'Gateway.version') || '3.0.0';
+          return Semver.cmp(gatewayVersion, version);
         }
 
         // ToDo decide whether to use Gateway Info for getting active node version and stuff...

@@ -14,7 +14,7 @@
                           Settings, MessageService, $uibModal, _integrations) {
 
 
-        if(_integrations.data && _integrations.data.length) {
+        if(_integrations && _integrations.data && _integrations.data.length) {
           $rootScope.integrations = _integrations.data;
         }
 
@@ -96,6 +96,7 @@
 
               $scope.getModelParent = function (path) {
                 var segs = path.split('.');
+                if (!$scope.transport.settings) $scope.transport.settings = {};
                 var root = $scope.transport.settings;
 
                 while (segs.length > 1) {

@@ -110,7 +110,10 @@
 
             $scope.loading = false;
 
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load consumers', err);
+          });
         }
 
 

@@ -349,7 +349,7 @@
             state: 'upstreams',
             icon: 'mdi-shuffle-variant',
             show: function () {
-              return AuthService.hasPermission('upstreams', 'read') && UserService.user().node && $rootScope.isGatewayVersionEqOrGreater('0.10.0');
+              return AuthService.hasPermission('upstreams', 'read') && _.get(UserService.user(), 'node') && $rootScope.isGatewayVersionEqOrGreater('0.10.0');
             },
             title: 'Upstreams',
             access: AccessLevels.anon
@@ -358,7 +358,7 @@
             state: 'certificates',
             icon: 'mdi-certificate',
             show: function () {
-              return AuthService.hasPermission('certificates', 'read') && UserService.user().node && $rootScope.isGatewayVersionEqOrGreater('0.10.0');
+              return AuthService.hasPermission('certificates', 'read') && _.get(UserService.user(), 'node') && $rootScope.isGatewayVersionEqOrGreater('0.10.0');
             },
             title: 'Certificates',
             access: AccessLevels.anon
@@ -367,7 +367,7 @@
             state: 'vaults',
             icon: 'mdi-lock',
             show: function () {
-              return AuthService.hasPermission('vaults', 'read') && UserService.user().node && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
+              return AuthService.hasPermission('vaults', 'read') && _.get(UserService.user(), 'node') && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
             },
             title: 'Vaults',
             access: AccessLevels.anon
@@ -376,7 +376,7 @@
             state: 'keys',
             icon: 'mdi-key',
             show: function () {
-              return AuthService.hasPermission('keys', 'read') && UserService.user().node && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
+              return AuthService.hasPermission('keys', 'read') && _.get(UserService.user(), 'node') && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
             },
             title: 'Keys',
             access: AccessLevels.anon
@@ -385,7 +385,7 @@
             state: 'key-sets',
             icon: 'mdi-layers',
             show: function () {
-              return AuthService.hasPermission('key-sets', 'read') && UserService.user().node && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
+              return AuthService.hasPermission('key-sets', 'read') && _.get(UserService.user(), 'node') && $rootScope.isGatewayVersionEqOrGreater('3.0.0');
             },
             title: 'Key Sets',
             access: AccessLevels.anon

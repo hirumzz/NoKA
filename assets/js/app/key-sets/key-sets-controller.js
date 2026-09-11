@@ -75,7 +75,10 @@
             } else {
               $scope.keySets = [];
             }
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load key-sets', err);
+          });
         }
 
         _fetchData();

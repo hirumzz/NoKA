@@ -30,27 +30,29 @@
                          services: $http.get('kong/services').catch(function() { return { data: { data: [] } }; }),
                          prometheus: InfoService.getPrometheusMetrics().catch(function() { return { data: { success: false } }; })
                      }).then(function(results) {
-                         var routesList = results.routes.data.data || [];
-                         var servicesList = results.services.data.data || [];
-                         var prometheusData = results.prometheus.data;
-                         
-                         var routesMap = {};
-                         var servicesMap = {};
+                          var routesList = _.get(results, 'routes.data.data') || _.get(results, 'routes.data') || [];
+                          var servicesList = _.get(results, 'services.data.data') || _.get(results, 'services.data') || [];
+                          var prometheusData = results.prometheus.data;
+                          
+                          var routesMap = {};
+                          var servicesMap = {};
 
-                         angular.forEach(routesList, function(route) {
-                             var pathStr = route.paths ? route.paths.join(', ') : '';
-                             routesMap[route.id] = pathStr || route.name || route.id;
-                             if (route.name) {
-                                 routesMap[route.name] = pathStr || route.name;
-                             }
-                         });
+                          angular.forEach(routesList, function(route) {
+                              if (!route) return;
+                              var pathStr = route.paths ? route.paths.join(', ') : '';
+                              routesMap[route.id] = pathStr || route.name || route.id;
+                              if (route.name) {
+                                  routesMap[route.name] = pathStr || route.name;
+                              }
+                          });
 
-                         angular.forEach(servicesList, function(service) {
-                             servicesMap[service.id] = service.name || service.host || service.id;
-                             if (service.name) {
-                                 servicesMap[service.name] = service.name || service.host;
-                             }
-                         });
+                          angular.forEach(servicesList, function(service) {
+                              if (!service) return;
+                              servicesMap[service.id] = service.name || service.host || service.id;
+                              if (service.name) {
+                                  servicesMap[service.name] = service.name || service.host;
+                              }
+                          });
 
                          function resolveEndpointPath(endpointId) {
                              if (!endpointId || endpointId === 'unknown') return 'unknown';
