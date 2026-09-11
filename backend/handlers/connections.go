@@ -107,7 +107,18 @@ func CreateConnection(c *gin.Context) {
 		}
 	}
 
-	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections", node.Name, "Connection created: "+node.Name, "mdi-lan-connect", req)
+	auditReq := req
+	if auditReq.KongAPIKey != "" {
+		auditReq.KongAPIKey = "******"
+	}
+	if auditReq.Password != "" {
+		auditReq.Password = "******"
+	}
+	if auditReq.JWTSecret != "" {
+		auditReq.JWTSecret = "******"
+	}
+
+	recordConnectionAuditAndNotify(c, "POST", "connections", "/api/connections", node.Name, "Connection created: "+node.Name, "mdi-lan-connect", auditReq)
 
 	c.JSON(http.StatusCreated, node)
 }
@@ -331,7 +342,16 @@ func UpdateConnection(c *gin.Context) {
 
 	db.DB.First(&node, uint(id))
 
-	recordConnectionAuditAndNotify(c, "PATCH", "connections", "/api/connections/"+idStr, node.Name, "Connection updated: "+node.Name, "mdi-pencil-outline", updates)
+	auditUpdates := make(map[string]interface{})
+	for k, v := range updates {
+		if (k == "kong_api_key" || k == "password" || k == "jwt_secret") && v != "" {
+			auditUpdates[k] = "******"
+		} else {
+			auditUpdates[k] = v
+		}
+	}
+
+	recordConnectionAuditAndNotify(c, "PATCH", "connections", "/api/connections/"+idStr, node.Name, "Connection updated: "+node.Name, "mdi-pencil-outline", auditUpdates)
 
 	c.JSON(http.StatusOK, node)
 }

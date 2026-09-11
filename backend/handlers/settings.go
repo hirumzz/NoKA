@@ -3,7 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -34,6 +37,32 @@ var sensitiveKeys = map[string]bool{
 	"password":      true,
 	"secret":        true,
 	"auth_token":    true,
+	"key":           true,
+	"token":         true,
+}
+
+// MaskSensitiveData recursively masks sensitive field values with "******"
+func MaskSensitiveData(val interface{}) interface{} {
+	switch v := val.(type) {
+	case map[string]interface{}:
+		res := make(map[string]interface{})
+		for k, item := range v {
+			if _, ok := item.(string); ok && sensitiveKeys[k] {
+				res[k] = "******"
+			} else {
+				res[k] = MaskSensitiveData(item)
+			}
+		}
+		return res
+	case []interface{}:
+		res := make([]interface{}, len(v))
+		for i, item := range v {
+			res[i] = MaskSensitiveData(item)
+		}
+		return res
+	default:
+		return val
+	}
 }
 
 // EncryptSensitiveData recursively inspects maps and slices and encrypts sensitive field values
@@ -171,7 +200,8 @@ func SaveSystemSettings(c *gin.Context) {
 		}
 	}
 
-	payloadBytes, _ := json.Marshal(req.Settings)
+	maskedSettings := MaskSensitiveData(req.Settings)
+	payloadBytes, _ := json.Marshal(maskedSettings)
 
 	audit := models.AuditLog{
 		IPAddress:    c.ClientIP(),
@@ -215,7 +245,7 @@ func TestIntegrationChannel(c *gin.Context) {
 	testTime := time.Now().Format("2006-01-02 15:04:05 MST")
 	messageText := req.Message
 	if strings.TrimSpace(messageText) == "" {
-		messageText = fmt.Sprintf("?? *[NOKA Gateway Alert]* Real-time 3rd-Party Integration Test\n*Channel:* %s\n*Timestamp:* %s\n*Status:* Connection Verified Successfully!", strings.ToUpper(req.Channel), testTime)
+		messageText = fmt.Sprintf("🔔 *[NOKA Gateway Alert]* Real-time 3rd-Party Integration Test\n*Channel:* %s\n*Timestamp:* %s\n*Status:* Connection Verified Successfully!", strings.ToUpper(req.Channel), testTime)
 	}
 
 	getString := func(m map[string]interface{}, key string) string {
@@ -223,6 +253,32 @@ func TestIntegrationChannel(c *gin.Context) {
 			return fmt.Sprintf("%v", v)
 		}
 		return ""
+	}
+
+	validateURLSSRF := func(targetURL string) error {
+		if targetURL == "" {
+			return nil
+		}
+		if os.Getenv("ALLOW_INTERNAL_SSRF") == "true" {
+			return nil
+		}
+		parsed, err := url.Parse(targetURL)
+		if err != nil {
+			return fmt.Errorf("invalid target URL: %w", err)
+		}
+		host := parsed.Hostname()
+		if host == "" {
+			return nil
+		}
+		ips, err := net.LookupIP(host)
+		if err == nil {
+			for _, ip := range ips {
+				if utils.IsPrivateIP(ip) {
+					return fmt.Errorf("access to internal IP addresses is blocked by security policy")
+				}
+			}
+		}
+		return nil
 	}
 
 	var err error
@@ -238,7 +294,9 @@ func TestIntegrationChannel(c *gin.Context) {
 		apiKey := getString(decryptedConfig, "apiKey")
 		recipient := getString(decryptedConfig, "recipient")
 		session := getString(decryptedConfig, "session")
-		err = services.SendWhatsAppNotification(serverUrl, apiKey, recipient, session, messageText)
+		if err = validateURLSSRF(serverUrl); err == nil {
+			err = services.SendWhatsAppNotification(serverUrl, apiKey, recipient, session, messageText)
+		}
 
 	case "webhook":
 		webhookUrl := getString(decryptedConfig, "webhookUrl")
@@ -246,21 +304,23 @@ func TestIntegrationChannel(c *gin.Context) {
 		if method == "" {
 			method = "POST"
 		}
-		customHeaders := make(map[string]string)
-		if headersRaw, exists := decryptedConfig["customHeaders"]; exists {
-			if hMap, ok := headersRaw.(map[string]interface{}); ok {
-				for k, v := range hMap {
-					customHeaders[k] = fmt.Sprintf("%v", v)
+		if err = validateURLSSRF(webhookUrl); err == nil {
+			customHeaders := make(map[string]string)
+			if headersRaw, exists := decryptedConfig["customHeaders"]; exists {
+				if hMap, ok := headersRaw.(map[string]interface{}); ok {
+					for k, v := range hMap {
+						customHeaders[k] = fmt.Sprintf("%v", v)
+					}
 				}
 			}
+			payload := map[string]interface{}{
+				"event":     "integration_test",
+				"channel":   "webhook",
+				"message":   messageText,
+				"timestamp": testTime,
+			}
+			err = services.SendWebhookNotification(webhookUrl, method, customHeaders, payload)
 		}
-		payload := map[string]interface{}{
-			"event":     "integration_test",
-			"channel":   "webhook",
-			"message":   messageText,
-			"timestamp": testTime,
-		}
-		err = services.SendWebhookNotification(webhookUrl, method, customHeaders, payload)
 
 	case "slack":
 		webhookUrl := getString(decryptedConfig, "webhookUrl")
@@ -269,7 +329,9 @@ func TestIntegrationChannel(c *gin.Context) {
 		if username == "" {
 			username = "NOKA Alert Bot"
 		}
-		err = services.SendSlackNotification(webhookUrl, channel, username, messageText)
+		if err = validateURLSSRF(webhookUrl); err == nil {
+			err = services.SendSlackNotification(webhookUrl, channel, username, messageText)
+		}
 
 	case "discord":
 		webhookUrl := getString(decryptedConfig, "webhookUrl")
@@ -277,7 +339,9 @@ func TestIntegrationChannel(c *gin.Context) {
 		if username == "" {
 			username = "NOKA Alert Bot"
 		}
-		err = services.SendDiscordNotification(webhookUrl, username, messageText)
+		if err = validateURLSSRF(webhookUrl); err == nil {
+			err = services.SendDiscordNotification(webhookUrl, username, messageText)
+		}
 
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": fmt.Sprintf("Unsupported integration channel: %s", req.Channel)})

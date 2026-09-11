@@ -3,15 +3,37 @@ package services
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
+
+	"konga-backend/utils"
 )
 
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return errors.New("stopped after 5 redirects")
+		}
+		if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+			host := req.URL.Hostname()
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						return errors.New("redirect to private IP address blocked by security policy")
+					}
+				}
+			}
+		}
+		return nil
+	},
 }
 
 // SendTelegramNotification sends a notification message via Telegram Bot API
@@ -133,9 +155,26 @@ func SendWhatsAppNotification(serverUrl, apiKey, recipient, session string, text
 }
 
 // SendWebhookNotification sends a generic HTTP webhook notification
-func SendWebhookNotification(url, method string, customHeaders map[string]string, payload interface{}) error {
-	if url == "" {
+func SendWebhookNotification(targetUrl, method string, customHeaders map[string]string, payload interface{}) error {
+	if targetUrl == "" {
 		return fmt.Errorf("url is required")
+	}
+
+	if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+		parsedURL, err := url.Parse(targetUrl)
+		if err != nil {
+			return fmt.Errorf("invalid webhook url: %w", err)
+		}
+		host := parsedURL.Hostname()
+		if host != "" {
+			if ips, err := net.LookupIP(host); err == nil {
+				for _, ip := range ips {
+					if utils.IsPrivateIP(ip) {
+						return fmt.Errorf("webhook url resolves to private IP address blocked by security policy")
+					}
+				}
+			}
+		}
 	}
 
 	if method == "" {
@@ -155,7 +194,7 @@ func SendWebhookNotification(url, method string, customHeaders map[string]string
 		}
 	}
 
-	req, err := http.NewRequest(strings.ToUpper(method), url, bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest(strings.ToUpper(method), targetUrl, bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		return err
 	}

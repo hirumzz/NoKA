@@ -112,7 +112,11 @@ func matchOperator(actualVal interface{}, operator, ruleVal string) bool {
 
 	case "regex_match", "regex":
 		matched, err := regexp.MatchString(ruleValTrim, actualStr)
-		return err == nil && matched
+		if err != nil {
+			log.Printf("[AlertEngine] Invalid regex '%s' in condition match: %v", ruleValTrim, err)
+			return false
+		}
+		return matched
 
 	default:
 		return strings.EqualFold(strings.TrimSpace(actualStr), ruleValTrim)

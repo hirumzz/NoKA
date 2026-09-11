@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 
@@ -38,8 +39,15 @@ func CSRFProtection() gin.HandlerFunc {
 			return
 		}
 
+		// Public authentication routes (login, register) accept credentials directly via curl/API
+		path := c.Request.URL.Path
+		if path == "/login" || path == "/register" {
+			c.Next()
+			return
+		}
+
 		headerToken := c.GetHeader("X-CSRF-Token")
-		if headerToken == "" || headerToken != cookieToken {
+		if headerToken == "" || subtle.ConstantTimeCompare([]byte(headerToken), []byte(cookieToken)) != 1 {
 			c.JSON(http.StatusForbidden, gin.H{
 				"message": "Invalid or missing CSRF token",
 				"error":   "CSRF token verification failed",

@@ -3,6 +3,7 @@ package handlers
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -793,6 +794,22 @@ func (h *KongHandler) CheckServiceReachability(c *gin.Context) {
 	// Make a quick HEAD request with a short timeout
 	client := &http.Client{
 		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("stopped after 5 redirects")
+			}
+			if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+				host := req.URL.Hostname()
+				if ips, err := net.LookupIP(host); err == nil {
+					for _, ip := range ips {
+						if utils.IsPrivateIP(ip) {
+							return errors.New("redirect to private IP address blocked by security policy")
+						}
+					}
+				}
+			}
+			return nil
+		},
 	}
 	
 	resp, err := client.Head(targetURL)
@@ -943,6 +960,22 @@ func (h *KongHandler) CheckRouteReachability(c *gin.Context) {
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("stopped after 5 redirects")
+			}
+			if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+				host := req.URL.Hostname()
+				if ips, err := net.LookupIP(host); err == nil {
+					for _, ip := range ips {
+						if utils.IsPrivateIP(ip) {
+							return errors.New("redirect to private IP address blocked by security policy")
+						}
+					}
+				}
+			}
+			return nil
+		},
 	}
 
 	var req *http.Request

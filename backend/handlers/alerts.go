@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -125,6 +126,23 @@ func CreateAlertRule(c *gin.Context) {
 	conditionRules := req.ConditionRules
 	if len(conditionRules) == 0 {
 		conditionRules = datatypes.JSON("[]")
+	} else {
+		var rules []services.ConditionRuleItem
+		if err := json.Unmarshal(conditionRules, &rules); err == nil {
+			for _, cond := range rules {
+				op := cond.Operator
+				if op == "regex" || op == "regex_match" {
+					if len(cond.Value) > 250 {
+						c.JSON(http.StatusBadRequest, gin.H{"message": "Regular expression exceeds maximum allowed length of 250 characters"})
+						return
+					}
+					if _, err := regexp.Compile(cond.Value); err != nil {
+						c.JSON(http.StatusBadRequest, gin.H{"message": "invalid regular expression: " + err.Error()})
+						return
+					}
+				}
+			}
+		}
 	}
 
 	channels := req.Channels
@@ -227,6 +245,22 @@ func UpdateAlertRule(c *gin.Context) {
 		rule.ConditionConfig = req.ConditionConfig
 	}
 	if len(req.ConditionRules) > 0 {
+		var rules []services.ConditionRuleItem
+		if err := json.Unmarshal(req.ConditionRules, &rules); err == nil {
+			for _, cond := range rules {
+				op := cond.Operator
+				if op == "regex" || op == "regex_match" {
+					if len(cond.Value) > 250 {
+						c.JSON(http.StatusBadRequest, gin.H{"message": "Regular expression exceeds maximum allowed length of 250 characters"})
+						return
+					}
+					if _, err := regexp.Compile(cond.Value); err != nil {
+						c.JSON(http.StatusBadRequest, gin.H{"message": "invalid regular expression: " + err.Error()})
+						return
+					}
+				}
+			}
+		}
 		rule.ConditionRules = req.ConditionRules
 	}
 	if req.CustomTemplate != "" {
@@ -505,7 +539,7 @@ func recordAlertAuditAndNotify(c *gin.Context, userID *uint, username, action, e
 		Message:     message,
 		Icon:        icon,
 		State:       "alerts",
-		StateParams: datatypes.JSON(payloadBytes),
+		StateParams: datatypes.JSON([]byte(fmt.Sprintf(`{"entity":"%s","url":"%s"}`, entity, url))),
 		UserID:      userID,
 	}
 	db.DB.Create(&notif)

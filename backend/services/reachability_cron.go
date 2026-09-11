@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -168,7 +169,25 @@ func checkEntityReachability(service KongEntity) (string, string, int) {
 		targetURL += service.Path
 	}
 
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("stopped after 5 redirects")
+			}
+			if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+				host := req.URL.Hostname()
+				if ips, err := net.LookupIP(host); err == nil {
+					for _, ip := range ips {
+						if utils.IsPrivateIP(ip) {
+							return errors.New("redirect to private IP address blocked by security policy")
+						}
+					}
+				}
+			}
+			return nil
+		},
+	}
 	resp, err := client.Head(targetURL)
 	if err != nil {
 		resp, err = client.Get(targetURL)
@@ -246,7 +265,25 @@ func checkRouteReachability(route KongEntity, proxyURL string) (string, string, 
 		}
 	}
 
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errors.New("stopped after 5 redirects")
+			}
+			if os.Getenv("ALLOW_INTERNAL_SSRF") != "true" {
+				host := req.URL.Hostname()
+				if ips, err := net.LookupIP(host); err == nil {
+					for _, ip := range ips {
+						if utils.IsPrivateIP(ip) {
+							return errors.New("redirect to private IP address blocked by security policy")
+						}
+					}
+				}
+			}
+			return nil
+		},
+	}
 	var req *http.Request
 	if healthMethod == "POST" {
 		req, _ = http.NewRequest("POST", targetURL, strings.NewReader("{}"))

@@ -184,5 +184,9 @@ security_audit.md
 *AUDIT*.md
 AUDIT_REPORT.md
 AUDIT_LOG_PLAN.md
+SECURITY_TESTING.md
+*SECURITY*.md
 flow_analysis.md
 AI_WARNING.md
+
+backend/vendor/
