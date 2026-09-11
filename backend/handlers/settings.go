@@ -299,7 +299,10 @@ func TestIntegrationChannel(c *gin.Context) {
 		}
 
 	case "webhook":
-		webhookUrl := getString(decryptedConfig, "webhookUrl")
+		webhookUrl := getString(decryptedConfig, "url")
+		if webhookUrl == "" {
+			webhookUrl = getString(decryptedConfig, "webhookUrl")
+		}
 		method := getString(decryptedConfig, "method")
 		if method == "" {
 			method = "POST"
@@ -324,6 +327,9 @@ func TestIntegrationChannel(c *gin.Context) {
 
 	case "slack":
 		webhookUrl := getString(decryptedConfig, "webhookUrl")
+		if webhookUrl == "" {
+			webhookUrl = getString(decryptedConfig, "url")
+		}
 		channel := getString(decryptedConfig, "channel")
 		username := getString(decryptedConfig, "username")
 		if username == "" {
@@ -335,6 +341,9 @@ func TestIntegrationChannel(c *gin.Context) {
 
 	case "discord":
 		webhookUrl := getString(decryptedConfig, "webhookUrl")
+		if webhookUrl == "" {
+			webhookUrl = getString(decryptedConfig, "url")
+		}
 		username := getString(decryptedConfig, "username")
 		if username == "" {
 			username = "NOKA Alert Bot"

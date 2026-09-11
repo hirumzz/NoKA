@@ -888,6 +888,9 @@ func sendChannelNotification(channel, severity, title, message string, details m
 	case "slack":
 		cfg := getChannelConfig("slack")
 		webhookUrl := getString(cfg, "webhookUrl")
+		if webhookUrl == "" {
+			webhookUrl = getString(cfg, "url")
+		}
 		slackChannel := getString(cfg, "channel")
 		username := getString(cfg, "username")
 		if username == "" {
@@ -898,6 +901,9 @@ func sendChannelNotification(channel, severity, title, message string, details m
 	case "discord":
 		cfg := getChannelConfig("discord")
 		webhookUrl := getString(cfg, "webhookUrl")
+		if webhookUrl == "" {
+			webhookUrl = getString(cfg, "url")
+		}
 		username := getString(cfg, "username")
 		if username == "" {
 			username = "NOKA Alert Bot"
