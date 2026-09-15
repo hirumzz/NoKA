@@ -83,7 +83,10 @@
             $scope.items = response;
             console.log("LOADED PLUGINS => ", $scope.items);
             $scope.loading = false;
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load plugins', err);
+          });
         }
 
         function getContext(plugin) {

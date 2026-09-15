@@ -20,7 +20,9 @@
                     }).then(function(response){
                         $scope.items = response;
                         $scope.loading= false;
-                    })
+                    }).catch(function (err) {
+                        $scope.loading = false;
+                    });
                 }
 
                 _fetchData();

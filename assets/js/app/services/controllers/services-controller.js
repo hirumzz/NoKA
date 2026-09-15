@@ -41,7 +41,7 @@
 
         function toggleStripRequestPathOrUri(service) {
 
-          if ($rootScope.Gateway.version.indexOf("0.9.") > -1) {
+          if ($rootScope.Gateway && $rootScope.Gateway.version && $rootScope.Gateway.version.indexOf("0.9.") > -1) {
             service.strip_request_path = !service.strip_request_path;
           } else {
             service.strip_uri = !service.strip_uri;
@@ -112,7 +112,10 @@
             $scope.availableTags = Object.keys(tagsMap).sort();
             
             $scope.loading = false;
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load services', err);
+          });
 
         }
 

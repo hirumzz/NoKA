@@ -29,12 +29,17 @@
 
 
 
+        function getPlugins(item) {
+          if (!item) return [];
+          return _.isArray(item.plugins) ? item.plugins : _.get(item, 'plugins.data', []);
+        }
+
         function isOpen(api) {
           return !isAccessControlled(api);
         }
 
         function isAccessControlled(api) {
-          return _.filter(api.plugins.data,function(item){
+          return _.filter(getPlugins(api), function(item){
             return item.name === 'acl' && item.enabled;
           }).length > 0;
         }
@@ -42,14 +47,14 @@
 
         function needsAuth(api) {
           var authPluginNames = ['basic-auth','key-auth','jwt','oauth2','hmac-auth'];
-          return _.filter(api.plugins.data,function(item){
+          return _.filter(getPlugins(api), function(item){
             return authPluginNames.indexOf(item.name) > -1 && item.enabled;
           }).length > 0;
         }
 
         function getGeneralPlugins(api) {
 
-          return _.filter(api.plugins.data,function(item){
+          return _.filter(getPlugins(api), function(item){
             return !item.consumer_id;
           });
         }
@@ -57,7 +62,7 @@
 
         function getConsumerPlugins(api) {
 
-          return _.filter(api.plugins.data,function(item){
+          return _.filter(getPlugins(api), function(item){
             return item.consumer_id && item.consumer_id === $stateParams.id;
           });
         }
@@ -162,8 +167,10 @@
               $scope.items = res.data;
               $scope.loading = false;
               console.log("LOADED CONSUMER ROUTES =>", $scope.items)
+            }).catch(function(err) {
+              $scope.loading = false;
+              $log.error('Failed to load consumer routes', err);
             });
-
         }
 
 

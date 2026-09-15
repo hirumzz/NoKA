@@ -12,8 +12,10 @@
       function controller(_, $scope, $log, $state, _consumer, $rootScope, Semver) {
 
 
-        $scope.consumer = _consumer.data
-        $state.current.data.pageName = "CONSUMER: " + ($scope.consumer.username || $scope.consumer.id)
+        $scope.consumer = (_consumer && _consumer.data) ? _consumer.data : (_consumer || {});
+        if ($state.current && $state.current.data) {
+          $state.current.data.pageName = "CONSUMER: " + ($scope.consumer.username || $scope.consumer.id || 'Details');
+        }
         $scope.activeSection = 0;
         $scope.sections = [
           {
@@ -49,7 +51,8 @@
           })
         }
 
-        if (Semver.cmp($rootScope.Gateway.version, "0.11.0") >= 0) {
+        var gatewayVersion = _.get($rootScope, 'Gateway.version') || '0.11.0';
+        if (Semver.cmp(gatewayVersion, "0.11.0") >= 0) {
           $scope.sections.push({
             id: 'plugins',
             name: 'Plugins',
@@ -57,7 +60,7 @@
           });
         }
 
-        $scope.showPluginsSection = Semver.cmp($rootScope.Gateway.version, "0.11.0") >= 0;
+        $scope.showPluginsSection = Semver.cmp(gatewayVersion, "0.11.0") >= 0;
 
         $scope.onTabsSelected = function (sectionId) {
           $scope.activeSection = sectionId;

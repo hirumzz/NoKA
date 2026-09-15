@@ -43,13 +43,15 @@
           }
 
           $scope.isEnabled = function(name) {
-            for(var key in $scope.info.plugins.enabled_in_cluster) {
-                if(name === $scope.info.plugins.enabled_in_cluster[key]) {
-                    return true
+            var enabledInCluster = _.get($scope, 'info.plugins.enabled_in_cluster');
+            if (!enabledInCluster) return false;
+            for(var key in enabledInCluster) {
+                if(name === enabledInCluster[key]) {
+                    return true;
                 }
             }
 
-            return false
+            return false;
           }
 
 
@@ -351,7 +353,7 @@
            * Init UI
            */
 
-          if($rootScope.Gateway || UserService.user().node) {
+          if($rootScope.Gateway || _.get(UserService.user(), 'node')) {
               fetchData();
           }else{
               NodeModel.count().then(data => {
