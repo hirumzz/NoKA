@@ -25,7 +25,7 @@ module.exports = function addDataUpdate(request, response, next) {
       delete request.body[item];
     });
 
-    request.body.updatedUser = request.token;
+    request.body.updatedUser = parseInt(request.token, 10) || request.token;
 
     next();
   } else {
