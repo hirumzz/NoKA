@@ -54,12 +54,19 @@
                         </i>
                     </th>
                 </tr>
-                <tr dir-paginate="consumer in items.data | orderBy:sort.column:sort.direction | filter : filters.searchWord | filter : filterByTag | itemsPerPage: itemsPerPage">
+                <tr dir-paginate="consumer in items.data | orderBy:sort.column:sort.direction | filter : smartSearchFilter | filter : filterByTag | itemsPerPage: itemsPerPage">
 
                     <td>
                         <raw-view data-item="consumer"></raw-view>
                     </td>
-                    <td><a data-ui-sref="consumers.edit({'id':consumer.id})"><strong>{{consumer.username || "-"}}</strong></a></td>
+                    <td>
+                        <a data-ui-sref="consumers.edit({'id':consumer.id})"><strong>{{consumer.username || "-"}}</strong></a>
+                        <div ng-if="consumer._matchedCred && filters.searchWord" style="margin-top: 4px;">
+                            <span class="badge badge-info" style="font-size: 11px; padding: 2px 7px; background-color: #0284c7; color: #ffffff; border-radius: 3px; font-weight: 600; display: inline-block;">
+                                <i class="mdi mdi-key-variant"></i> Matched {{consumer._matchedCred.type}}: <strong>{{consumer._matchedCred.value}}</strong>
+                            </span>
+                        </div>
+                    </td>
                     <td><a data-ui-sref="consumers.edit({'id':consumer.id})"><strong>{{consumer.custom_id || "-"}}</strong></a></td>
                     <td>
                         <span class="badge badge-tag badge-success badge-inverse" ng-repeat="tag in consumer.tags">
