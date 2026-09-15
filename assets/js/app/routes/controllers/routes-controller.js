@@ -72,15 +72,18 @@
             size: $scope.itemsFetchSize
           }).then(function (response) {
             // Assign service names
-            response.data.forEach(function (route) {
-              var service = _.find($scope.services,function (service) {
-                return service.id === route.service.id
+            if (response.data) {
+              response.data.forEach(function (route) {
+                if (route.service && route.service.id) {
+                  var service = _.find($scope.services, function (s) {
+                    return s.id === route.service.id;
+                  });
+                  if(service) {
+                    _.set(route, 'service', service);
+                  }
+                }
               });
-              if(service) {
-                _.set(route,'service',service);
-              }
-
-            })
+            }
             $scope.items = response;
 
             // Extract unique tags
@@ -95,7 +98,10 @@
             $scope.availableTags = Object.keys(tagsMap).sort();
 
             $scope.loading = false;
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load routes', err);
+          });
 
         }
 

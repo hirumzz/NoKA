@@ -54,6 +54,12 @@
                       return NodesService.isActiveNodeSet()
                     }
                   ],
+                  _gateway: [
+                    'InfoService',
+                    function resolve(InfoService) {
+                      return InfoService.ensureGatewayInfo();
+                    }
+                  ],
                 }
 
               },

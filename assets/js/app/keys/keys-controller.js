@@ -103,7 +103,10 @@
             } else {
               $scope.keys = [];
             }
-          })
+          }).catch(function (err) {
+            $scope.loading = false;
+            $log.error('Failed to load keys', err);
+          });
         }
 
         _fetchData();

@@ -36,7 +36,8 @@
           $scope.pluginGroups = groups
 
           // Remove ssl plugin if Kong > 0.9.x
-          if (Semver.cmp($rootScope.Gateway.version, "0.10.0") >= 0) {
+          var gatewayVersion = _.get($rootScope, 'Gateway.version') || '0.11.0';
+          if (Semver.cmp(gatewayVersion, "0.10.0") >= 0) {
             $scope.pluginGroups.forEach(function (group) {
               Object.keys(group.plugins).forEach(function (key) {
                 if (key === 'ssl') {

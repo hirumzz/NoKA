@@ -25,7 +25,9 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
         }
 
         // Remove integrations from public json
-        delete _settings.data.integrations;
+        if (_settings.data) {
+          delete _settings.data.integrations;
+        }
 
         // Store settings in memory
         sails.KONGA_CONFIG = settings[0].data || {}
@@ -52,11 +54,8 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
 
         if (err) return res.negotiate(err)
 
-        if(!settings[0]) {
-          return res.json({})
-        }
-
-        return res.json(settings[0].data.integrations);
+        var integrations = _.get(settings, '[0].data.integrations', []);
+        return res.json(integrations);
       })
   }
 });

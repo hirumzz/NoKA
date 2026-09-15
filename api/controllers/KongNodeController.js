@@ -22,10 +22,9 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
 
     update : function(req,res){
         sails.models.kongnode.findOne({id:req.params.id}).exec(function afterwards(err, node){
-
             if (err) return res.negotiate(err);
+            if (!node) return res.notFound();
             sails.models.kongnode.update({id:req.params.id},req.body).exec(function afterwards(err, resp){
-
                 if (err) return res.negotiate(err);
                 if (resp && resp.length) {
                     EventService.broadcast(req, 'connection', 'update', resp[0]);
@@ -33,7 +32,6 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
                 if(req.body.active && node.active != req.body.active) {
                     sails.models.kongnode.update({
                         where: { id:{ '!': req.params.id } },
-
                     },{active:false}).exec(function afterwards(err, upd){
                         if (err) return res.negotiate(err);
                         return  res.json(resp[0])
@@ -43,7 +41,6 @@ module.exports = _.merge(_.cloneDeep(require('../base/Controller')), {
                 }
             });
         });
-
     },
 
 

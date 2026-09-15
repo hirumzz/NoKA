@@ -30,8 +30,10 @@
                     isActiveNodeSet : function() {
                         var defer = $q.defer()
 
-                        if($localStorage.credentials.user.node){
-                            defer.resolve($localStorage.credentials.user.node.id)
+                        if($localStorage.credentials && $localStorage.credentials.user && $localStorage.credentials.user.node){
+                            var node = $localStorage.credentials.user.node;
+                            var nodeId = (typeof node === 'object' && node.id) ? node.id : node;
+                            defer.resolve(nodeId)
                         }else{
                             $state.go('connections')
                             defer.reject("No active nodes found")

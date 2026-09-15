@@ -436,7 +436,8 @@
 
         $scope.$on('kong.node.updated', function (ev, node) {
           _triggerFetchData();
-          if(UserService.user().node && node.id === UserService.user().node.id) {
+          var userNodeId = getUserNodeId();
+          if(userNodeId && node.id === userNodeId) {
             updateUserNode(node);
           }
         })
@@ -454,7 +455,8 @@
 
         $scope.$on('kong.node.deleted', function (ev, node) {
           _triggerFetchData()
-          if (UserService.user().node && UserService.user().node.id == node.id) updateUserNode()
+          var userNodeId = getUserNodeId();
+          if (userNodeId && userNodeId == node.id) updateUserNode()
         })
 
         $rootScope.$on('node.health_checks', function (event, data) {
@@ -495,8 +497,14 @@
             );
         }
 
+        function getUserNodeId() {
+          var userNode = _.get(UserService.user(), 'node');
+          return (typeof userNode === 'object' && userNode) ? userNode.id : userNode;
+        }
+
         function isActive(node) {
-          return UserService.user().node && node.id == UserService.user().node.id;
+          var userNodeId = getUserNodeId();
+          return userNodeId && node && String(node.id) === String(userNodeId);
         }
 
 

@@ -9,8 +9,8 @@
   // Generic service to return all available menu items for main level navigation.
   angular.module('frontend.core.layout')
     .factory('HeaderNavigationItems', [
-      'AccessLevels','AuthService','$rootScope','UserService',
-      function factory(AccessLevels,AuthService,$rootScope,UserService) {
+      '_', 'AccessLevels','AuthService','$rootScope','UserService',
+      function factory(_, AccessLevels,AuthService,$rootScope,UserService) {
 
         return [
           {
@@ -71,7 +71,7 @@
             state: 'upstreams',
             icon : 'mdi-shuffle-variant',
             show : function() {
-              return AuthService.isAuthenticated() && UserService.user().node && $rootScope.Gateway && $rootScope.Gateway.version.indexOf("0.10.") > -1
+              return AuthService.isAuthenticated() && _.get(UserService.user(), 'node') && $rootScope.Gateway && $rootScope.Gateway.version.indexOf("0.10.") > -1
             },
             title: 'Upstreams',
             access: AccessLevels.anon
@@ -80,7 +80,7 @@
             state: 'certificates',
             icon : 'mdi-certificate',
             show : function() {
-              return AuthService.isAuthenticated() && UserService.user().node && $rootScope.Gateway && $rootScope.Gateway.version.indexOf("0.10.") > -1
+              return AuthService.isAuthenticated() && _.get(UserService.user(), 'node') && $rootScope.Gateway && $rootScope.Gateway.version.indexOf("0.10.") > -1
             },
             title: 'Certificates',
             access: AccessLevels.anon
