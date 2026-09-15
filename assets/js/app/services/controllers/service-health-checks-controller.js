@@ -13,10 +13,9 @@
 
 
           $scope.toggleServiceHC = function() {
-
+              if(!$scope.serviceHC) return false;
               ServiceHCModel.update($scope.serviceHC.id,{active: $scope.serviceHC.active})
                   .then(function(updated){
-
                       MessageService.success("Health Checks " + ($scope.serviceHC.active ? 'enabled' : 'disabled') + " ")
                   },function(err){
                       //
@@ -24,7 +23,7 @@
           }
 
           $scope.save = function() {
-              if(!$scope.serviceHC.health_check_endpoint) return false;
+              if(!$scope.serviceHC || !$scope.serviceHC.health_check_endpoint) return false;
               ServiceHCModel.update($scope.serviceHC.id,$scope.serviceHC)
                   .then(function(updated){
                       MessageService.success("Service health checks updated!")

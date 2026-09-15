@@ -13,12 +13,14 @@
 
         console.log("RouteController loaded");
 
-        $scope.route = _route.data
+        $scope.route = (_route && _route.data) ? _route.data : (_route || {});
 
         // Fix empty object properties
         fixProperties()
 
-        $state.current.data.pageName = "Route " + ($scope.route.name || $scope.route.id)
+        if ($state.current && $state.current.data) {
+          $state.current.data.pageName = "Route " + ($scope.route.name || $scope.route.id || 'Details');
+        }
         $scope.activeSection = 0;
         $scope.sections = [
           {
